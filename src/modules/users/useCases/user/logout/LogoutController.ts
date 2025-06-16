@@ -1,4 +1,4 @@
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import { DecodedExpressRequest } from '../../../infra/http/models/decodedRequest';
 import { LogoutUseCase } from './LogoutUseCase';
 import * as express from 'express';

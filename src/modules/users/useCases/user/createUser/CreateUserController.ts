@@ -1,7 +1,7 @@
 import { CreateUserUseCase } from './CreateUserUseCase';
 import { CreateUserDTO } from './CreateUserDTO';
 import { CreateUserErrors } from './CreateUserErrors';
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import { TextUtils } from '../../../../../shared/utils/TextUtils';
 import { DecodedExpressRequest } from '../../../infra/http/models/decodedRequest';
 import * as express from 'express';

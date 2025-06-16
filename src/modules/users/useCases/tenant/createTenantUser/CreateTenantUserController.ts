@@ -1,7 +1,7 @@
 import { CreateTenantUserUseCase } from './CreateTenantUserUseCase';
 import { CreateTenantUserDTO } from './CreateTenantUserDTO';
 import { CreateTenantUserErrors } from './CreateTenantUserErrors';
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import { TextUtils } from '../../../../../shared/utils/TextUtils';
 import { DecodedExpressRequest } from '../../../infra/http/models/decodedRequest';
 import * as express from 'express';

@@ -1,7 +1,7 @@
 import { DeleteTenantByIdErrors } from './DeleteTenantByIdErrors';
 import { DeleteTenantByIdDTO } from './DeleteTenantByIdDTO';
 import { DeleteTenantByIdUseCase } from './DeleteTenantByIdUseCase';
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import * as express from 'express';
 import { DecodedExpressRequest } from '../../../infra/http/models/decodedRequest';
 

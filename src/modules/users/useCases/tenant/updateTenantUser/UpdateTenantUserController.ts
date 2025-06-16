@@ -1,6 +1,6 @@
 import * as express from 'express';
 
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import { DecodedExpressRequest } from '../../../infra/http/models/decodedRequest';
 import { UpdateTenantUserDTO } from './UpdateTenantUserDTO';
 import { UpdateTenantUserErrors } from './UpdateTenantUserErrors';

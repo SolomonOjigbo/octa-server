@@ -1,4 +1,4 @@
-import { BaseController } from '../../../../../shared/infra/http/models/BaseController';
+import { BaseController } from '../../../../../shared/infra/http/base/BaseController';
 import { RefreshAccessToken } from './RefreshAccessToken';
 import { RefreshAccessTokenDTO } from './RefreshAccessTokenDTO';
 import { RefreshAccessTokenErrors } from './RefreshAccessTokenErrors';
