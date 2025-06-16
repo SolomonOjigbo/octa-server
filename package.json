@@ -1,7 +1,7 @@
 {
   "name": "octa-server",
   "version": "0.0.1",
-  "description": "Octa Multi Tenant API",
+  "description": "Octa Multi Tenant API Server",
   "main": "index.js",
   "scripts": {
     "lint": "eslint . --ext .ts",

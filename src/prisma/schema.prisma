@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]
+  stores       Store[]
+  products     Product[]
+  settings     Json?
+}
+
+model Store {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  address    String?
+  isMain     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users      User[]
+  sales      Sale[]
+  stocks     Stock[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  name       String
+  phone      String?
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  storeId    String?
+  store      Store?   @relation(fields: [storeId], references: [id])
+  roles      UserRole[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isActive   Boolean  @default(true)
+
+  Sale Sale[]
+}
+
+model Role {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  permissions Permission[]
+  users      UserRole[]
+
+  Permission Permission[] @relation("RolePermissions")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  roles       Role[]   @relation("RolePermissions")
+
+  Role Role[]
+}
+
+model UserRole {
+  id       String @id @default(cuid())
+  userId   String
+  roleId   String
+  user     User   @relation(fields: [userId], references: [id])
+  role     Role   @relation(fields: [roleId], references: [id])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  sku         String   @unique
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  description String?
+  barcode     String?
+  price       Float
+  costPrice   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stocks      Stock[]
+}
+
+model Stock {
+  id         String   @id @default(cuid())
+  productId  String
+  storeId    String
+  quantity   Int      @default(0)
+  product    Product  @relation(fields: [productId], references: [id])
+  store      Store    @relation(fields: [storeId], references: [id])
+  updatedAt  DateTime @updatedAt
+}
+
+model Sale {
+  id         String   @id @default(cuid())
+  storeId    String
+  userId     String
+  total      Float
+  status     String   @default("completed") // completed, cancelled, pending
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  store      Store    @relation(fields: [storeId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+}

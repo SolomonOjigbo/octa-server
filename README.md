@@ -1,4 +1,4 @@
-# Project Name: TypeScript SaaS Backend Boilerplate (DDD)
+# Project Name: Octa 
 
 ## Table of Contents
 
