@@ -13,6 +13,8 @@ export interface CreateStockTransferDto {
   b2bConnectionId?: string;
   requestedBy: string;
   notes?: string;
+  delta?: number; // Optional, used for delta transfers
+  status?: "pending" | "approved" | "completed"; // Default is pending
 }
 export interface ApproveStockTransferDto {
   id: string;

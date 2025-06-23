@@ -1,50 +1,62 @@
 import { Request, Response } from "express";
-import { InventoryService } from "../services/inventory.service";
+import { inventoryService } from "../services/inventory.service";
+import {
+  createInventoryMovementSchema,
+  updateInventoryMovementSchema,
+} from "../validations";
+import { CreateInventoryMovementDto } from "../types/inventory.dto";
 
-const inventoryService = new InventoryService();
-
-export const createInventory = async (req: Request, res: Response) => {
-  try {
-    const inventory = await inventoryService.createInventory(req.body);
-    res.status(201).json(inventory);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+export class InventoryController {
+  async createMovement(req: Request, res: Response) {
+    try {
+      const validated = createInventoryMovementSchema.parse(req.body) as CreateInventoryMovementDto;
+      const movement = await inventoryService.createMovement(validated);
+      res.status(201).json(movement);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
   }
-};
 
-export const getInventoryById = async (req: Request, res: Response) => {
-  try {
-    const inventory = await inventoryService.getInventoryById(req.params.id);
-    if (!inventory) return res.status(404).json({ error: "Inventory not found" });
-    res.json(inventory);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  async getMovements(req: Request, res: Response) {
+    const tenantId = req.query.tenantId as string;
+    const filters = {
+      productId: req.query.productId as string,
+      storeId: req.query.storeId as string,
+      warehouseId: req.query.warehouseId as string,
+      movementType: req.query.movementType as string,
+    };
+    const movements = await inventoryService.getMovements(tenantId, filters);
+    res.json(movements);
   }
-};
 
-export const updateInventory = async (req: Request, res: Response) => {
-  try {
-    const inventory = await inventoryService.updateInventory(req.params.id, req.body);
-    res.json(inventory);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  async getMovementById(req: Request, res: Response) {
+    const tenantId = req.query.tenantId as string;
+    const { id } = req.params;
+    const movement = await inventoryService.getMovementById(tenantId, id);
+    if (!movement) return res.status(404).json({ message: "Movement not found" });
+    res.json(movement);
   }
-};
 
-export const deleteInventory = async (req: Request, res: Response) => {
-  try {
-    await inventoryService.deleteInventory(req.params.id);
+  async updateMovement(req: Request, res: Response) {
+    try {
+      const tenantId = req.query.tenantId as string;
+      const { id } = req.params;
+      const validated = updateInventoryMovementSchema.parse(req.body);
+      const result = await inventoryService.updateMovement(tenantId, id, validated);
+      if (result.count === 0) return res.status(404).json({ message: "Movement not found" });
+      res.json({ message: "Movement updated" });
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
+  }
+
+  async deleteMovement(req: Request, res: Response) {
+    const tenantId = req.query.tenantId as string;
+    const { id } = req.params;
+    const result = await inventoryService.deleteMovement(tenantId, id);
+    if (result.count === 0) return res.status(404).json({ message: "Movement not found" });
     res.status(204).send();
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
   }
-};
+}
 
-export const listInventoryByStore = async (req: Request, res: Response) => {
-  try {
-    const inventory = await inventoryService.listInventoryByStore(req.params.storeId);
-    res.json(inventory);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
+export const inventoryController = new InventoryController();

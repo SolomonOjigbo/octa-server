@@ -1,44 +1,57 @@
 import { PrismaClient } from "@prisma/client";
-import { InventoryMovementDto } from "../types/inventory.dto";
+import {
+  CreateInventoryMovementDto,
+  UpdateInventoryMovementDto,
+} from "../types/inventory.dto";
+
 const prisma = new PrismaClient();
 
-
-type Inventory = Awaited<ReturnType<typeof prisma.inventory.create>>;
-
 export class InventoryService {
-  async createInventory(data: Partial<Inventory>): Promise<Inventory> {
-    return prisma.inventory.create({ data });
-  }
-
-   async createInventoryMovement(dto: InventoryMovementDto) {
-    // Logs every in/out movement as a record in the Inventory table (history).
+  async createMovement(data: CreateInventoryMovementDto) {
     return prisma.inventory.create({
       data: {
-        ...dto,
+        ...data,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
     });
   }
 
-  async getInventoryById(id: string): Promise<Inventory | null> {
-    return prisma.inventory.findUnique({ where: { id } });
+  async getMovements(
+    tenantId: string,
+    filters: Partial<{ productId: string; storeId: string; warehouseId: string; movementType: string }> = {}
+  ) {
+    return prisma.inventory.findMany({
+      where: {
+        tenantId,
+        ...filters,
+      },
+      orderBy: { createdAt: "desc" },
+      include: { product: true, store: true, warehouse: true },
+    });
   }
 
-  async updateInventory(id: string, data: Partial<Inventory>): Promise<Inventory> {
-    return prisma.inventory.update({ where: { id }, data });
+  async getMovementById(tenantId: string, id: string) {
+    return prisma.inventory.findFirst({
+      where: { id, tenantId },
+      include: { product: true, store: true, warehouse: true },
+    });
   }
 
-  async deleteInventory(id: string): Promise<Inventory> {
-    return prisma.inventory.delete({ where: { id } });
+  async updateMovement(tenantId: string, id: string, data: UpdateInventoryMovementDto) {
+    return prisma.inventory.updateMany({
+      where: { id, tenantId },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+    });
   }
 
-  async listInventoryByStore(storeId: string): Promise<Inventory[]> {
-    return prisma.inventory.findMany({ where: { storeId } });
-  }
-
-  async listInventoryByProduct(productId: string): Promise<Inventory[]> {
-    return prisma.inventory.findMany({ where: { productId } });
+  async deleteMovement(tenantId: string, id: string) {
+    return prisma.inventory.deleteMany({
+      where: { id, tenantId },
+    });
   }
 }
 
