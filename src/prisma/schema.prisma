@@ -8,58 +8,317 @@ datasource db {
 }
 
 model Tenant {
-  id           String   @id @default(cuid())
-  name         String
-  slug         String   @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  users        User[]
-  stores       Store[]
-  products     Product[]
-  settings     Json?
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  legalName         String?
+  contactEmail      String?
+  branding          Json?
+  settings          Json?
+  // ... other tenant fields
+  products   Product[]
+  categories ProductCategory[]
+  stores     Store[]
+  warehouses Warehouse[]
+  users      User[]
+  customers  Customer[]
+  transactions Transaction[]
+  payments   Payment[]
+  inventories Inventory[]
+  stocks     Stock[]
+  posSessions POSSession[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  BusinessEntity BusinessEntity[]
+
+  b2bConnectionsA B2BConnection[] @relation("b2bA")
+
+  b2bConnectionsB B2BConnection[] @relation("b2bB")
+
+  ProductVariant ProductVariant[]
+
+  Supplier Supplier[]
+
+  ProductSupplier ProductSupplier[]
+
+  PurchaseOrder PurchaseOrder[]
+
+  UserRole UserRole[]
+
+  ActivityLog ActivityLog[]
+
+  Notification Notification[]
+
+  CommunicationLog CommunicationLog[]
+
+  Role Role[]
+
+  StockTransfer StockTransfer[]
+}
+
+model ProductCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  products    Product[]
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  tenantId        String
+  categoryId      String?
+  name            String
+  sku             String   @unique
+  barcode         String?
+  description     String?
+  brand           String?
+  costPrice       Float
+  sellingPrice    Float
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  category        ProductCategory? @relation(fields: [categoryId], references: [id])
+  variants        ProductVariant[]
+  inventories     Inventory[]
+  stocks          Stock[]
+
+  B2BConnection B2BConnection[]
+
+  ProductSupplier ProductSupplier[]
+
+  TransactionItem TransactionItem[]
+
+  StockTransfer StockTransfer[]
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  tenantId  String
+  productId String
+  name      String
+  sku       String   @unique
+  barcode   String?
+  costPrice Float
+  sellingPrice Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  TransactionItem TransactionItem[]
 }
 
 model Store {
-  id         String   @id @default(cuid())
-  name       String
-  code       String   @unique
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  address    String?
-  isMain     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  address       String?
+  phone         String?
+  isMain        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  inventories   Inventory[]
+  stocks        Stock[]
+  posSessions   POSSession[]
+  transactions  Transaction[]
 
-  users      User[]
-  sales      Sale[]
-  stocks     Stock[]
+  BusinessEntity BusinessEntity[]
+
+  PurchaseOrder PurchaseOrder[]
+
+  ActivityLog ActivityLog[]
+
+  stockTransfersFrom StockTransfer[] @relation("stockTransferFrom")
+
+  stockTransfersTo StockTransfer[] @relation("stockTransferTo")
+}
+
+model Warehouse {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  inventories Inventory[]
+  stocks      Stock[]
+
+  PurchaseOrder PurchaseOrder[]
+
+  Transaction Transaction[]
+
+  stockTransfersFrom StockTransfer[] @relation("stockTransferFromWarehouse")
+  stockTransfersTo StockTransfer[] @relation("stockTransferToWarehouse")
+}
+
+model Inventory {
+  id              String   @id @default(cuid())
+  tenantId        String
+  productId       String
+  batchNumber     String?
+  quantity        Int      @default(0)
+  storeId         String?
+  warehouseId     String?
+  costPrice       Float?
+  expiryDate      DateTime?
+  movementType    String   // e.g. "IN", "OUT", "ADJUST", "TRANSFER"
+  reference       String? // e.g. "purchase", "sale", "adjustment", etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  product         Product  @relation(fields: [productId], references: [id])
+  store           Store?   @relation(fields: [storeId], references: [id])
+  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId])
+  B2BConnection B2BConnection[]
+}
+
+model Stock {
+  id          String   @id @default(cuid())
+  tenantId    String
+  productId   String
+  storeId     String?
+  warehouseId String?
+  quantity    Int
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+  store       Store?   @relation(fields: [storeId], references: [id])
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@unique([tenantId, productId, storeId, warehouseId])
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  tenantId        String
+  storeId         String?
+  warehouseId     String?
+  userId          String?
+  customerId      String?
+  totalAmount     Float
+  discount        Float?
+  paymentStatus   String    // e.g. "paid", "pending", "refunded"
+  status          String    // e.g. "completed", "cancelled", "returned"
+  reference       String?
+  posSessionId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  store           Store?   @relation(fields: [storeId], references: [id])
+  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+  user            User?    @relation(fields: [userId], references: [id])
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  posSession      POSSession? @relation(fields: [posSessionId], references: [id])
+  payments        Payment[]
+
+  TransactionItem TransactionItem[]
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  transactionId  String
+  paymentType    String    // e.g. "cash", "card", "transfer"
+  amount         Float
+  status         String    // "pending", "completed", "failed", "refunded"
+  reference      String?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+}
+
+model POSSession {
+  id            String   @id @default(cuid())
+  tenantId      String
+  storeId       String
+  userId        String
+  openingBalance Float
+  closingBalance Float?
+  isOpen        Boolean  @default(true)
+  openedAt      DateTime @default(now())
+  closedAt      DateTime?
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  store         Store    @relation(fields: [storeId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  transactions  Transaction[]
+}
+
+model Customer {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  email           String?
+  phone           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  transactions    Transaction[]
+
+  CommunicationLog CommunicationLog[]
 }
 
 model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  password   String
-  name       String
-  phone      String?
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  storeId    String?
-  store      Store?   @relation(fields: [storeId], references: [id])
-  roles      UserRole[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  isActive   Boolean  @default(true)
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  email         String   @unique
+  password      String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  posSessions   POSSession[]
+  transactions  Transaction[]
 
-  Sale Sale[]
+  UserRole UserRole[]
+
+  ActivityLog ActivityLog[]
+
+  Notification Notification[]
+
+  CommunicationLog CommunicationLog[]
+
+  stockTransfersRequested StockTransfer[] @relation("RequestedByUser")
+
+  stockTransfersApproved StockTransfer[] @relation("ApprovedByUser")
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  roleId    String
+  assignedBy String?
+  assignedAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
 }
 
 model Role {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  permissions Permission[]
-  users      UserRole[]
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  Permission Permission[] @relation("RolePermissions")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  permissions Permission[] @relation("RolePermissions")
+  userRoles   UserRole[]
 }
 
 model Permission {
@@ -67,54 +326,186 @@ model Permission {
   name        String   @unique
   description String?
   roles       Role[]   @relation("RolePermissions")
-
-  Role Role[]
 }
 
-model UserRole {
-  id       String @id @default(cuid())
-  userId   String
-  roleId   String
-  user     User   @relation(fields: [userId], references: [id])
-  role     Role   @relation(fields: [roleId], references: [id])
+model BusinessEntity {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  taxId        String?
+  legalAddress String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  stores       Store[]
 }
 
-model Product {
-  id          String   @id @default(cuid())
-  name        String
-  sku         String   @unique
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  description String?
-  barcode     String?
-  price       Float
-  costPrice   Float?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model B2BConnection {
+  id            String   @id @default(cuid())
+  tenantAId     String
+  tenantBId     String
+  status        String   // pending, approved, rejected, revoked
+  settings      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  stocks      Stock[]
+  tenantA       Tenant   @relation("b2bA", fields: [tenantAId], references: [id])
+  tenantB       Tenant   @relation("b2bB", fields: [tenantBId], references: [id])
+  // Optionally, reference PurchaseOrders or Inventory if B2B includes cross-tenant procurement
+  purchaseOrders PurchaseOrder[]
+  inventories   Inventory[]
+  products      Product[]
+
+  StockTransfer StockTransfer[]
 }
 
-model Stock {
-  id         String   @id @default(cuid())
-  productId  String
-  storeId    String
-  quantity   Int      @default(0)
-  product    Product  @relation(fields: [productId], references: [id])
-  store      Store    @relation(fields: [storeId], references: [id])
-  updatedAt  DateTime @updatedAt
+model Supplier {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  leadTime      Int?
+  performanceMetrics Json?
+  paymentTerms  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  products      ProductSupplier[]
+  purchaseOrders PurchaseOrder[]
 }
 
-model Sale {
-  id         String   @id @default(cuid())
-  storeId    String
-  userId     String
-  total      Float
-  status     String   @default("completed") // completed, cancelled, pending
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model ProductSupplier {
+  id            String   @id @default(cuid())
+  tenantId      String
+  productId     String
+  supplierId    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  store      Store    @relation(fields: [storeId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  product       Product   @relation(fields: [productId], references: [id])
+  supplier      Supplier  @relation(fields: [supplierId], references: [id])
+}
+
+model PurchaseOrder {
+  id            String   @id @default(cuid())
+  tenantId      String
+  supplierId    String
+  storeId       String?
+  warehouseId   String?
+  status        String    // pending, approved, received, cancelled
+  orderDate     DateTime
+  receivedDate  DateTime?
+  totalAmount   Float
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  store         Store?   @relation(fields: [storeId], references: [id])
+  warehouse     Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  B2BConnection B2BConnection[]
+}
+
+model StockTransfer {
+  id              String   @id @default(cuid())
+  tenantId        String           // The tenant who initiates the transfer
+  fromStoreId     String?
+  toStoreId       String?
+  fromWarehouseId String?
+  toWarehouseId   String?
+  toTenantId      String?          // For cross-tenant (B2B) transfer, the receiving tenant
+  productId       String
+  quantity        Int
+  batchNumber     String?
+  expiryDate      DateTime?
+  status          String   // pending, approved, completed, cancelled
+  transferType    String   // "intra-tenant" or "cross-tenant"
+  b2bConnectionId String?
+  requestedBy     String   // UserId
+  approvedBy      String?  // UserId
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  fromWarehouse   Warehouse? @relation("stockTransferFromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouse     Warehouse? @relation("stockTransferToWarehouse", fields: [toWarehouseId], references: [id])
+  toStore         Store?   @relation("stockTransferTo", fields: [toStoreId], references: [id])
+  product         Product  @relation(fields: [productId], references: [id])
+  b2bConnection   B2BConnection? @relation(fields: [b2bConnectionId], references: [id])
+
+
+  requestedByUser User[] @relation("RequestedByUser")
+
+  approvedByUser User[] @relation("ApprovedByUser")
+
+  Tenant Tenant[]
+
+  Store Store[] @relation("stockTransferFrom")
+}
+
+
+
+model TransactionItem {
+  id              String   @id @default(cuid())
+  transactionId   String
+  productId       String
+  productVariantId String?
+  quantity        Int
+  price           Float
+  discount        Float?
+  batchNumber     String?
+  expiryDate      DateTime?
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+  product         Product     @relation(fields: [productId], references: [id])
+  productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id])
+}
+
+model CommunicationLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  customerId    String
+  userId        String?
+  method        String   // phone, email, sms, in-app, etc.
+  content       String
+  timestamp     DateTime @default(now())
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  storeId       String?
+  action        String
+  details       Json?
+  timestamp     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  store         Store?   @relation(fields: [storeId], references: [id])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String?
+  type          String   // info, warning, error, success
+  message       String
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id])
 }

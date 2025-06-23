@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { DecodedExpressRequest } from '../../../../modules/users/infra/http/models/decodedRequest';
+import { DecodedExpressRequest } from '../../../../modules/user/infra/http/models/decodedRequest';
 
 export class RequestMiddleware {
   private updateBody(req: DecodedExpressRequest, paramName: string): void {

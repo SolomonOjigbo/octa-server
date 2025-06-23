@@ -1,6 +1,6 @@
 
 import { isProduction } from "../../../../config";
-import { IAuthService } from "../../../../modules/users/services/authService";
+import { IAuthService } from "../../../../modules/user/services/auth.service";
 const rateLimit = require('express-rate-limit')
 
 export class Middleware {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { userRouter,tenantRouter } from '../../../../modules/users/infra/http/routes/';
+import { userRouter,tenantRouter } from '../../../../modules/user/routes';
 import {  siteRouter } from '../../../../modules/sites/infra/http/routes';
 
 

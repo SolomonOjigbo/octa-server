@@ -1,7 +1,7 @@
 
 
-export interface SiteDTO {
-  siteName:string;
+export interface BusinessDTO {
+  businessName:string;
   address: AddressDTO;
   companyName: string;
   contacts?: ContactDTO[];

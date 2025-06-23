@@ -1,6 +1,6 @@
 import { IDatabaseService } from './iDatabaseService';
 import { PrismaClient } from '@prisma/client';
-import { IAuthService } from '../../modules/users/services/authService';
+import { IAuthService } from '../../modules/user/services/auth.service';
 import { Client } from 'pg';
 require('dotenv').config();
 

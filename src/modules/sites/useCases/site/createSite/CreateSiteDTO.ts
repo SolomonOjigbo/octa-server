@@ -10,7 +10,7 @@ export interface CreateSiteDTO {
     isActive: boolean;
     instruction?: InstructionDTO;
     instructions?: InstructionDTO[];
-    tenantId?: string;
+    tenantId: string;
     decoded?: any;
   }
 
