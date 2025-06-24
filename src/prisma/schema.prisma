@@ -55,6 +55,8 @@ model Tenant {
   Role Role[]
 
   StockTransfer StockTransfer[]
+
+  AuditLog AuditLog[]
 }
 
 model ProductCategory {
@@ -320,6 +322,8 @@ model User {
   stockTransfersApproved StockTransfer[] @relation("ApprovedByUser")
 
   Payment Payment[]
+
+  AuditLog AuditLog[]
 }
 
 model UserRole {
@@ -508,6 +512,20 @@ model TransactionItem {
   product         Product     @relation(fields: [productId], references: [id])
   productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id])
 }
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?           // who performed the action
+  action      String            // e.g., "PAYMENT_REVERSAL", "REFUND"
+  entityType  String            // "Payment", "Transaction", etc.
+  entityId    String            // id of the Payment or Transaction
+  details     Json?             // any extra info (amount, reason, etc)
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+}
+
 
 model CommunicationLog {
   id            String   @id @default(cuid())
