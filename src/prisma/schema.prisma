@@ -216,6 +216,11 @@ model Transaction {
   customerId      String?
   totalAmount     Float
   discount        Float?
+  taxAmount       Float?
+  shippingFee     Float?
+  shippingType    String?
+  shippingAddress String?
+  paymentMethod   String      // Last payment method used
   paymentStatus   String    // e.g. "paid", "pending", "refunded"
   status          String    // e.g. "completed", "cancelled", "returned"
   reference       String?
@@ -233,22 +238,29 @@ model Transaction {
   TransactionItem TransactionItem[]
 }
 
+
 model Payment {
   id             String   @id @default(cuid())
   tenantId       String
-  transactionId  String
-  paymentType    String    // e.g. "cash", "card", "transfer"
   amount         Float
-  status         String    // "pending", "completed", "failed", "refunded"
+  method         String      // "cash", "card", "transfer", "wallet", etc.
   reference      String?
-  paidAt         DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         String      // "pending", "completed", "failed",  "refunded" etc.
+  transactionId  String?     // Sales transaction (POS)
+  purchaseOrderId String?    // Purchase order payment
+  sessionId      String?     // POSSession if relevant
+  userId         String?
+  paidAt         DateTime?   // When payment was confirmed/received
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
   tenant         Tenant   @relation(fields: [tenantId], references: [id])
-  transaction    Transaction @relation(fields: [transactionId], references: [id])
-
-  PurchaseOrder PurchaseOrder[]
+  transaction    Transaction?    @relation(fields: [transactionId], references: [id])
+  purchaseOrder  PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id])
+  user           User?           @relation(fields: [userId], references: [id])
+  posSession     POSSession?     @relation(fields: [sessionId], references: [id])
+  // ...customer, session, etc.
 }
+
 
 model POSSession {
   id            String   @id @default(cuid())
@@ -264,6 +276,8 @@ model POSSession {
   store         Store    @relation(fields: [storeId], references: [id])
   user          User     @relation(fields: [userId], references: [id])
   transactions  Transaction[]
+
+  Payment Payment[]
 }
 
 model Customer {
@@ -304,6 +318,8 @@ model User {
   stockTransfersRequested StockTransfer[] @relation("RequestedByUser")
 
   stockTransfersApproved StockTransfer[] @relation("ApprovedByUser")
+
+  Payment Payment[]
 }
 
 model UserRole {

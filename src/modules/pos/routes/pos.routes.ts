@@ -21,5 +21,10 @@ router.post("/sales-return", posController.createSalesReturn.bind(posController)
 router.post("/cash-drop", posController.createCashDrop.bind(posController));
 router.get("/receipt/:transactionId", posController.getReceipt.bind(posController));
 
+//Automated POS Cash Reconciliation
+router.get("/sessions/:sessionId/payments-breakdown", posController.getSessionPaymentsBreakdown.bind(posController));
+router.post("/sessions/:sessionId/reconcile-cash", posController.reconcileSessionCash.bind(posController));
+
+
 
 export default router;

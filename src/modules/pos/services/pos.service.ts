@@ -351,6 +351,37 @@ async checkStockBeforeSale(tenantId: string, storeId: string, items: { productId
         where: { id: transactionId, tenantId },
         });
     }
+
+    async getSessionPaymentsBreakdown(sessionId: string) {
+    // Sum payments by method (excluding reversals/refunds)
+    const payments = await prisma.payment.groupBy({
+      by: ['method'],
+      where: {
+        sessionId,
+        status: 'completed',
+        amount: { gt: 0 },
+      },
+      _sum: { amount: true },
+    });
+    // Total
+    const total = payments.reduce((sum, p) => sum + (p._sum.amount || 0), 0);
+    return { payments, total };
+  }
+
+  async reconcileSessionCash(sessionId: string, declaredClosingCash: number) {
+    const { payments, total } = await this.getSessionPaymentsBreakdown(sessionId);
+    // You may want to compare only cash payments:
+    const cashTotal = payments.find(p => p.method === "cash")?._sum.amount || 0;
+    const difference = declaredClosingCash - cashTotal;
+    return {
+      payments,
+      total,
+      declaredClosingCash,
+      cashTotal,
+      cashDifference: difference,
+      status: Math.abs(difference) < 0.01 ? "OK" : "DISCREPANCY",
+    };
+  }
 }
 
 

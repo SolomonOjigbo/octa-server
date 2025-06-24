@@ -169,6 +169,19 @@ async createTransaction(req: Request, res: Response) {
       },
     });
   }
+  
+async getSessionPaymentsBreakdown(req: Request, res: Response) {
+    const { sessionId } = req.params;
+    const result = await posService.getSessionPaymentsBreakdown(sessionId);
+    res.json(result);
+  }
+
+  async reconcileSessionCash(req: Request, res: Response) {
+    const { sessionId } = req.params;
+    const { declaredClosingCash } = req.body;
+    const result = await posService.reconcileSessionCash(sessionId, declaredClosingCash);
+    res.json(result);
+  }
 
 }
 
