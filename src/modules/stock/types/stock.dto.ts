@@ -4,6 +4,7 @@ export interface AdjustStockDto {
   storeId?: string;
   warehouseId?: string;
   quantity: number; // Final quantity to set (absolute)
+  delta?: number; // Optional, used for delta adjustments
 }
 
 export interface IncrementStockDto {

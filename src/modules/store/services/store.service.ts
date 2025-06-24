@@ -1,26 +1,35 @@
-import { PrismaClient} from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { CreateStoreDto, UpdateStoreDto } from "../types/store.dto";
+import { Store } from "../types/store.dto";
+
 const prisma = new PrismaClient();
 
-type Store = Awaited<ReturnType<typeof prisma.store.create>>;
 
 export class StoreService {
-  async createStore(data: Partial<Store>): Promise<Store> {
-    return prisma.store.create({ data });
+  async createStore(dto: CreateStoreDto): Promise<Store> {
+    return prisma.store.create({ data: dto });
   }
 
-  async getStoreById(id: string): Promise<Store | null> {
-    return prisma.store.findUnique({ where: { id } });
-  }
-
-  async updateStore(id: string, data: Partial<Store>): Promise<Store> {
-    return prisma.store.update({ where: { id }, data });
-  }
-
-  async deleteStore(id: string): Promise<Store> {
-    return prisma.store.delete({ where: { id } });
-  }
-
-  async listStoresByTenant(tenantId: string): Promise<Store[]> {
+  async getStores(tenantId: string): Promise<Store[]> {
     return prisma.store.findMany({ where: { tenantId } });
   }
+
+  async getStoreById(tenantId: string, id: string): Promise<Store | null> {
+    return prisma.store.findFirst({ where: { id, tenantId } });
+  }
+
+  async updateStore(tenantId: string, id: string, data: UpdateStoreDto): Promise<Store | null> {
+    // Only update if store belongs to this tenant
+    return prisma.store.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteStore(tenantId: string, id: string): Promise<Store | null> {
+    // Only delete if store belongs to this tenant
+    return prisma.store.delete({ where: { id } });
+  }
 }
+
+export const storeService = new StoreService();

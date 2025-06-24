@@ -37,11 +37,12 @@ export class StockTransferService {
       reference: transfer.id,
     });
     await stockService.adjustStockLevel({
-      tenantId: transfer.tenantId,
-      productId: transfer.productId,
-      storeId: transfer.fromStoreId,
-      warehouseId: transfer.fromWarehouseId,
-      delta: -transfer.quantity,
+        tenantId: transfer.tenantId,
+        productId: transfer.productId,
+        storeId: transfer.fromStoreId,
+        warehouseId: transfer.fromWarehouseId,
+        delta: -transfer.quantity,
+        quantity: 0
     });
 
     // 3. Add to receiver's inventory & stock
@@ -55,11 +56,12 @@ export class StockTransferService {
       reference: transfer.id,
     });
     await stockService.adjustStockLevel({
-      tenantId: transfer.toTenantId!,
-      productId: transfer.productId,
-      storeId: transfer.toStoreId,
-      warehouseId: transfer.toWarehouseId,
-      delta: transfer.quantity,
+        tenantId: transfer.toTenantId!,
+        productId: transfer.productId,
+        storeId: transfer.toStoreId,
+        warehouseId: transfer.toWarehouseId,
+        delta: transfer.quantity,
+        quantity: 0
     });
 
     // 4. Update transfer status
@@ -111,8 +113,8 @@ export class StockTransferService {
 
   // List transfers (with filters)
   async listTransfers(filters: {
-    tenantId: string;
-    toTenantId: string;
+    tenantId?: string;
+    toTenantId?: string;
     status?: string;
     storeId?: string;
     productId?: string;

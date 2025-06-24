@@ -1,50 +1,55 @@
 import { Request, Response } from "express";
-import { StoreService } from "../services/store.service";
+import { storeService } from "../services/store.service";
+import { createStoreSchema, updateStoreSchema } from "../validations";
+import { CreateStoreDto, UpdateStoreDto } from "../types/store.dto";
 
-const storeService = new StoreService();
-
-export const createStore = async (req: Request, res: Response) => {
-  try {
-    const store = await storeService.createStore(req.body);
-    res.status(201).json(store);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+export class StoreController {
+  async createStore(req: Request, res: Response) {
+    try {
+      const validated = createStoreSchema.parse(req.body) as CreateStoreDto;
+      const store = await storeService.createStore(validated);
+      res.status(201).json(store);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
   }
-};
 
-export const getStoreById = async (req: Request, res: Response) => {
-  try {
-    const store = await storeService.getStoreById(req.params.id);
-    if (!store) return res.status(404).json({ error: "Store not found" });
-    res.json(store);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-export const updateStore = async (req: Request, res: Response) => {
-  try {
-    const store = await storeService.updateStore(req.params.id, req.body);
-    res.json(store);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export const deleteStore = async (req: Request, res: Response) => {
-  try {
-    await storeService.deleteStore(req.params.id);
-    res.status(204).send();
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export const listStoresByTenant = async (req: Request, res: Response) => {
-  try {
-    const stores = await storeService.listStoresByTenant(req.params.tenantId);
+  async getStores(req: Request, res: Response) {
+    const tenantId = req.query.tenantId as string;
+    const stores = await storeService.getStores(tenantId);
     res.json(stores);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-};
+
+  async getStoreById(req: Request, res: Response) {
+    const tenantId = req.query.tenantId as string;
+    const { id } = req.params;
+    const store = await storeService.getStoreById(tenantId, id);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+    res.json(store);
+  }
+
+  async updateStore(req: Request, res: Response) {
+    try {
+      const tenantId = req.query.tenantId as string;
+      const { id } = req.params;
+      const validated = updateStoreSchema.parse(req.body) as UpdateStoreDto;
+      const updated = await storeService.updateStore(tenantId, id, validated);
+      res.json(updated);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
+  }
+
+  async deleteStore(req: Request, res: Response) {
+    try {
+      const tenantId = req.query.tenantId as string;
+      const { id } = req.params;
+      await storeService.deleteStore(tenantId, id);
+      res.status(204).send();
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
+  }
+}
+
+export const storeController = new StoreController();

@@ -95,6 +95,8 @@ model Product {
   TransactionItem TransactionItem[]
 
   StockTransfer StockTransfer[]
+
+  PurchaseOrderItem PurchaseOrderItem[]
 }
 
 model ProductVariant {
@@ -120,7 +122,14 @@ model Store {
   name          String
   address       String?
   phone         String?
+  email         String?
+  type          String   // "wholesale" | "retail" | "clinic" | "warehouse" etc.
+  status        String   // "active" | "inactive" | "under_maintenance" etc.
   isMain        Boolean  @default(false)
+  managerId     String?
+  openingHours  Json?    // [{ day: "Mon", open: "08:00", close: "18:00" }, ...]
+  branding      Json?
+  settings      Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
@@ -237,6 +246,8 @@ model Payment {
   updatedAt      DateTime @updatedAt
   tenant         Tenant   @relation(fields: [tenantId], references: [id])
   transaction    Transaction @relation(fields: [transactionId], references: [id])
+
+  PurchaseOrder PurchaseOrder[]
 }
 
 model POSSession {
@@ -402,16 +413,30 @@ model PurchaseOrder {
   receivedDate  DateTime?
   totalAmount   Float
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
+  payments      Payment[]
+  items         PurchaseOrderItem[]
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   supplier      Supplier @relation(fields: [supplierId], references: [id])
   store         Store?   @relation(fields: [storeId], references: [id])
   warehouse     Warehouse? @relation(fields: [warehouseId], references: [id])
-
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   B2BConnection B2BConnection[]
 }
+
+model PurchaseOrderItem {
+  id            String   @id @default(cuid())
+  purchaseOrderId String
+  productId     String
+  quantity      Int
+  costPrice     Float
+  batchNumber   String?
+  expiryDate    DateTime?
+  product       Product   @relation(fields: [productId], references: [id])
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+}
+
 
 model StockTransfer {
   id              String   @id @default(cuid())

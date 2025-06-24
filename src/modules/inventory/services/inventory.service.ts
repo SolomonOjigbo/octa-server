@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import {
   CreateInventoryMovementDto,
+  InventoryMovementDto,
   UpdateInventoryMovementDto,
 } from "../types/inventory.dto";
 
@@ -11,6 +12,17 @@ export class InventoryService {
     return prisma.inventory.create({
       data: {
         ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+    async createInventoryMovement(dto: InventoryMovementDto) {
+    // Logs every in/out movement as a record in the Inventory table (history).
+    return prisma.inventory.create({
+      data: {
+        ...dto,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
