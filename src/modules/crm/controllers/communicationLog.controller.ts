@@ -1,41 +1,42 @@
 import { Request, Response } from "express";
-import { CommunicationLogService } from "../services/communicationLog.service";
+import { communicationLogService } from "../services/communicationLog.service";
+import { createCommunicationLogSchema } from "../validations";
+import { CreateCommunicationLogDto } from "../types/crm.dto";
 
-const logService = new CommunicationLogService();
-
-export const createLog = async (req: Request, res: Response) => {
-  try {
-    const log = await logService.createLog(req.body);
-    res.status(201).json(log);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+export class CommunicationLogController {
+  async createLog(req: Request, res: Response) {
+    try {
+      const validated = createCommunicationLogSchema.parse(req.body) as CreateCommunicationLogDto;
+      const log = await communicationLogService.createLog(validated);
+      res.status(201).json(log);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
   }
-};
-
-export const getLogById = async (req: Request, res: Response) => {
-  try {
-    const log = await logService.getLogById(req.params.id);
-    if (!log) return res.status(404).json({ error: "Log not found" });
-    res.json(log);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-export const listLogsForCustomer = async (req: Request, res: Response) => {
-  try {
-    const logs = await logService.listLogsForCustomer(req.params.customerId);
+  async getLogsForCustomer(req: Request, res: Response) {
+    const { customerId } = req.params;
+    const logs = await communicationLogService.getLogsForCustomer(customerId);
     res.json(logs);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-};
-
-export const listLogsForUser = async (req: Request, res: Response) => {
-  try {
-    const logs = await logService.listLogsForUser(req.params.userId);
+  async getLogsForSupplier(req: Request, res: Response) {
+    const { supplierId } = req.params;
+    const logs = await communicationLogService.getLogsForSupplier(supplierId);
     res.json(logs);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-};
+  async getLogsForUser(req: Request, res: Response) {
+    const { userId } = req.params;
+    const logs = await communicationLogService.getLogsForUser(userId);
+    res.json(logs);
+  }
+  async getLogById (req: Request, res: Response) {
+    try {
+      const logs = await communicationLogService.getLogById(req.params.id);
+      if (!logs) return res.status(404).json({ error: "Log not found" });
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+}
+export const communicationLogController = new CommunicationLogController();
+

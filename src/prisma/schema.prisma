@@ -261,6 +261,10 @@ model Payment {
   user           User?           @relation(fields: [userId], references: [id])
   posSession     POSSession?     @relation(fields: [sessionId], references: [id])
   // ...customer, session, etc.
+
+  Supplier Supplier[] @relation("SupplierPayments")
+
+  Customer Customer[] @relation("CustomerPayments")
 }
 
 
@@ -282,18 +286,62 @@ model POSSession {
   Payment Payment[]
 }
 
+
 model Customer {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  email         String?
+  phone         String?
+  loyaltyNumber String?
+  segment       String?      // e.g., "wholesale", "retail", "corporate", "insurance"
+  tags          String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  transactions  Transaction[]
+  payments      Payment[]         @relation("CustomerPayments")
+  communicationLogs CommunicationLog[]
+}
+
+
+model Supplier {
   id              String   @id @default(cuid())
   tenantId        String
   name            String
   email           String?
   phone           String?
+  address         String?
+  leadTime        Int?
+  performanceMetrics Json?      // BI: delivery, returns, etc.
+  paymentTerms    String?
+  notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
-  transactions    Transaction[]
 
-  CommunicationLog CommunicationLog[]
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  products        ProductSupplier[]
+  purchaseOrders  PurchaseOrder[]
+  payments        Payment[] @relation("SupplierPayments")
+  communicationLogs CommunicationLog[]
+}
+
+model CommunicationLog {
+  tenantId      String
+  id            String   @id @default(cuid())
+  customerId    String?
+  supplierId    String?
+  userId        String?      // staff who initiated
+  method        String       // "call", "email", "sms", "whatsapp", etc.
+  content       String
+  direction     String       // "inbound", "outbound"
+  timestamp     DateTime @default(now())
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id])
 }
 
 model User {
@@ -391,23 +439,6 @@ model B2BConnection {
   StockTransfer StockTransfer[]
 }
 
-model Supplier {
-  id            String   @id @default(cuid())
-  tenantId      String
-  name          String
-  email         String?
-  phone         String?
-  address       String?
-  leadTime      Int?
-  performanceMetrics Json?
-  paymentTerms  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  products      ProductSupplier[]
-  purchaseOrders PurchaseOrder[]
-}
 
 model ProductSupplier {
   id            String   @id @default(cuid())
@@ -527,19 +558,6 @@ model AuditLog {
 }
 
 
-model CommunicationLog {
-  id            String   @id @default(cuid())
-  tenantId      String
-  customerId    String
-  userId        String?
-  method        String   // phone, email, sms, in-app, etc.
-  content       String
-  timestamp     DateTime @default(now())
-
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
-  customer      Customer  @relation(fields: [customerId], references: [id])
-  user          User?     @relation(fields: [userId], references: [id])
-}
 
 model ActivityLog {
   id            String   @id @default(cuid())
