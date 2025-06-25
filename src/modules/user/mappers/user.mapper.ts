@@ -1,6 +1,6 @@
 import { Mapper } from '../../../shared/infra/Mapper';
 import { User } from '../domain/user';
-import { UserDTO } from '../dtos/userDTO';
+import { UserDTO } from '../types/user.dto';
 import { UniqueEntityID } from '../../../shared/domain/UniqueEntityID';
 import { UserName } from '../domain/userName';
 import { UserPassword } from '../domain/userPassword';

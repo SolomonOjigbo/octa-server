@@ -1,28 +1,28 @@
-import { PrismaClient} from "@prisma/client";
+
+import { PrismaClient } from "@prisma/client";
+import { CreateTenantDto, UpdateTenantDto } from "../types/tenant.dto";
+
 const prisma = new PrismaClient();
 
 export class TenantService {
-  async createTenant(data){
-    return prisma.tenant.create({ data });
+  async createTenant(dto: CreateTenantDto) {
+    return prisma.tenant.create({ data: dto });
   }
-
-  async getTenantById (id: string){
+  async updateTenant(id: string, dto: UpdateTenantDto) {
+    return prisma.tenant.update({ where: { id }, data: dto });
+  }
+  async getTenants() {
+    return prisma.tenant.findMany();
+  }
+  async getTenantById(id: string) {
     return prisma.tenant.findUnique({ where: { id } });
   }
 
-  async updateTenant(id: string, data: any) {
-    return prisma.tenant.update({ where: { id }, data });
-  }
-
-  async deleteTenant(id: string){
+    async deleteTenant(id: string){
     return prisma.tenant.delete({ where: { id } });
   }
 
-  async listTenants() {
-    return prisma.tenant.findMany();
-  }
-
-  // Custom example: Get tenants with B2B connections
+    // Get tenants with B2B connections
   async getTenantsWithB2B() {
     return prisma.tenant.findMany({
       include: {
@@ -32,3 +32,5 @@ export class TenantService {
     });
   }
 }
+
+export const tenantService = new TenantService();

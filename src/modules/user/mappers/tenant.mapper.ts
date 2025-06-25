@@ -1,5 +1,5 @@
 import { Mapper } from '../../../shared/infra/Mapper';
-import { TenantDTO } from '../dtos/tenantDTO';
+import { TenantDTO } from '../types/tenantDTO';
 import { UniqueEntityID } from '../../../shared/domain/UniqueEntityID';
 import { Tenant } from '../domain/tenant';
 import { Address } from '../../../shared/domain/nexa/address';

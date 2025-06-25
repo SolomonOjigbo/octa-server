@@ -59,6 +59,19 @@ model Tenant {
   AuditLog AuditLog[]
 }
 
+model BusinessEntity {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  taxId        String?
+  legalAddress String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  stores       Store[]
+}
+
 model ProductCategory {
   id          String   @id @default(cuid())
   tenantId    String
@@ -149,6 +162,8 @@ model Store {
   stockTransfersFrom StockTransfer[] @relation("stockTransferFrom")
 
   stockTransfersTo StockTransfer[] @relation("stockTransferTo")
+
+  User User[]
 }
 
 model Warehouse {
@@ -347,6 +362,7 @@ model CommunicationLog {
 model User {
   id            String   @id @default(cuid())
   tenantId      String
+  storeId       String?
   name          String
   email         String   @unique
   password      String
@@ -354,10 +370,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  store         Store?   @relation(fields: [storeId], references: [id])
+  roles      UserRole[]
   posSessions   POSSession[]
   transactions  Transaction[]
 
-  UserRole UserRole[]
+  
 
   ActivityLog ActivityLog[]
 
@@ -407,18 +425,6 @@ model Permission {
   roles       Role[]   @relation("RolePermissions")
 }
 
-model BusinessEntity {
-  id           String   @id @default(cuid())
-  tenantId     String
-  name         String
-  taxId        String?
-  legalAddress String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  stores       Store[]
-}
 
 model B2BConnection {
   id            String   @id @default(cuid())

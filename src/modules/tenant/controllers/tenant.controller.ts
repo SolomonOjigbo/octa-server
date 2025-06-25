@@ -1,50 +1,37 @@
 import { Request, Response } from "express";
-import { TenantService } from "../services/tenant.service";
+import { tenantService } from "../services/tenant.service";
+import { createTenantSchema } from "../validations";
+import { CreateTenantDto } from "../types/tenant.dto";
 
-const tenantService = new TenantService();
-
-export const createTenant = async (req: Request, res: Response) => {
-  try {
-    const tenant = await tenantService.createTenant(req.body);
-    res.status(201).json(tenant);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+export class TenantController {
+  async createTenant(req: Request, res: Response) {
+    try {
+      const validated = createTenantSchema.parse(req.body) as CreateTenantDto;
+      const tenant = await tenantService.createTenant(validated);
+      res.status(201).json(tenant);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
   }
-};
-
-export const getTenantById = async (req: Request, res: Response) => {
-  try {
-    const tenant = await tenantService.getTenantById(req.params.id);
-    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
-    res.json(tenant);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-export const updateTenant = async (req: Request, res: Response) => {
-  try {
-    const tenant = await tenantService.updateTenant(req.params.id, req.body);
-    res.json(tenant);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export const deleteTenant = async (req: Request, res: Response) => {
-  try {
-    await tenantService.deleteTenant(req.params.id);
-    res.status(204).send();
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-export const listTenants = async (req: Request, res: Response) => {
-  try {
-    const tenants = await tenantService.listTenants();
+  async getTenants(req: Request, res: Response) {
+    const tenants = await tenantService.getTenants();
     res.json(tenants);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-};
+  async getTenantById(req: Request, res: Response) {
+    const { id } = req.params;
+    const tenant = await tenantService.getTenantById(id);
+    if (!tenant) return res.status(404).json({ message: "Not found" });
+    res.json(tenant);
+  }
+  async updateTenant(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const validated = createTenantSchema.partial().parse(req.body);
+      const tenant = await tenantService.updateTenant(id, validated);
+      res.json(tenant);
+    } catch (err) {
+      res.status(400).json({ message: err.errors || err.message });
+    }
+  }
+}
+export const tenantController = new TenantController();
