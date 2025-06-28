@@ -371,6 +371,13 @@ model User {
   updatedAt     DateTime @updatedAt
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   store         Store?   @relation(fields: [storeId], references: [id])
+  
+  // Auth/Password reset/invite
+  passwordResetToken     String?    @unique
+  passwordResetExpires   DateTime?
+  inviteToken            String?    @unique
+  inviteExpires          DateTime?
+  refreshTokens          RefreshToken[]
   roles      UserRole[]
   posSessions   POSSession[]
   transactions  Transaction[]
@@ -392,6 +399,15 @@ model User {
   AuditLog AuditLog[]
 }
 
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
 model UserRole {
   id        String   @id @default(cuid())
   tenantId  String
@@ -399,10 +415,13 @@ model UserRole {
   roleId    String
   assignedBy String?
   assignedAt DateTime @default(now())
+  expiresAt DateTime? // Optional expiration
+
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
   role      Role     @relation(fields: [roleId], references: [id])
+   @@unique([userId, roleId, tenantId])
 }
 
 model Role {
@@ -410,12 +429,19 @@ model Role {
   tenantId    String
   name        String
   description String?
+  context     String?    // tenant, store, warehouse, etc.
+  isSystem    Boolean    @default(false) // System roles can't be modified
+  parentId    String?    // New: For role hierarchy
+  warehouseId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  parent      Role?      @relation("RoleHierarchy", fields: [parentId], references: [id])
+  children    Role[]     @relation("RoleHierarchy")
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   permissions Permission[] @relation("RolePermissions")
   userRoles   UserRole[]
+   @@unique([name, context])
 }
 
 model Permission {

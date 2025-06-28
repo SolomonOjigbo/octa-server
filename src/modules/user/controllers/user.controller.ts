@@ -1,45 +1,146 @@
 import { Request, Response } from "express";
 import { userService } from "../services/user.service";
-import { createUserSchema } from "../validations";
-import { CreateUserDto } from "../types/user.dto";
+import { createUserSchema, updateUserSchema } from "../validations";
+import { CreateUserDto, UpdateUserDto } from "../types/user.dto";
+import { auditService } from "../../../modules/audit/services/audit.service";
+import { UserActivity } from "../../../modules/audit/types/audit.dto";
 
 export class UserController {
   async createUser(req: Request, res: Response) {
     try {
       const validated = createUserSchema.parse(req.body) as CreateUserDto;
       const user = await userService.createUser(validated);
+      
+      await auditService.logUserActivity({
+        userId: req.user?.id,
+        tenantId: req.user?.tenantId,
+        action: UserActivity.CREATE_USER,
+        entityId: user.id,
+        metadata: { email: user.email }
+      });
+
       res.status(201).json(user);
     } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
-  async getUsers(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const users = await userService.getUsers(tenantId);
-    res.json(users);
-  }
-  async getUserById(req: Request, res: Response) {
-    const { id } = req.params;
-    const user = await userService.getUserById(id);
-    if (!user) return res.status(404).json({ message: "Not found" });
-    res.json(user);
-  }
-  async updateUser(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const validated = createUserSchema.partial().parse(req.body);
-      const user = await userService.updateUser(id, validated);
-      res.json(user);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
+      res.status(400).json({ 
+        error: "ValidationError",
+        details: err.errors || err.message 
+      });
     }
   }
 
-    async deleteUser(req: Request, res: Response) {
-        const { id } = req.params;
-        const result = await userService.deleteUser(id);
-        if (result.count === 0) return res.status(404).json({ message: "Not found" });
-        res.status(204).send();
+  async getUsers(req: Request, res: Response) {
+    try {
+      const tenantId = req.user?.tenantId;
+      const { page = 1, limit = 20, search } = req.query;
+      
+      const users = await userService.getUsers({
+        tenantId,
+        page: Number(page),
+        limit: Number(limit),
+        search: typeof search === "string" ? search : undefined
+      });
+      
+      res.json(users);
+    } catch (err) {
+      res.status(500).json({ 
+        error: "ServerError",
+        message: "Failed to fetch users" 
+      });
     }
+  }
+
+  async getUserById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const tenantId = req.user?.tenantId;
+      
+      const user = await userService.getUserById(id, tenantId);
+      if (!user) {
+        return res.status(404).json({ 
+          error: "NotFound",
+          message: "User not found" 
+        });
+      }
+      
+      res.json(user);
+    } catch (err) {
+      res.status(500).json({ 
+        error: "ServerError",
+        message: "Failed to fetch user" 
+      });
+    }
+  }
+
+  async updateUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const tenantId = req.user?.tenantId;
+      const validated = updateUserSchema.parse(req.body) as UpdateUserDto;
+      
+      const user = await userService.updateUser(id, tenantId, validated);
+      
+      await auditService.logUserActivity({
+        userId: req.user?.id,
+        tenantId,
+        action: UserActivity.UPDATE_USER,
+        entityId: user.id,
+        metadata: { fields: Object.keys(validated) }
+      });
+
+      res.json(user);
+    } catch (err) {
+      res.status(400).json({ 
+        error: "ValidationError",
+        details: err.errors || err.message 
+      });
+    }
+  }
+
+  async deactivateUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const tenantId = req.user?.tenantId;
+      
+      const user = await userService.deactivateUser(id, tenantId);
+      
+      await auditService.logUserActivity({
+        userId: req.user?.id,
+        tenantId,
+        action: UserActivity.DEACTIVATE_USER,
+        entityId: user.id
+      });
+
+      res.status(204).send();
+    } catch (err) {
+      res.status(400).json({ 
+        error: "RequestError",
+        message: err.message 
+      });
+    }
+  }
+
+  async deleteUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const tenantId = req.user?.tenantId;
+      
+      await userService.deleteUser(id, tenantId);
+      
+      await auditService.logUserActivity({
+        userId: req.user?.id,
+        tenantId,
+        action: UserActivity.DELETE_USER,
+        entityId: id
+      });
+
+      res.status(204).send();
+    } catch (err) {
+      res.status(400).json({ 
+        error: "RequestError",
+        message: err.message 
+      });
+    }
+  }
 }
+
 export const userController = new UserController();
