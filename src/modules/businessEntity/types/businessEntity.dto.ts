@@ -15,4 +15,11 @@ export interface BusinessEntityDto {
   legalAddress?: string;
   createdAt: Date;
   updatedAt: Date;
+  metadata?: {
+    createdBy?: string;
+    updatedBy?: string;
+    ip?: string;
+    userAgent?: string;
+  };
+  
 }

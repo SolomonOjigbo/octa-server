@@ -9,6 +9,9 @@ export interface CreateUserDto {
   storeId?: string;
   isRoot?: boolean;
   isActive?: boolean;
+  roles?: string[]; // Array of role IDs
+  createdBy?: string; // ID of the user who created this user
+  updatedBy?: string; // ID of the user who updated this user
 }
 
 // Update User DTO
