@@ -1,12 +1,48 @@
 import { Router } from "express";
 import { storeController } from "../controllers/store.controller";
+import { requireAuth } from "../../../middleware/requireAuth";
+import { requirePermission } from "../../../middleware/requirePermission";
+import { 
+  createStoreSchema, 
+  updateStoreSchema 
+} from "../validations";
 
 const router = Router();
 
-router.post("/", storeController.createStore.bind(storeController));
-router.get("/", storeController.getStores.bind(storeController));
-router.get("/:id", storeController.getStoreById.bind(storeController));
-router.put("/:id", storeController.updateStore.bind(storeController));
-router.delete("/:id", storeController.deleteStore.bind(storeController));
+// Store CRUD routes
+router.post(
+  "/",
+  requireAuth,
+  requirePermission("store:create"),
+  storeController.createStore.bind(storeController)
+);
+
+router.get(
+  "/",
+  requireAuth,
+  requirePermission("store:read"),
+  storeController.getStores.bind(storeController)
+);
+
+router.get(
+  "/:id",
+  requireAuth,
+  requirePermission("store:read"),
+  storeController.getStoreById.bind(storeController)
+);
+
+router.put(
+  "/:id",
+  requireAuth,
+  requirePermission("store:update"),
+  storeController.updateStore.bind(storeController)
+);
+
+router.delete(
+  "/:id",
+  requireAuth,
+  requirePermission("store:delete"),
+  storeController.deleteStore.bind(storeController)
+);
 
 export default router;

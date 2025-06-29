@@ -16,6 +16,8 @@ export interface AuditLog {
         targetTenantId?: string;
         changes?: any;
         status?: string;
+        name?: string;
+        type?: string;
     };
 }
 
@@ -34,6 +36,8 @@ export interface AuditLogCreateParams {
         targetTenantId?: string;
         changes?: any;
         status?: string;
+        name?: string;
+        type?: string;
     };
 }
 
@@ -97,6 +101,14 @@ export enum AuditAction {
     B2B_CONNECTION_APPROVED = "B2B_CONNECTION_APPROVED",
     B2B_CONNECTION_REJECTED = "B2B_CONNECTION_REJECTED",
     B2B_CONNECTION_SYNCED = "B2B_CONNECTION_SYNCED",
+    STORE_CREATED = "STORE_CREATED",
+    STORE_UPDATED = "STORE_UPDATED",
+    STORE_DELETED = "STORE_DELETED",
+    PRODUCT_CREATED = "PRODUCT_CREATED",
+    PRODUCT_UPDATED = "PRODUCT_UPDATED",
+    PRODUCT_DELETED = "PRODUCT_DELETED",
+    ORDER_CREATED = "ORDER_CREATED",
+    ORDER_UPDATED = "ORDER_UPDATED",
 
   // Add other audit actions as needed
 }
