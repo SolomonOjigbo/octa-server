@@ -13,6 +13,9 @@ export interface AuditLog {
         updatedBy?: string;
         ip?: string;
         userAgent?: string;
+        targetTenantId?: string;
+        changes?: any;
+        status?: string;
     };
 }
 
@@ -28,6 +31,9 @@ export interface AuditLogCreateParams {
         updatedBy?: string;
         ip?: string;
         userAgent?: string;
+        targetTenantId?: string;
+        changes?: any;
+        status?: string;
     };
 }
 
@@ -85,6 +91,12 @@ export enum AuditAction {
     TENANT_CREATED = "TENANT_CREATED",
     TENANT_UPDATED = "TENANT_UPDATED",
     TENANT_DELETED = "TENANT_DELETED",
+    B2B_CONNECTION_CREATED = "B2B_CONNECTION_CREATED",
+    B2B_CONNECTION_UPDATED = "B2B_CONNECTION_UPDATED",
+    B2B_CONNECTION_DELETED = "B2B_CONNECTION_DELETED",
+    B2B_CONNECTION_APPROVED = "B2B_CONNECTION_APPROVED",
+    B2B_CONNECTION_REJECTED = "B2B_CONNECTION_REJECTED",
+    B2B_CONNECTION_SYNCED = "B2B_CONNECTION_SYNCED",
 
   // Add other audit actions as needed
 }
