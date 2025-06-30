@@ -1,6 +1,8 @@
+import 'module-alias/register';
+
 import { app } from './index'; // Your Express app
-import { loadEnv } from '../../../config/env'; // Env loader (see below)
-import logger from '../../../config/logger';
+import { loadEnv } from '../config/env'; // Env loader (see below)
+import logger from '../config/logger';
 
 loadEnv();
 

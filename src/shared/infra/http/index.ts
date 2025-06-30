@@ -9,13 +9,18 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { v1Router } from './api/v1';
 import { errorHandler } from '../../../middleware/errorHandler';
-import logger from '../../../config/logger';
+import logger from '../config/logger';
+import { swaggerUiHandler, swaggerUiSetup } from "../config/swagger";
+
+
+// Now visit http://localhost:3000/api/docs
+
 
 
 
 const origin = {
-  // origin: isProduction ? 'https://octa.app' : '*',
-  origin: '*'
+    // origin: isProduction ? 'https://octa.app' : '*',
+    origin: '*'
 };
 
 
@@ -28,6 +33,7 @@ app.use(compression());
 app.use(helmet());
 app.use(morgan('combined'));
 app.use(morgan('dev', { stream: { write: msg => logger.info(msg.trim()) } }));
+app.use("/api/docs", swaggerUiHandler, swaggerUiSetup);
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 

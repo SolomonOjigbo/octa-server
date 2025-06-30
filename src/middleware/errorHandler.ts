@@ -11,7 +11,7 @@ import {
   ServiceUnavailableError,
   ErrorResponse
 } from "./errors";
-import { isProduction } from "../config";
+import { isProduction } from "../shared/infra/config";
 
 // Augment Express types to include our custom error handling
 declare global {

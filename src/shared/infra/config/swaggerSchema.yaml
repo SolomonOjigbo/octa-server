@@ -1,0 +1,288 @@
+components:
+  schemas:
+    # --- User ---
+    User:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - tenantId
+      properties:
+        id:
+          type: string
+          description: Unique user ID
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        tenantId:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- Product ---
+    Product:
+      type: object
+      required:
+        - name
+        - sku
+        - tenantId
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sku:
+          type: string
+        tenantId:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+        variants:
+          type: array
+          items:
+            type: object
+
+    # --- Transaction ---
+    Transaction:
+      type: object
+      required:
+        - tenantId
+        - storeId
+        - userId
+        - items
+        - paymentMethod
+        - sessionId
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        storeId:
+          type: string
+        userId:
+          type: string
+        customerId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionItem'
+        paymentMethod:
+          type: string
+        totalAmount:
+          type: number
+        taxAmount:
+          type: number
+        discount:
+          type: number
+        shippingFee:
+          type: number
+        status:
+          type: string
+        sessionId:
+          type: string
+
+    TransactionItem:
+      type: object
+      required:
+        - productId
+        - quantity
+        - price
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        discount:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        batchNumber:
+          type: string
+        expiryDate:
+          type: string
+          format: date-time
+
+    # --- Customer ---
+    Customer:
+      type: object
+      required:
+        - name
+        - tenantId
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        loyaltyNumber:
+          type: string
+        segment:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- Supplier ---
+    Supplier:
+      type: object
+      required:
+        - name
+        - tenantId
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        leadTime:
+          type: integer
+        paymentTerms:
+          type: string
+        performanceMetrics:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- Store ---
+    Store:
+      type: object
+      required:
+        - name
+        - tenantId
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        isMain:
+          type: boolean
+        managerId:
+          type: string
+        openingHours:
+          type: array
+          items:
+            type: object
+        tenantId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- Inventory ---
+    Inventory:
+      type: object
+      required:
+        - tenantId
+        - storeId
+        - productId
+        - quantity
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        storeId:
+          type: string
+        productId:
+          type: string
+        batchNumber:
+          type: string
+        expiryDate:
+          type: string
+          format: date-time
+        quantity:
+          type: integer
+        costPrice:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- Payment ---
+    Payment:
+      type: object
+      required:
+        - tenantId
+        - amount
+        - method
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        amount:
+          type: number
+        method:
+          type: string
+        reference:
+          type: string
+        status:
+          type: string
+        transactionId:
+          type: string
+        purchaseOrderId:
+          type: string
+        sessionId:
+          type: string
+        userId:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
