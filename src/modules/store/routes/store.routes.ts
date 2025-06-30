@@ -2,10 +2,7 @@ import { Router } from "express";
 import { storeController } from "../controllers/store.controller";
 import { requireAuth } from "../../../middleware/requireAuth";
 import { requirePermission } from "../../../middleware/requirePermission";
-import { 
-  createStoreSchema, 
-  updateStoreSchema 
-} from "../validations";
+
 
 const router = Router();
 

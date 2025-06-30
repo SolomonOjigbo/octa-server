@@ -1,12 +1,13 @@
 
 import { isProduction } from "../../../../config";
-import { IAuthService } from "../../../../modules/user/services/auth.service";
+
+
 const rateLimit = require('express-rate-limit')
 
 export class Middleware {
-  private authService: IAuthService;
+  private authService: any;
 
-  constructor (authService: IAuthService) {
+  constructor (authService: any) {
     this.authService = authService;
   }
 
@@ -86,7 +87,7 @@ export class Middleware {
     }
   
     const approvedDomainList = [
-      'https://google.com'
+      'https://octa-app.com'
     ]
   
     const domain = req.headers.origin;

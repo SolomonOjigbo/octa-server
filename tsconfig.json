@@ -15,6 +15,18 @@
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "strictNullChecks": false,
+     "baseUrl": "src",
+    "paths": {
+      "@modules/*": ["modules/*"],
+      "@shared/*": ["shared/*"],
+      "@middleware/*": ["middleware/*"],
+      "@logging/*": ["logging/*"],
+      "@lib/*": ["lib/*"],
+      "@prisma/*": ["prisma/*"],
+      "@common/*": ["common/*"],
+      "@cache/*": ["cache/*"],
+      "@config/*": ["shared/config/*"]
+    }
 
   },
   "include": [

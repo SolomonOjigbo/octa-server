@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { DecodedExpressRequest } from '../../../../modules/user/infra/http/models/decodedRequest';
+import { DecodedExpressRequest } from '../../../../common/types/decoded-express-request';
+
+//TODO : Create DecodedExpressRequest
 
 export class RequestMiddleware {
-  private updateBody(req: DecodedExpressRequest, paramName: string): void {
+  private updateBody(req: any, paramName: string): void {
     const sources = [req.body, req.decoded, req.params].filter(Boolean);
 
     for (const source of sources) {
@@ -16,7 +18,7 @@ export class RequestMiddleware {
   }
 
   public updateRequestParams(...params: string[]) {
-    return (req: DecodedExpressRequest, res: Response, next: NextFunction): void => {
+    return (req: any, res: Response, next: NextFunction): void => {
       req.updatedBody = { ...req.body };
       params.forEach((param) => {
         this.updateBody(req, param);
