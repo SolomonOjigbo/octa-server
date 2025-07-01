@@ -1,288 +1,122 @@
-components:
-  schemas:
-    # --- User ---
-    User:
-      type: object
-      required:
-        - name
-        - email
-        - password
-        - tenantId
-      properties:
-        id:
-          type: string
-          description: Unique user ID
-        name:
-          type: string
-        email:
-          type: string
-        password:
-          type: string
-        tenantId:
-          type: string
-        isActive:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    # --- Product ---
-    Product:
+    # --- Product Schemas ---
+    CreateProductDto:
       type: object
       required:
         - name
         - sku
         - tenantId
+        - costPrice
+        - sellingPrice
       properties:
-        id:
-          type: string
-        name:
-          type: string
-        sku:
-          type: string
         tenantId:
           type: string
-        price:
-          type: number
+          description: Tenant ID
+        categoryId:
+          type: string
+          description: Category ID (optional)
+        name:
+          type: string
+          minLength: 2
+          example: "Paracetamol 500mg"
+        sku:
+          type: string
+          minLength: 2
+          example: "PARA-500"
+        barcode:
+          type: string
+          example: "123456789012"
         description:
           type: string
+          example: "Pain reliever and fever reducer"
+        brand:
+          type: string
+          example: "Generic"
+        costPrice:
+          type: number
+          minimum: 0
+          example: 5.99
+        sellingPrice:
+          type: number
+          minimum: 0
+          example: 9.99
+        isActive:
+          type: boolean
+          default: true
+        dosageForm:
+          type: string
+          example: "tablet"
+        strength:
+          type: string
+          example: "500mg"
         variants:
           type: array
           items:
-            type: object
+            $ref: '#/components/schemas/CreateProductVariantDto'
 
-    # --- Transaction ---
-    Transaction:
-      type: object
-      required:
-        - tenantId
-        - storeId
-        - userId
-        - items
-        - paymentMethod
-        - sessionId
-      properties:
-        id:
-          type: string
-        tenantId:
-          type: string
-        storeId:
-          type: string
-        userId:
-          type: string
-        customerId:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/TransactionItem'
-        paymentMethod:
-          type: string
-        totalAmount:
-          type: number
-        taxAmount:
-          type: number
-        discount:
-          type: number
-        shippingFee:
-          type: number
-        status:
-          type: string
-        sessionId:
-          type: string
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/CreateProductDto'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            category:
+              $ref: '#/components/schemas/ProductCategory'
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductVariant'
 
-    TransactionItem:
+    ProductVariant:
       type: object
-      required:
-        - productId
-        - quantity
-        - price
-      properties:
-        id:
-          type: string
-        productId:
-          type: string
-        quantity:
-          type: integer
-        price:
-          type: number
-        discount:
-          type: number
-        taxRate:
-          type: number
-        taxAmount:
-          type: number
-        batchNumber:
-          type: string
-        expiryDate:
-          type: string
-          format: date-time
-
-    # --- Customer ---
-    Customer:
-      type: object
-      required:
-        - name
-        - tenantId
       properties:
         id:
           type: string
         name:
           type: string
-        email:
+          example: "100 tablets bottle"
+        sku:
           type: string
-        phone:
-          type: string
-        loyaltyNumber:
-          type: string
-        segment:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    # --- Supplier ---
-    Supplier:
-      type: object
-      required:
-        - name
-        - tenantId
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        email:
-          type: string
-        phone:
-          type: string
-        address:
-          type: string
-        leadTime:
-          type: integer
-        paymentTerms:
-          type: string
-        performanceMetrics:
-          type: object
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    # --- Store ---
-    Store:
-      type: object
-      required:
-        - name
-        - tenantId
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        code:
-          type: string
-        address:
-          type: string
-        phone:
-          type: string
-        type:
-          type: string
-        status:
-          type: string
-        isMain:
-          type: boolean
-        managerId:
-          type: string
-        openingHours:
-          type: array
-          items:
-            type: object
-        tenantId:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    # --- Inventory ---
-    Inventory:
-      type: object
-      required:
-        - tenantId
-        - storeId
-        - productId
-        - quantity
-      properties:
-        id:
-          type: string
-        tenantId:
-          type: string
-        storeId:
-          type: string
-        productId:
-          type: string
-        batchNumber:
-          type: string
-        expiryDate:
-          type: string
-          format: date-time
-        quantity:
-          type: integer
+          example: "PARA-500-100TAB"
         costPrice:
           type: number
-        updatedAt:
-          type: string
-          format: date-time
-
-    # --- Payment ---
-    Payment:
-      type: object
-      required:
-        - tenantId
-        - amount
-        - method
-      properties:
-        id:
-          type: string
-        tenantId:
-          type: string
-        amount:
+        sellingPrice:
           type: number
-        method:
-          type: string
-        reference:
-          type: string
-        status:
-          type: string
-        transactionId:
-          type: string
-        purchaseOrderId:
-          type: string
-        sessionId:
-          type: string
-        userId:
-          type: string
-        paidAt:
-          type: string
-          format: date-time
+        isActive:
+          type: boolean
         createdAt:
           type: string
           format: date-time
-        updatedAt:
+
+    ProductCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: "Analgesics"
+        description:
+          type: string
+          example: "Pain relief medications"
+        createdAt:
           type: string
           format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer

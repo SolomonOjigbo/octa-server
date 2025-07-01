@@ -1,140 +1,413 @@
 import { Request, Response } from "express";
 import { productService } from "../services/product.service";
-import {
-  createProductSchema, updateProductSchema,
-  createProductCategorySchema, updateProductCategorySchema,
-  createProductVariantSchema, updateProductVariantSchema
+import { 
+  createProductSchema,
+  updateProductSchema,
+  createProductVariantSchema,
+  updateProductVariantSchema
 } from "../validations";
-import { CreateProductCategoryDto, CreateProductDto, CreateProductVariantDto, UpdateProductDto } from "../types/product.dto";
+import { 
+  CreateProductDto,
+  UpdateProductDto,
+  CreateProductVariantDto,
+  UpdateProductVariantDto
+} from "../types/product.dto";
+import { auditService } from "../../audit/services/audit.service";
+import { AuditAction } from "../../audit/types/audit.dto";
+import { HttpStatusCode } from "@common/constants/http";
+import { AppError } from "@common/constants/app.errors";
+import { asyncHandler } from "@middleware/errorHandler";
 
+// ========== Product CRUD Endpoints ==========
 export class ProductController {
-  // -------- Product Category --------
-  async createCategory(req: Request, res: Response) {
-    try {
-      const validated = createProductCategorySchema.parse(req.body) as CreateProductCategoryDto;
-      const category = await productService.createCategory(validated);
-      res.status(201).json(category);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
+  createProduct = asyncHandler(async (req, res) => {
+    const validated = createProductSchema.parse({
+      ...req.body,
+      tenantId: req.user?.tenantId
+    }) as CreateProductDto;
+    
+    const product = await productService.createProduct(
+      validated,
+      req.user?.id
+    );
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId: validated.tenantId,
+      action: AuditAction.PRODUCT_CREATED,
+      entityType: "Product",
+      entityId: product.id,
+      metadata: {
+        name: product.name,
+        sku: product.sku
+      }
+    });
+
+    res.status(HttpStatusCode.CREATED).json(product);
+  });
+
+  getProducts = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
     }
-  }
 
-  async getCategories(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const categories = await productService.getCategories(tenantId);
-    res.json(categories);
-  }
+    const { 
+      page, 
+      limit, 
+      search, 
+      categoryId,
+      sku,
+      barcode,
+      isActive,
+      minPrice,
+      maxPrice,
+      locationType,
+      locationId,
+      withStock,
+      withSuppliers,
+      withInventory
+    } = req.query;
 
-  async updateCategory(req: Request, res: Response) {
-    try {
-      const tenantId = req.query.tenantId as string;
-      const { id } = req.params;
-      const validated = updateProductCategorySchema.parse(req.body);
-      const result = await productService.updateCategory(tenantId, id, validated);
-      if (result.count === 0) return res.status(404).json({ message: "Category not found" });
-      res.json({ message: "Category updated" });
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
+    const result = await productService.getProducts(tenantId, {
+      page: page ? parseInt(page as string) : 1,
+      limit: limit ? parseInt(limit as string) : 10,
+      search: search as string,
+      categoryId: categoryId as string,
+      sku: sku as string,
+      barcode: barcode as string,
+      isActive: isActive ? isActive === 'true' : undefined,
+      minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+      locationType: locationType as 'store' | 'warehouse',
+      locationId: locationId as string,
+      // withStock: withStock === 'true',
+      // withSuppliers: withSuppliers === 'true',
+      // withInventory: withInventory === 'true'
+    });
 
-  async deleteCategory(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
+    res.json(result);
+  });
+
+  getProductById = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
     const { id } = req.params;
-    const result = await productService.deleteCategory(tenantId, id);
-    if (result.count === 0) return res.status(404).json({ message: "Category not found" });
-    res.status(204).send();
-  }
-
-  // -------- Product --------
-  async createProduct(req: Request, res: Response) {
-    try {
-      const validated = createProductSchema.parse(req.body) as CreateProductDto;
-      const product = await productService.createProduct(validated);
-      res.status(201).json(product);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
     }
-  }
 
-  async getProducts(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const filters = {
-      name: req.query.name as string,
-      sku: req.query.sku as string,
-      categoryId: req.query.categoryId as string,
-    };
-    const products = await productService.getProducts(tenantId, filters);
-    res.json(products);
-  }
+    const { withStock, withSuppliers, withInventory } = req.query;
+    const product = await productService.getProductById(tenantId, id, {
+      withStock: withStock === 'true',
+      withSuppliers: withSuppliers === 'true',
+      withInventory: withInventory === 'true'
+    });
 
-  async getProductById(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const { id } = req.params;
-    const product = await productService.getProductById(tenantId, id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) {
+      throw new AppError("Product not found", HttpStatusCode.NOT_FOUND);
+    }
+
     res.json(product);
-  }
+  });
 
-  async updateProduct(req: Request, res: Response) {
-    try {
-      const tenantId = req.query.tenantId as string;
-      const { id } = req.params;
-      const validated = updateProductSchema.parse(req.body) as UpdateProductDto;
-      const result = await productService.updateProduct(tenantId, id, validated);
-      if (result.count === 0) return res.status(404).json({ message: "Product not found" });
-      res.json({ message: "Product updated" });
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
-
-  async deleteProduct(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
+  updateProduct = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
     const { id } = req.params;
-    const result = await productService.deleteProduct(tenantId, id);
-    if (result.count === 0) return res.status(404).json({ message: "Product not found" });
-    res.status(204).send();
-  }
+    
+    const validated = updateProductSchema.parse({
+      ...req.body,
+      id,
+      tenantId
+    }) as UpdateProductDto;
+    
+    const product = await productService.updateProduct(
+      tenantId,
+      id,
+      validated,
+      req.user?.id
+    );
 
-  // -------- Product Variant --------
-  async createVariant(req: Request, res: Response) {
-    try {
-      const validated = createProductVariantSchema.parse(req.body) as CreateProductVariantDto;
-      const variant = await productService.createVariant(validated);
-      res.status(201).json(variant);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId,
+      action: AuditAction.PRODUCT_UPDATED,
+      entityType: "Product",
+      entityId: id,
+      metadata: {
+        changes: req.body
+      }
+    });
+
+    res.json(product);
+  });
+
+  deleteProduct = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { id } = req.params;
+    
+    await productService.deleteProduct(tenantId, id);
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId,
+      action: AuditAction.PRODUCT_DELETED,
+      entityType: "Product",
+      entityId: id
+    });
+
+    res.status(HttpStatusCode.NO_CONTENT).send();
+  });
+
+  // ========== Product Variant Endpoints ==========
+  createVariant = asyncHandler(async (req, res) => {
+    const validated = createProductVariantSchema.parse({
+      ...req.body,
+      tenantId: req.user?.tenantId
+    }) as CreateProductVariantDto;
+    
+    const variant = await productService.createVariant(
+      validated,
+      req.user?.id
+    );
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId: validated.tenantId,
+      action: AuditAction.PRODUCT_VARIANT_CREATED,
+      entityType: "ProductVariant",
+      entityId: variant.id,
+      metadata: {
+        productId: validated.productId,
+        name: variant.name
+      }
+    });
+
+    res.status(HttpStatusCode.CREATED).json(variant);
+  });
+
+  getVariants = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { productId } = req.query;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
     }
-  }
 
-  async getVariants(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const productId = req.query.productId as string;
-    const variants = await productService.getVariants(tenantId, productId);
+    const variants = await productService.getVariants(
+      tenantId,
+      productId as string | undefined
+    );
+
     res.json(variants);
-  }
+  });
 
-  async updateVariant(req: Request, res: Response) {
-    try {
-      const tenantId = req.query.tenantId as string;
-      const { id } = req.params;
-      const validated = updateProductVariantSchema.parse(req.body);
-      const result = await productService.updateVariant(tenantId, id, validated);
-      if (result.count === 0) return res.status(404).json({ message: "Variant not found" });
-      res.json({ message: "Variant updated" });
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
-
-  async deleteVariant(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
+  updateVariant = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
     const { id } = req.params;
-    const result = await productService.deleteVariant(tenantId, id);
-    if (result.count === 0) return res.status(404).json({ message: "Variant not found" });
-    res.status(204).send();
-  }
+    
+    const validated = updateProductVariantSchema.parse({
+      ...req.body,
+      id,
+      tenantId
+    }) as UpdateProductVariantDto;
+    
+    const variant = await productService.updateVariant(
+      tenantId,
+      id,
+      validated,
+      req.user?.id
+    );
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId,
+      action: AuditAction.PRODUCT_VARIANT_UPDATED,
+      entityType: "ProductVariant",
+      entityId: id,
+      metadata: {
+        changes: req.body
+      }
+    });
+
+    res.json(variant);
+  });
+
+  deleteVariant = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { id } = req.params;
+    
+    await productService.deleteVariant(tenantId, id);
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId,
+      action: AuditAction.PRODUCT_VARIANT_DELETED,
+      entityType: "ProductVariant",
+      entityId: id
+    });
+
+    res.status(HttpStatusCode.NO_CONTENT).send();
+  });
+
+  // ========== Batch Operations ==========
+  importProducts = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    if (!Array.isArray(req.body)) {
+      throw new AppError("Request body must be an array of products", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const result = await productService.importProducts(
+      tenantId,
+      req.body,
+      req.user?.id
+    );
+
+    await auditService.log({
+      userId: req.user?.id,
+      tenantId,
+      action: AuditAction.PRODUCTS_IMPORTED,
+      entityType: "Product",
+      metadata: {
+        importedCount: result.success.length,
+        errorCount: result.errors.length
+      },
+      entityId: ""
+    });
+
+    res.status(HttpStatusCode.CREATED).json(result);
+  });
+
+  exportProducts = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { format, includeStock, includeVariants } = req.query;
+    const result = await productService.exportProducts(tenantId, {
+      format: format as 'csv' | 'json',
+      includeStock: includeStock === 'true',
+      includeVariants: includeVariants === 'true'
+    });
+
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=products_export.csv');
+      return res.send(result);
+    }
+
+    res.json(result);
+  });
+
+  // ========== Search & Lookup Endpoints ==========
+  searchProducts = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { q } = req.query;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    if (!q) {
+      throw new AppError("Search query is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { 
+      limit,
+      fields,
+      withStock,
+      locationType,
+      locationId
+    } = req.query;
+
+    const products = await productService.getProducts(tenantId, {
+      search: q as string,
+      limit: limit ? parseInt(limit as string) : 10,
+      // withStock: withStock === 'true',
+      locationType: locationType as 'store' | 'warehouse',
+      locationId: locationId as string
+    });
+
+    res.json(products);
+  });
+
+  getProductsByBarcode = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { barcode } = req.params;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { withStock } = req.query;
+    const products = await productService.getProducts(tenantId, {
+      barcode,
+      // withStock: withStock === 'true'
+    });
+
+    res.json(products);
+  });
+
+  getProductsByWarehouse = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { warehouseId } = req.params;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { withStock, withSuppliers, withInventory } = req.query;
+    const products = await productService.getProducts(tenantId, {
+      locationType: 'warehouse',
+      locationId: warehouseId,
+      // withStock: withStock === 'true',
+      // withSuppliers: withSuppliers === 'true',
+      // withInventory: withInventory === 'true'
+    });
+
+    res.json(products);
+  });
+
+  getProductsByStore = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { storeId } = req.params;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { withStock, withSuppliers, withInventory } = req.query;
+    const products = await productService.getProducts(tenantId, {
+      locationType: 'store',
+      locationId: storeId,
+      // withStock: withStock === 'true',
+      // withSuppliers: withSuppliers === 'true',
+      // withInventory: withInventory === 'true'
+    });
+
+    res.json(products);
+  });
+
+
+  getVariantsByProduct = asyncHandler(async (req, res) => {
+    const tenantId = req.user?.tenantId;
+    const { productId } = req.params;
+    
+    if (!tenantId) {
+      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+    }
+
+    const variants = await productService.getVariants(tenantId, productId);
+
+    res.json(variants);
+  });
+
+
 }
 
 export const productController = new ProductController();

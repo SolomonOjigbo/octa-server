@@ -5,7 +5,7 @@ import authRoutes, { sessionRoutes } from '../../../../modules/auth/auth.module'
 import storeRoutes from '../../../../modules/store/store.module';
 import businessEntityRoutes from '../../../../modules/businessEntity/businessEntity.module';
 import stockRoutes from '../../../../modules/stock/stock.module';
-import productRoutes from '../../../../modules/product/product.module';
+import productRoutes, { categoryRoutes } from '../../../../modules/product/product.module';
 import inventoryRoutes from '../../../../modules/inventory/inventory.module';
 import stockTransferRoutes from '../../../../modules/stockTransfer/stockTransfer.module';
 import b2bConnectionRoutes from '../../../../modules/b2b/b2b.module';
@@ -34,6 +34,7 @@ v1Router.use('/roles', roleRoutes);
 v1Router.use('/auth', authRoutes);
 v1Router.use('/session', sessionRoutes);
 v1Router.use('/products', productRoutes);
+v1Router.use('/product-categories', categoryRoutes);
 v1Router.use('/stocks', stockRoutes);
 v1Router.use('/inventory', inventoryRoutes);
 v1Router.use('/stock-transfer', stockTransferRoutes);

@@ -18,6 +18,10 @@ export interface AuditLog {
         status?: string;
         name?: string;
         type?: string;
+        sku?: string;
+        source?: string;
+        variants?:  string;
+        importedCount?: number;
     };
 }
 
@@ -38,6 +42,12 @@ export interface AuditLogCreateParams {
         status?: string;
         name?: string;
         type?: string;
+        sku?: string;
+        source?: string;
+        variants?:  string;
+        importedCount?: number;
+        errorCount?: number;
+        productId?: string;
     };
 }
 
@@ -109,6 +119,14 @@ export enum AuditAction {
     PRODUCT_DELETED = "PRODUCT_DELETED",
     ORDER_CREATED = "ORDER_CREATED",
     ORDER_UPDATED = "ORDER_UPDATED",
+    ORDER_DELETED = "ORDER_DELETED",
+    PRODUCT_CATEGORY_CREATED = "PRODUCT_CATEGORY_CREATED",
+    PRODUCT_CATEGORY_UPDATED = "PRODUCT_CATEGORY_UPDATED",
+    PRODUCT_CATEGORY_DELETED = "PRODUCT_CATEGORY_DELETED",
+    PRODUCT_VARIANT_CREATED = "PRODUCT_VARIANT_CREATED",
+    PRODUCT_VARIANT_UPDATED = "PRODUCT_VARIANT_UPDATED",
+    PRODUCT_VARIANT_DELETED = "PRODUCT_VARIANT_DELETED",
+    PRODUCTS_IMPORTED = "PRODUCTS_IMPORTED",
 
   // Add other audit actions as needed
 }
@@ -124,6 +142,7 @@ export enum UserActivity {
   UPDATE_ROLE = "UPDATE_ROLE",
   ASSIGN_ROLE = "ASSIGN_ROLE",
   DEACTIVATE_USER = "DEACTIVATE_USER",
+
 
 
 

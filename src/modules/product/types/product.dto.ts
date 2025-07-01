@@ -1,39 +1,103 @@
-export interface CreateProductCategoryDto {
-  tenantId: string;
-  name: string;
-  description?: string;
-}
+import { z } from "zod";
+import { createProductCategorySchema, createProductSchema, createProductVariantSchema } from "../validations";
 
-export interface CreateProductVariantDto {
-  tenantId: string;
-  productId: string;
-  name: string;           // e.g., "100mg tablet"
-  sku: string;
-  barcode?: string;
-  costPrice: number;
-  sellingPrice: number;
-  isActive?: boolean;
-}
+// DTO Types
+export type CreateProductCategoryDto = z.infer<typeof createProductCategorySchema>;
+export type UpdateProductCategoryDto = Partial<CreateProductCategoryDto>;
 
-export interface CreateProductDto {
+export type CreateProductVariantDto = z.infer<typeof createProductVariantSchema>;
+export type UpdateProductVariantDto = Partial<CreateProductVariantDto>;
+
+export type CreateProductDto = z.infer<typeof createProductSchema>;
+export type UpdateProductDto = Partial<CreateProductDto>;
+
+// Response DTOs
+export interface ProductResponseDto {
+  id: string;
   tenantId: string;
-  categoryId?: string;
+  storeId: string;
+  warehouseId?: string;
   name: string;
-  sku: string;
-  barcode?: string;
-  description?: string;
   brand?: string;
+  sku: string;
+  barcode?: string;
+  description?: string;
+  dosageForm?: string;
+  strength?: string;
   costPrice: number;
   sellingPrice: number;
-  isActive?: boolean;
-  dosageForm?: string;     // e.g., "tablet", "syrup"
-  strength?: string;       // e.g., "100mg", "250mg"
-  batchNumber?: string;
-  expiryDate?: Date | string;
-  variants?: CreateProductVariantDto[];
+  category?: {
+    id: string;
+    name: string;
+  };
+  variants?: ProductVariantResponseDto[];
+  stocks?: ProductStockDto[];
+  suppliers?: ProductSupplierDto[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+
 }
 
-export interface UpdateProductDto extends Partial<CreateProductDto> {}
+export interface ProductVariantResponseDto {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string;
+  costPrice: number;
+  sellingPrice: number;
+  stocks?: ProductStockDto[];
+}
 
-export interface UpdateProductVariantDto extends Partial<CreateProductVariantDto> {}
-export interface UpdateProductCategoryDto extends Partial<CreateProductCategoryDto> {}
+export interface ProductStockDto {
+  id: string;
+  quantity: number;
+  store?: {
+    id: string;
+    name: string;
+  };
+  warehouse?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface ProductSupplierDto {
+  id: string;
+  supplier: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  createdAt: Date;
+}
+
+export interface ProductCategoryResponseDto {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface ProductVariantCategoryResponseDto {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProductVariantResponseDto {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string;
+  costPrice: number;
+  sellingPrice: number;
+  stocks?: ProductStockDto[];
+  category?: ProductVariantCategoryResponseDto;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
