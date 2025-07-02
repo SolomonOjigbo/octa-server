@@ -39,15 +39,6 @@ export interface ProductResponseDto {
 
 }
 
-export interface ProductVariantResponseDto {
-  id: string;
-  name: string;
-  sku: string;
-  barcode?: string;
-  costPrice: number;
-  sellingPrice: number;
-  stocks?: ProductStockDto[];
-}
 
 export interface ProductStockDto {
   id: string;
@@ -80,12 +71,35 @@ export interface ProductCategoryResponseDto {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Product Variant DTOs
+
+export interface CreateVariantDto {
+  name: string;
+  sku?: string;
+  costPrice: number;
+  sellingPrice: number;
+  productId: string;
+  stock?: number;
+}
+
+export interface UpdateVariantDto extends Partial<CreateVariantDto> {}
+
 export interface ProductVariantCategoryResponseDto {
   id: string;
   name: string;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+export interface ProductVariantResponseDto {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string;
+  costPrice: number;
+  sellingPrice: number;
+  stocks?: ProductStockDto[];
 }
 
 export interface ProductVariantResponseDto {

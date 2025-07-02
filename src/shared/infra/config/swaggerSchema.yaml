@@ -1,122 +1,387 @@
-    # --- Product Schemas ---
-    CreateProductDto:
-      type: object
-      required:
-        - name
-        - sku
-        - tenantId
-        - costPrice
-        - sellingPrice
+# --- Product Schemas ---
+CreateProductDto:
+  type: object
+  required:
+    - name
+    - sku
+    - tenantId
+    - costPrice
+    - sellingPrice
+  properties:
+    tenantId:
+      type: string
+      description: Tenant ID
+    categoryId:
+      type: string
+      description: Category ID (optional)
+    name:
+      type: string
+      minLength: 2
+      example: "Paracetamol 500mg"
+    sku:
+      type: string
+      minLength: 2
+      example: "PARA-500"
+    barcode:
+      type: string
+      example: "123456789012"
+    description:
+      type: string
+      example: "Pain reliever and fever reducer"
+    brand:
+      type: string
+      example: "Generic"
+    costPrice:
+      type: number
+      minimum: 0
+      example: 5.99
+    sellingPrice:
+      type: number
+      minimum: 0
+      example: 9.99
+    isActive:
+      type: boolean
+      default: true
+    dosageForm:
+      type: string
+      example: "tablet"
+    strength:
+      type: string
+      example: "500mg"
+    variants:
+      type: array
+      items:
+        $ref: '#/components/schemas/CreateProductVariantDto'
+
+Product:
+  allOf:
+    - $ref: '#/components/schemas/CreateProductDto'
+    - type: object
       properties:
-        tenantId:
+        id:
           type: string
-          description: Tenant ID
-        categoryId:
+        createdAt:
           type: string
-          description: Category ID (optional)
-        name:
+          format: date-time
+        updatedAt:
           type: string
-          minLength: 2
-          example: "Paracetamol 500mg"
-        sku:
-          type: string
-          minLength: 2
-          example: "PARA-500"
-        barcode:
-          type: string
-          example: "123456789012"
-        description:
-          type: string
-          example: "Pain reliever and fever reducer"
-        brand:
-          type: string
-          example: "Generic"
-        costPrice:
-          type: number
-          minimum: 0
-          example: 5.99
-        sellingPrice:
-          type: number
-          minimum: 0
-          example: 9.99
-        isActive:
-          type: boolean
-          default: true
-        dosageForm:
-          type: string
-          example: "tablet"
-        strength:
-          type: string
-          example: "500mg"
+          format: date-time
+        category:
+          $ref: '#/components/schemas/ProductCategory'
         variants:
           type: array
           items:
-            $ref: '#/components/schemas/CreateProductVariantDto'
+            $ref: '#/components/schemas/ProductVariant'
 
-    Product:
-      allOf:
-        - $ref: '#/components/schemas/CreateProductDto'
-        - type: object
-          properties:
-            id:
-              type: string
-            createdAt:
-              type: string
-              format: date-time
-            updatedAt:
-              type: string
-              format: date-time
-            category:
+ProductVariant:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+      example: "100 tablets bottle"
+    sku:
+      type: string
+      example: "PARA-500-100TAB"
+    costPrice:
+      type: number
+    sellingPrice:
+      type: number
+    isActive:
+      type: boolean
+    productId:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+
+CreateProductVariantDto:
+  type: object
+  required:
+    - name
+    - costPrice
+    - sellingPrice
+    - productId
+  properties:
+    name:
+      type: string
+    sku:
+      type: string
+    costPrice:
+      type: number
+    sellingPrice:
+      type: number
+    stock:
+      type: number
+    productId:
+      type: string
+
+ProductCategory:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+      example: "Analgesics"
+    description:
+      type: string
+      example: "Pain relief medications"
+    createdAt:
+      type: string
+      format: date-time
+
+Pagination:
+  type: object
+  properties:
+    total:
+      type: integer
+    page:
+      type: integer
+    limit:
+      type: integer
+    totalPages:
+      type: integer
+
+# --- Paths ---
+
+/product-categories:
+  get:
+    tags: [ProductCategories]
+    summary: List all product categories
+    responses:
+      200:
+        description: Success
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductCategory'
+  post:
+    tags: [ProductCategories]
+    summary: Create a product category
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductCategory'
+    responses:
+      201:
+        description: Created
+
+/product-categories/{id}:
+  get:
+    tags: [ProductCategories]
+    summary: Get a product category by ID
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Success
+        content:
+          application/json:
+            schema:
               $ref: '#/components/schemas/ProductCategory'
-            variants:
+  patch:
+    tags: [ProductCategories]
+    summary: Update a product category
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProductCategory'
+    responses:
+      200:
+        description: Updated
+  delete:
+    tags: [ProductCategories]
+    summary: Delete a product category
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Deleted
+
+/products:
+  get:
+    tags: [Products]
+    summary: List all products with optional filters
+    parameters:
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        schema:
+          type: integer
+    responses:
+      200:
+        description: List of products
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Product'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+  post:
+    tags: [Products]
+    summary: Create a product
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateProductDto'
+    responses:
+      201:
+        description: Created
+
+/products/{id}:
+  get:
+    tags: [Products]
+    summary: Get product by ID
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Product found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+  patch:
+    tags: [Products]
+    summary: Update a product
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateProductDto'
+    responses:
+      200:
+        description: Updated
+  delete:
+    tags: [Products]
+    summary: Delete a product
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Deleted
+
+/product-variants:
+  post:
+    tags: [ProductVariants]
+    summary: Create a product variant
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateProductVariantDto'
+    responses:
+      201:
+        description: Created
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductVariant'
+
+/product-variants/{id}:
+  patch:
+    tags: [ProductVariants]
+    summary: Update a product variant
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateProductVariantDto'
+    responses:
+      200:
+        description: Updated
+  delete:
+    tags: [ProductVariants]
+    summary: Delete a product variant
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Deleted
+
+/product-variants/product/{productId}:
+  get:
+    tags: [ProductVariants]
+    summary: List variants for a given product
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: List of variants
+        content:
+          application/json:
+            schema:
               type: array
               items:
                 $ref: '#/components/schemas/ProductVariant'
-
-    ProductVariant:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-          example: "100 tablets bottle"
-        sku:
-          type: string
-          example: "PARA-500-100TAB"
-        costPrice:
-          type: number
-        sellingPrice:
-          type: number
-        isActive:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-
-    ProductCategory:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-          example: "Analgesics"
-        description:
-          type: string
-          example: "Pain relief medications"
-        createdAt:
-          type: string
-          format: date-time
-
-    Pagination:
-      type: object
-      properties:
-        total:
-          type: integer
-        page:
-          type: integer
-        limit:
-          type: integer
-        totalPages:
-          type: integer

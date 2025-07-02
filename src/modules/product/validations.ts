@@ -1,4 +1,45 @@
-import { z } from "zod";
+import { z } from 'zod';
+
+export const createProductSchema = z.object({
+  tenantId: z.string().uuid(),
+  name: z.string().min(1),
+  sku: z.string().optional(),
+  barcode: z.string().optional(),
+  description: z.string().optional(),
+  brand: z.string().optional(),
+  categoryId: z.string().uuid(),
+  costPrice: z.number().min(0),
+  sellingPrice: z.number().min(0),
+  isActive: z.boolean().optional(),
+  variants: z.array(z.object({
+    name: z.string(),
+    sku: z.string().optional(),
+    costPrice: z.number().min(0),
+    sellingPrice: z.number().min(0),
+    stock: z.number().min(0).optional(),
+  })).optional(),
+});
+
+export const updateProductSchema = createProductSchema.partial().extend({
+  id: z.string().uuid(),
+});
+
+export const productFilterSchema = z.object({
+  search: z.string().optional(),
+  categoryId: z.string().optional(),
+  brand: z.string().optional(),
+  isActive: z.boolean().optional(),
+  withStock: z.boolean().optional(),
+  withVariants: z.boolean().optional(),
+  page: z.string().optional(),
+  limit: z.string().optional(),
+  fields: z.string().optional(),
+});
+
+export const productIdParamSchema = z.object({
+  id: z.string().uuid()
+});
+
 
 export const createProductCategorySchema = z.object({
   tenantId: z.string().cuid(),
@@ -15,24 +56,6 @@ export const createProductVariantSchema = z.object({
   costPrice: z.number().nonnegative(),
   sellingPrice: z.number().nonnegative(),
   isActive: z.boolean().optional(),
-});
-
-export const createProductSchema = z.object({
-  tenantId: z.string().cuid(),
-  name: z.string().min(2),
-  sku: z.string().min(2),
-  barcode: z.string().optional(),
-  description: z.string().optional(),
-  brand: z.string().optional(),
-  categoryId: z.string().cuid().optional(),
-  costPrice: z.number().nonnegative(),
-  sellingPrice: z.number().nonnegative(),
-  isActive: z.boolean().optional(),
-  dosageForm: z.string().optional(),
-  strength: z.string().optional(),
-  batchNumber: z.string().optional(),
-  expiryDate: z.string().datetime().optional(),
-  variants: z.array(createProductVariantSchema).optional(),
 });
 
 
@@ -72,6 +95,6 @@ export const ProductSchema = z.object({
   variants: z.array(ProductVariantSchema).optional(),
 });
 
-export const updateProductSchema = createProductSchema.partial();
+
 export const updateProductCategorySchema = createProductCategorySchema.partial();
 export const updateProductVariantSchema = createProductVariantSchema.partial();
