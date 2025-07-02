@@ -3,7 +3,7 @@ import { userService } from "../services/user.service";
 import { createUserSchema, updateUserSchema } from "../validations";
 import { CreateUserDto, UpdateUserDto } from "../types/user.dto";
 import { auditService } from "../../../modules/audit/services/audit.service";
-import { UserActivity } from "../../../modules/audit/types/audit.dto";
+import { AuditAction, UserActivity } from "../../../modules/audit/types/audit.dto";
 
 export class UserController {
   async createUser(req: Request, res: Response) {
@@ -14,7 +14,7 @@ export class UserController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId: req.user?.tenantId,
-        action: UserActivity.CREATE_USER,
+        action: AuditAction.USER_CREATED,
         entityId: user.id,
         metadata: { email: user.email }
       });
@@ -82,7 +82,7 @@ export class UserController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId,
-        action: UserActivity.UPDATE_USER,
+        action: AuditAction.USER_UPDATED,
         entityId: user.id,
         metadata: { fields: Object.keys(validated) }
       });
@@ -106,7 +106,7 @@ export class UserController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId,
-        action: UserActivity.DEACTIVATE_USER,
+        action: AuditAction.USER_DEACTIVATED,
         entityId: user.id
       });
 
@@ -129,7 +129,7 @@ export class UserController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId,
-        action: UserActivity.DELETE_USER,
+        action: AuditAction.USER_DELETED,
         entityId: id
       });
 

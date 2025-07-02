@@ -385,3 +385,408 @@ Pagination:
               type: array
               items:
                 $ref: '#/components/schemas/ProductVariant'
+
+
+# --- Inventory Schemas ---
+InventoryMovementDto:
+  type: object
+  required:
+    - tenantId
+    - userId
+    - productId
+    - quantity
+    - movementType
+  properties:
+    tenantId:
+      type: string
+    userId:
+      type: string
+    productId:
+      type: string
+    variantId:
+      type: string
+    batchNumber:
+      type: string
+    quantity:
+      type: number
+    movementType:
+      type: string
+      enum:
+        - purchase
+        - sale
+        - adjustment
+        - return
+        - transfer
+        - donation
+        - compounding
+        - waste
+        - discrepancy
+    source:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [store, warehouse, clinic]
+        id:
+          type: string
+    destination:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [store, warehouse, clinic]
+        id:
+          type: string
+    reference:
+      type: string
+    costPrice:
+      type: number
+    expiryDate:
+      type: string
+      format: date-time
+    metadata:
+      type: object
+      additionalProperties: true
+
+InventoryResponseDto:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sku:
+          type: string
+    variant:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sku:
+          type: string
+    location:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+    batchNumber:
+      type: string
+    quantity:
+      type: number
+    costPrice:
+      type: number
+    expiryDate:
+      type: string
+      format: date-time
+    movementType:
+      type: string
+    reference:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+# --- Stock Schemas ---
+StockDto:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    productId:
+      type: string
+    variantId:
+      type: string
+    storeId:
+      type: string
+    warehouseId:
+      type: string
+    quantity:
+      type: integer
+    minStockLevel:
+      type: integer
+    maxStockLevel:
+      type: integer
+    reorderPoint:
+      type: integer
+    batchNumber:
+      type: string
+    expiryDate:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+# --- Inventory Paths ---
+/inventory:
+  post:
+    tags: [Inventory]
+    summary: Record a new inventory movement
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InventoryMovementDto'
+    responses:
+      201:
+        description: Movement recorded
+
+  get:
+    tags: [Inventory]
+    summary: List inventory movements
+    parameters:
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: movementType
+        in: query
+        schema:
+          type: string
+      - name: storeId
+        in: query
+        schema:
+          type: string
+    responses:
+      200:
+        description: List of movements
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/InventoryResponseDto'
+
+/inventory/{id}:
+  get:
+    tags: [Inventory]
+    summary: Get inventory movement by ID
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryResponseDto'
+
+  patch:
+    tags: [Inventory]
+    summary: Update an inventory movement
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InventoryMovementDto'
+    responses:
+      200:
+        description: Updated
+
+  delete:
+    tags: [Inventory]
+    summary: Delete an inventory record
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Deleted
+
+# --- Stock Paths ---
+/stocks:
+  get:
+    tags: [Stock]
+    summary: Get stock levels
+    parameters:
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: storeId
+        in: query
+        schema:
+          type: string
+      - name: warehouseId
+        in: query
+        schema:
+          type: string
+    responses:
+      200:
+        description: List of stock levels
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockDto'
+
+/stocks/{productId}:
+  get:
+    tags: [Stock]
+    summary: Get stock detail by product ID
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Stock found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockDto'
+
+  delete:
+    tags: [Stock]
+    summary: Delete stock entry
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Deleted
+
+/stocks/adjust:
+  post:
+    tags: [Stock]
+    summary: Adjust stock level
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StockDto'
+    responses:
+      200:
+        description: Stock adjusted
+
+/stocks/increment:
+  post:
+    tags: [Stock]
+    summary: Increment stock quantity
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StockDto'
+    responses:
+      200:
+        description: Stock incremented
+
+
+# --- Audit Schemas ---
+AuditLogCreateParams:
+  type: object
+  required:
+    - tenantId
+    - userId
+    - action
+    - module
+  properties:
+    tenantId:
+      type: string
+    userId:
+      type: string
+    action:
+      type: string
+      enum: [create, update, delete, adjust, transfer, verify, login, logout, error]
+    module:
+      type: string
+      example: inventory
+    targetId:
+      type: string
+      nullable: true
+    targetRef:
+      type: string
+      nullable: true
+    ipAddress:
+      type: string
+    userAgent:
+      type: string
+    description:
+      type: string
+    metadata:
+      type: object
+
+AuditLog:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    userId:
+      type: string
+    action:
+      type: string
+    module:
+      type: string
+    targetId:
+      type: string
+      nullable: true
+    targetRef:
+      type: string
+      nullable: true
+    ipAddress:
+      type: string
+    userAgent:
+      type: string
+    description:
+      type: string
+    metadata:
+      type: object
+    createdAt:
+      type: string
+      format: date-time
+
+AuditLogList:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/components/schemas/AuditLog'
+    pagination:
+      $ref: '#/components/schemas/Pagination'
+
+

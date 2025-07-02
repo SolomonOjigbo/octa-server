@@ -94,6 +94,9 @@ model Product {
   brand           String?
   costPrice       Float
   sellingPrice    Float
+  isPrescription  Boolean @default(false)
+  controlledSubstance Boolean @default(false)
+  requiresRefrigeration Boolean @default(false)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -215,6 +218,12 @@ model Stock {
   storeId     String?
   warehouseId String?
   quantity    Int
+  minStockLevel Int?   
+  maxStockLevel Int?   
+  reorderPoint Int?    
+  isCritical Boolean?
+  batchNumber String?
+  expiryDate DateTime?   
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   product     Product  @relation(fields: [productId], references: [id])

@@ -1,58 +1,116 @@
-import { Request, Response } from "express";
-import { stockService } from "../services/stock.service";
-import { adjustStockSchema, incrementStockSchema } from "../validations";
-import { AdjustStockDto, IncrementStockDto } from "../types/stock.dto";
+// src/modules/stock/controllers/stock.controller.ts
+import { Request, Response, NextFunction } from "express";
+import {
+  StockLevelDto,
+  StockResponseDto,
+  StockAdjustmentDto,
+  StockIncrementDto,
+  AdjustStockDto,
+  IncrementStockDto,
+} from "../types/stock.dto";
+import { asyncHandler, UnauthorizedError } from "@middleware/errorHandler";
+import { NotFoundError } from "@middleware/errors";
+import { AppError } from "@common/constants/app.errors";
+import { stockService, StockService } from "../services/stock.service";
+import { HttpStatusCode } from "@common/constants/http";
+import { StockAdjustmentSchema, StockIncrementSchema } from "../validations";
 
 export class StockController {
-  async getStockLevels(req: Request, res: Response) {
+
+  getStockLevels = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.query.tenantId as string;
-    const filters: any = {};
-    if (req.query.storeId) filters.storeId = req.query.storeId as string;
-    if (req.query.warehouseId) filters.warehouseId = req.query.warehouseId as string;
-    if (req.query.productId) filters.productId = req.query.productId as string;
-    const stocks = await stockService.getStockLevels(tenantId, filters);
-    res.json(stocks);
-  }
+    const filters = {
+      productId: req.query.productId as string,
+      variantId: req.query.variantId as string,
+      storeId: req.query.storeId as string,
+      warehouseId: req.query.warehouseId as string,
+      minQuantity: req.query.minQuantity ? Number(req.query.minQuantity) : undefined,
+      maxQuantity: req.query.maxQuantity ? Number(req.query.maxQuantity) : undefined,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    };
 
-  async getStock(req: Request, res: Response) {
-    const tenantId = req.query.tenantId as string;
-    const productId = req.params.productId;
-    const storeId = req.query.storeId as string | undefined;
-    const warehouseId = req.query.warehouseId as string | undefined;
-    const stock = await stockService.getStock(tenantId, productId, storeId, warehouseId);
-    if (!stock) return res.status(404).json({ message: "Stock record not found" });
-    res.json(stock);
-  }
+    const result = await stockService.getStockLevels(tenantId, filters);
+    res.json({ success: true, ...result });
+  });
 
-  async adjustStockLevel(req: Request, res: Response) {
-    try {
-      const validated = adjustStockSchema.parse(req.body) as AdjustStockDto;
-      const stock = await stockService.adjustStockLevel(validated);
-      res.json(stock);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
-
-  async incrementStockLevel(req: Request, res: Response) {
-    try {
-      const validated = incrementStockSchema.parse(req.body) as IncrementStockDto;
-      const stock = await stockService.incrementStockLevel(validated);
-      res.json(stock);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
-    }
-  }
-
-  async deleteStock(req: Request, res: Response) {
+  getStock = asyncHandler(async (req, res) => {
+    if (!req.user) throw new UnauthorizedError();
+    
     const tenantId = req.query.tenantId as string;
     const productId = req.params.productId;
-    const storeId = req.query.storeId as string | undefined;
-    const warehouseId = req.query.warehouseId as string | undefined;
-    const result = await stockService.deleteStock(tenantId, productId, storeId, warehouseId);
-    if (result.count === 0) return res.status(404).json({ message: "Stock record not found" });
-    res.status(204).send();
-  }
+    
+    if (!tenantId) {
+      throw new AppError('Tenant ID is required', HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { variantId, storeId, warehouseId } = req.query;
+    const stock = await stockService.getStock(tenantId, productId, {
+      variantId: variantId as string,
+      storeId: storeId as string,
+      warehouseId: warehouseId as string
+    });
+
+    if (!stock) {
+      throw new NotFoundError('Stock record');
+    }
+
+    res.json({
+      success: true,
+      data: stock
+    });
+  });
+
+
+  adjustStockLevel = asyncHandler(async (req, res) => {
+    if (!req.user) throw new UnauthorizedError();
+    
+    const validated = StockAdjustmentSchema.parse(req.body) as AdjustStockDto;
+    const stock = await stockService.adjustStockLevel(validated, req.user.id);
+    
+    res.json({
+      success: true,
+      data: stock
+    });
+  });
+
+
+  incrementStockLevel = asyncHandler(async (req, res) => {
+    if (!req.user) throw new UnauthorizedError();
+    
+    const validated = StockIncrementSchema.parse(req.body) as IncrementStockDto;
+    const stock = await stockService.incrementStockLevel(validated, req.user.id);
+    
+    res.json({
+      success: true,
+      data: stock
+    });
+  });
+
+  deleteStock = asyncHandler(async (req, res) => {
+    if (!req.user) throw new UnauthorizedError();
+    
+    const tenantId = req.query.tenantId as string;
+    const productId = req.params.productId;
+    
+    if (!tenantId) {
+      throw new AppError('Tenant ID is required', HttpStatusCode.BAD_REQUEST);
+    }
+
+    const { storeId, warehouseId } = req.query;
+    await stockService.deleteStock(
+      tenantId, 
+      productId, 
+      {
+        storeId: storeId as string,
+        warehouseId: warehouseId as string
+      },
+      req.user.id
+    );
+    
+    res.status(HttpStatusCode.NO_CONTENT).send();
+  });
+
 }
 
 export const stockController = new StockController();

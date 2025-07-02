@@ -1,55 +1,61 @@
-export interface AuditLog {
+// Base Audit Types
+export interface BaseAuditLog {
   id: string;
   tenantId: string;
   userId?: string;
   action: string;
   entityType: string;
   entityId: string;
-  details?: any;
   createdAt: Date;
   updatedAt: Date;
-    metadata?: {
-        createdBy?: string;
-        updatedBy?: string;
-        ip?: string;
-        userAgent?: string;
-        targetTenantId?: string;
-        changes?: any;
-        status?: string;
-        name?: string;
-        type?: string;
-        sku?: string;
-        source?: string;
-        variants?:  string;
-        importedCount?: number;
-    };
 }
 
-export interface AuditLogCreateParams {
-  tenantId: string;
-  userId?: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  details?: any;
-    metadata?: {
-        createdBy?: string;
-        updatedBy?: string;
-        ip?: string;
-        userAgent?: string;
-        targetTenantId?: string;
-        changes?: any;
-        status?: string;
-        name?: string;
-        type?: string;
-        sku?: string;
-        source?: string;
-        variants?:  string;
-        importedCount?: number;
-        errorCount?: number;
-        productId?: string;
-    };
+// Module-Specific Metadata Types
+export interface UserAuditMetadata {
+  targetUserId?: string;
+  rolesChanged?: string[];
+  permissionsChanged?: string[];
 }
+
+export interface PharmacyAuditMetadata {
+  prescriptionId?: string;
+  medicationId: string;
+  quantity: number;
+  pharmacistId: string;
+  patientId?: string;
+  isControlled: boolean;
+  lotNumber?: string;
+}
+
+export interface StockAuditMetadata {
+  productId: string;
+  variantId?: string;
+  previousQuantity: number;
+  newQuantity: number;
+  location: {
+    type: 'store' | 'warehouse' | 'clinic';
+    id: string;
+  };
+  batchNumber?: string;
+}
+
+// Module-Specific Audit Log Types
+export interface UserAuditLog extends BaseAuditLog {
+  metadata: UserAuditMetadata;
+}
+
+export interface PharmacyAuditLog extends BaseAuditLog {
+  metadata: PharmacyAuditMetadata;
+}
+
+export interface StockAuditLog extends BaseAuditLog {
+  metadata: StockAuditMetadata;
+}
+
+export type AuditLog = UserAuditLog | PharmacyAuditLog | StockAuditLog;
+
+
+// Removed duplicate AuditLogCreateParams to resolve type conflict.
 
 export interface UserActivityParams {
   tenantId: string;
@@ -142,9 +148,83 @@ export enum UserActivity {
   UPDATE_ROLE = "UPDATE_ROLE",
   ASSIGN_ROLE = "ASSIGN_ROLE",
   DEACTIVATE_USER = "DEACTIVATE_USER",
-
-
+    DELETE_ROLE = "DELETE_ROLE",
 
 
   // Add more user activities as needed
+}
+
+// User Module Actions
+export enum UserAuditAction {
+  LOGIN = 'USER_LOGIN',
+  LOGOUT = 'USER_LOGOUT',
+  CREATE = 'USER_CREATE',
+  UPDATE = 'USER_UPDATE',
+  ROLE_ASSIGN = 'USER_ROLE_ASSIGN'
+
+}
+
+// Pharmacy Module Actions
+export enum PharmacyAuditAction {
+  PRESCRIPTION_FILLED = 'PHARMACY_PRESCRIPTION_FILLED',
+  CONTROLLED_ACCESS = 'PHARMACY_CONTROLLED_ACCESS',
+  COMPOUNDING = 'PHARMACY_COMPOUNDING'
+}
+
+// Stock Module Actions
+export enum StockAuditAction {
+  ADJUSTMENT = 'STOCK_ADJUSTMENT',
+  TRANSFER = 'STOCK_TRANSFER',
+  EXPIRY = 'STOCK_EXPIRY_PROCESSED'
+}
+
+// Unified Action Type
+export type AuditActionType = 
+  | UserAuditAction 
+  | PharmacyAuditAction 
+  | StockAuditAction;
+
+  export interface AuditLogCreateParams<T = any> {
+  tenantId: string;
+  userId?: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadata?: T;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+// Module-Specific Create Params
+export interface CreatePharmacyAuditParams {
+  tenantId: string;
+  userId: string;
+  action: PharmacyAuditAction;
+  metadata: PharmacyAuditMetadata;
+}
+
+export interface CreateStockAuditParams {
+  tenantId: string;
+  userId: string;
+  action: StockAuditAction;
+  metadata: StockAuditMetadata;
+}
+
+export interface ControlledSubstanceMetadata {
+  medicationId: string;
+  pharmacistId: string;
+  prescriptionId: string;
+  patientId: string;
+  quantity: number;
+  lotNumber: string;
+  witnessId?: string; // For dual-control requirements
+  systemCheckPassed: boolean;
+  discrepancyNotes?: string;
+}
+
+export enum ControlledSubstanceAuditAction {
+  DISPENSE = 'CONTROLLED_DISPENSE',
+  WASTAGE = 'CONTROLLED_WASTAGE',
+  INVENTORY_CHECK = 'CONTROLLED_INVENTORY_CHECK',
+  TRANSFER = 'CONTROLLED_TRANSFER'
 }

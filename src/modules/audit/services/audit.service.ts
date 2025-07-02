@@ -1,171 +1,125 @@
-import { PrismaClient } from "@prisma/client";
-import { 
-  AuditLogCreateParams, 
-  AuditLogQueryParams,
-  PaginatedAuditLogs,
-  UserActivityParams
-} from "../types/audit.dto";
-import { logger } from "../../../logging/logger";
-import { AuditAction } from "../types/audit.dto";
+// src/modules/audit/audit.service.ts
 
-const prisma = new PrismaClient();
+import prisma from '@shared/infra/database/prisma';
+import {
+  AuditAction,
+  AuditLogCreateParams,
+  AuditLogQueryParams,
+  BaseAuditLog,
+  PaginatedAuditLogs,
+} from '../types/audit.dto';
+import { cacheService } from '@cache/cache.service';
+import { AppError } from '@common/constants/app.errors';
+import { eventEmitter } from '@events/event.emitter';
+import { logger } from '@logging/logger';
 
 export class AuditService {
   /**
-   * General audit log creation method
+   * Create and log an audit entry.
    */
-  async log(params: AuditLogCreateParams) {
-    try {
-      const auditLog = await prisma.auditLog.create({
-        data: {
-          tenantId: params.tenantId,
-          userId: params.userId,
-          action: params.action,
-          entityType: params.entityType,
-          entityId: params.entityId,
-          details: params.details || {},
-          metadata: {
-            createdBy: params.userId,
-            updatedBy: params.userId,
-              ip: params.details?.ipAddress || 'unknown',
-        userAgent: params.details?.userAgent || 'unknown',
+  async log<T = unknown>(params: AuditLogCreateParams<T>): Promise<BaseAuditLog> {
+    const {
+      tenantId,
+      userId,
+      action,
+      entityType,
+      entityId,
+      ipAddress,
+      userAgent,
+      metadata,
+      // description,
+    } = params;
+
+    const auditLog = await prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId,
+        action,
+        entityType,
+        entityId,
+        // description,
+        ipAddress,
+        userAgent,
+        metadata: metadata ? JSON.stringify(metadata) : undefined,
+      },
+    });
+
+    const cacheKey = `audit:${auditLog.id}`;
+    await cacheService.set(cacheKey, auditLog, 3600); // 1 hour TTL
+
+    eventEmitter.emit('audit:log', auditLog);
+    return auditLog;
+  }
+
+  /**
+   * Fetch a single audit entry by ID.
+   */
+  async getById(id: string): Promise<BaseAuditLog> {
+    const cacheKey = `audit:${id}`;
+    const cached = await cacheService.get<BaseAuditLog>(cacheKey);
+    if (cached) return cached;
+
+    const log = await prisma.auditLog.findUnique({ where: { id } });
+    if (!log) throw new AppError('Audit log not found', 404);
+
+    await cacheService.set(cacheKey, log, 3600);
+    return log;
+  }
+
+  /**
+   * Paginate and filter audit logs.
+   */
+  async getAll(params: AuditLogQueryParams): Promise<PaginatedAuditLogs> {
+    const {
+      tenantId,
+      entityType,
+      entityId,
+      action,
+      userId,
+      dateFrom,
+      dateTo,
+      page = 1,
+      limit = 20,
+    } = params;
+
+    const where: any = {
+      tenantId,
+      ...(entityType && { entityType }),
+      ...(entityId && { entityId }),
+      ...(action && { action }),
+      ...(userId && { userId }),
+      ...(dateFrom || dateTo
+        ? {
+            createdAt: {
+              ...(dateFrom ? { gte: dateFrom } : {}),
+              ...(dateTo ? { lte: dateTo } : {}),
+            },
           }
-        },
-      });
+        : {}),
+    };
 
-      logger.info(`Audit log created`, {
-        auditLogId: auditLog.id,
-        action: params.action,
-        entityType: params.entityType,
-        entityId: params.entityId,
-      });
+    const [data, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
 
-      return auditLog;
-    } catch (error) {
-      logger.error(`Failed to create audit log`, {
-        error,
-        params,
-      });
-      throw error;
-    }
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
-
-  /**
-   * Specialized method for user activity logging
-   */
-  async logUserActivity(params: UserActivityParams) {
-    try {
-      const auditLog = await this.log({
-        tenantId: params.tenantId,
-        userId: params.userId,
-        action: params.action,
-        entityType: 'UserActivity',
-        entityId: params.entityId || 'system',
-        details: {
-          ...params.metadata,
-          ipAddress: params.ipAddress,
-          userAgent: params.userAgent
-        }
-      });
-
-      return auditLog;
-    } catch (error) {
-      logger.error(`Failed to log user activity`, {
-        error,
-        params,
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Query audit logs with pagination
-   */
-  async getAuditLogs(params: AuditLogQueryParams): Promise<PaginatedAuditLogs> {
-    try {
-      const page = params.page || 1;
-      const limit = params.limit || 20;
-      const skip = (page - 1) * limit;
-
-      const where: any = { tenantId: params.tenantId };
-
-      if (params.entityType) where.entityType = params.entityType;
-      if (params.entityId) where.entityId = params.entityId;
-      if (params.action) where.action = params.action;
-      if (params.userId) where.userId = params.userId;
-
-      if (params.dateFrom || params.dateTo) {
-        where.createdAt = {};
-        if (params.dateFrom) where.createdAt.gte = params.dateFrom;
-        if (params.dateTo) where.createdAt.lte = params.dateTo;
-      }
-
-      const [logs, total] = await Promise.all([
-        prisma.auditLog.findMany({
-          where,
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: limit,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        }),
-        prisma.auditLog.count({ where }),
-      ]);
-
-      return {
-        data: logs,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (error) {
-      logger.error(`Failed to fetch audit logs`, {
-        error,
-        params,
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get single audit log by ID
-   */
-  async getAuditLogById(id: string): Promise<any> {
-    try {
-      const log = await prisma.auditLog.findUnique({
-        where: { id },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      if (!log) {
-        throw new Error(`Audit log with ID ${id} not found`);
-      }
-
-      return log;
-    } catch (error) {
-      logger.error(`Failed to fetch audit log by ID`, { error, id });
-      throw error;
-    }
-  }
-
+  
+  
   /**
    * Purge logs older than specified days
    */
@@ -189,9 +143,34 @@ export class AuditService {
   }
 
   /**
-   * Convenience methods for common audit actions
+   * Log a generic user activity.
    */
-  async logLogin(userId: string, tenantId: string, metadata?: any) {
+  async logUserActivity(params: {
+    userId: string;
+    tenantId: string;
+    action: AuditAction;
+    metadata?: any;
+    ipAddress?: string;
+    userAgent?: string;
+    entityType?: string;
+    entityId?: string;
+  }) {
+    return this.log({
+      userId: params.userId,
+      tenantId: params.tenantId,
+      action: params.action,
+      metadata: params.metadata,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      entityType: params.entityType,
+      entityId: params.entityId,
+    });
+  }
+
+  /**
+   * Convenience methods for common audit actions
+  */
+ async logLogin(userId: string, tenantId: string, metadata?: any) {
     return this.logUserActivity({
       userId,
       tenantId,
@@ -199,7 +178,7 @@ export class AuditService {
       metadata
     });
   }
-
+  
   async logLogout(userId: string, tenantId: string, metadata?: any) {
     return this.logUserActivity({
       userId,
@@ -208,7 +187,7 @@ export class AuditService {
       metadata
     });
   }
-
+  
   async logPermissionDenied(userId: string, tenantId: string, metadata?: any) {
     return this.logUserActivity({
       userId,
@@ -218,5 +197,6 @@ export class AuditService {
     });
   }
 }
+
 
 export const auditService = new AuditService();

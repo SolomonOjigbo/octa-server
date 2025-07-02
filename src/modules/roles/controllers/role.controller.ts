@@ -11,7 +11,7 @@ import {
   RoleResponseDto,
 } from "../types/role.dto";
 import { auditService } from "../../audit/services/audit.service";
-import { UserActivity } from "../../audit/types/audit.dto";
+import { AuditAction, UserActivity } from "../../audit/types/audit.dto";
 
 export class RoleController {
   async createRole(req: Request, res: Response) {
@@ -22,7 +22,7 @@ export class RoleController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId: req.user?.tenantId,
-        action: UserActivity.CREATE_ROLE,
+        action: AuditAction.ROLE_CREATED,
         entityId: role.id,
         metadata: { 
           name: role.name,
@@ -47,7 +47,7 @@ export class RoleController {
       await auditService.logUserActivity({
         userId: req.user?.id,
         tenantId: req.user?.tenantId,
-        action: UserActivity.ASSIGN_ROLE,
+        action: AuditAction.ROLE_ASSIGNED,
         entityId: userRole.id,
         metadata: { 
           userId: validated.userId,

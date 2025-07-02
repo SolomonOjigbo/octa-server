@@ -36,6 +36,7 @@
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
     "express-rate-limit": "^6.7.0",
     "helmet": "^7.0.0",
     "ioredis": "^5.3.2",
@@ -80,7 +81,9 @@
   "_moduleAliases": {
     "@modules": "dist/modules",
     "@shared": "dist/shared",
-    "@database": "dist/database",
+    "@events": "dist/events",
+    "@cache": "dist/cache",
+    "@database": "dist/shared/database",
     "@middleware": "dist/middleware",
     "@routes": "dist/routes",
     "@config": "dist/shared/config"

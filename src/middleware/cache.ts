@@ -14,6 +14,7 @@ export class RedisClient {
   private static instance: RedisClient;
   private client: ReturnType<typeof createClient>;
   private isConnected: boolean = false;
+    keys: any;
 
   private constructor(options?: RedisClientOptions) {
     this.client = createClient({
