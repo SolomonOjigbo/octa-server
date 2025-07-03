@@ -26,6 +26,20 @@ export interface PharmacyAuditMetadata {
   isControlled: boolean;
   lotNumber?: string;
 }
+export interface PurchaseOrderAuditMetadata {
+  requestedBy?: string;
+  updatedBy?: string;
+  linkedBy?: string;
+    statusChange?: {
+    from: string;
+    to: string;
+  };
+  itemsChanged?: {
+    added?: string[];
+    removed?: string[];
+    updated?: string[];
+  };
+}
 
 export interface StockAuditMetadata {
   productId: string;
@@ -51,8 +65,11 @@ export interface PharmacyAuditLog extends BaseAuditLog {
 export interface StockAuditLog extends BaseAuditLog {
   metadata: StockAuditMetadata;
 }
+export interface PurchaseOrderAuditLog extends BaseAuditLog {
+  metadata: PurchaseOrderAuditMetadata;
+}
 
-export type AuditLog = UserAuditLog | PharmacyAuditLog | StockAuditLog;
+export type AuditLog = UserAuditLog | PharmacyAuditLog | StockAuditLog | PurchaseOrderAuditLog;
 
 
 // Removed duplicate AuditLogCreateParams to resolve type conflict.
@@ -177,12 +194,22 @@ export enum StockAuditAction {
   TRANSFER = 'STOCK_TRANSFER',
   EXPIRY = 'STOCK_EXPIRY_PROCESSED'
 }
+// PurchaseOrder Module Actions
+export enum PurchaseOrderAuditAction {
+    CREATED = 'PURCHASE_ORDER_CREATED',
+    UPDATED = 'PURCHASE_ORDER_UPDATED',
+    DELETED = 'PURCHASE_ORDER_DELETED',
+    RECEIVED = 'PURCHASE_ORDER_RECEIVED',
+    CANCELLED = 'PURCHASE_ORDER_CANCELLED'
+
+}
 
 // Unified Action Type
 export type AuditActionType = 
   | UserAuditAction 
   | PharmacyAuditAction 
-  | StockAuditAction;
+  | StockAuditAction
+  | PurchaseOrderAuditAction;
 
   export interface AuditLogCreateParams<T = any> {
   tenantId: string;

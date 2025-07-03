@@ -144,7 +144,7 @@ Pagination:
     totalPages:
       type: integer
 
-# --- Paths ---
+# --- Product Paths ---
 
 /product-categories:
   get:
@@ -502,40 +502,7 @@ InventoryResponseDto:
       type: string
       format: date-time
 
-# --- Stock Schemas ---
-StockDto:
-  type: object
-  properties:
-    id:
-      type: string
-    tenantId:
-      type: string
-    productId:
-      type: string
-    variantId:
-      type: string
-    storeId:
-      type: string
-    warehouseId:
-      type: string
-    quantity:
-      type: integer
-    minStockLevel:
-      type: integer
-    maxStockLevel:
-      type: integer
-    reorderPoint:
-      type: integer
-    batchNumber:
-      type: string
-    expiryDate:
-      type: string
-      format: date-time
-    updatedAt:
-      type: string
-      format: date-time
-
-# --- Inventory Paths ---
+      # --- Inventory Paths ---
 /inventory:
   post:
     tags: [Inventory]
@@ -626,6 +593,40 @@ StockDto:
       204:
         description: Deleted
 
+# --- Stock Schemas ---
+StockDto:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    productId:
+      type: string
+    variantId:
+      type: string
+    storeId:
+      type: string
+    warehouseId:
+      type: string
+    quantity:
+      type: integer
+    minStockLevel:
+      type: integer
+    maxStockLevel:
+      type: integer
+    reorderPoint:
+      type: integer
+    batchNumber:
+      type: string
+    expiryDate:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+
 # --- Stock Paths ---
 /stocks:
   get:
@@ -712,6 +713,898 @@ StockDto:
     responses:
       200:
         description: Stock incremented
+
+
+# --- Stock Transfer Schemas ---
+StockTransferItem:
+  type: object
+  properties:
+    productId:
+      type: string
+    quantity:
+      type: number
+    batchNumber:
+      type: string
+    expiryDate:
+      type: string
+      format: date-time
+
+CreateStockTransferDto:
+  type: object
+  required:
+    - tenantId
+    - productId
+    - quantity
+    - transferType
+    - requestedBy
+  properties:
+    tenantId:
+      type: string
+    fromStoreId:
+      type: string
+    fromWarehouseId:
+      type: string
+    toTenantId:
+      type: string
+    toStoreId:
+      type: string
+    toWarehouseId:
+      type: string
+    productId:
+      type: string
+    quantity:
+      type: number
+    transferType:
+      type: string
+      enum: [intra-tenant, cross-tenant]
+    b2bConnectionId:
+      type: string
+    requestedBy:
+      type: string
+    notes:
+      type: string
+    batchNumber:
+      type: string
+    expiryDate:
+      type: string
+      format: date-time
+
+StockTransferResponse:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    fromStore:
+      $ref: '#/components/schemas/LocationReference'
+    fromWarehouse:
+      $ref: '#/components/schemas/LocationReference'
+    toTenant:
+      $ref: '#/components/schemas/TenantReference'
+    toStore:
+      $ref: '#/components/schemas/LocationReference'
+    toWarehouse:
+      $ref: '#/components/schemas/LocationReference'
+    product:
+      $ref: '#/components/schemas/ProductReference'
+    quantity:
+      type: number
+    transferType:
+      type: string
+    b2bConnection:
+      $ref: '#/components/schemas/B2BConnectionReference'
+    requestedBy:
+      $ref: '#/components/schemas/UserReference'
+    approvedBy:
+      $ref: '#/components/schemas/UserReference'
+    notes:
+      type: string
+    status:
+      type: string
+      enum: [pending, approved, completed, rejected, cancelled]
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+PaginatedStockTransfers:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/components/schemas/StockTransferResponse'
+    pagination:
+      $ref: '#/components/schemas/Pagination'
+
+# --- Purchase Order Schemas ---
+PurchaseOrderItem:
+  type: object
+  properties:
+    id:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    productSku:
+      type: string
+    quantity:
+      type: number
+    costPrice:
+      type: number
+    batchNumber:
+      type: string
+    expiryDate:
+      type: string
+      format: date-time
+    isControlled:
+      type: boolean
+
+PurchaseOrderPayment:
+  type: object
+  properties:
+    id:
+      type: string
+    amount:
+      type: number
+    method:
+      type: string
+    status:
+      type: string
+    paidAt:
+      type: string
+      format: date-time
+
+PurchaseOrderResponse:
+  type: object
+  properties:
+    id:
+      type: string
+    tenantId:
+      type: string
+    supplier:
+      $ref: '#/components/schemas/SupplierReference'
+    store:
+      $ref: '#/components/schemas/LocationReference'
+    warehouse:
+      $ref: '#/components/schemas/LocationReference'
+    orderDate:
+      type: string
+      format: date-time
+    receivedDate:
+      type: string
+      format: date-time
+    status:
+      type: string
+      enum: [pending, approved, received, cancelled]
+    totalAmount:
+      type: number
+    paidAmount:
+      type: number
+    balance:
+      type: number
+    notes:
+      type: string
+    items:
+      type: array
+      items:
+        $ref: '#/components/schemas/PurchaseOrderItem'
+    payments:
+      type: array
+      items:
+        $ref: '#/components/schemas/PurchaseOrderPayment'
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+PaginatedPurchaseOrders:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/components/schemas/PurchaseOrderResponse'
+    pagination:
+      $ref: '#/components/schemas/Pagination'
+
+# --- Reference Schemas ---
+LocationReference:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+
+TenantReference:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+
+UserReference:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+
+ProductReference:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    sku:
+      type: string
+    isControlled:
+      type: boolean
+
+B2BConnectionReference:
+  type: object
+  properties:
+    id:
+      type: string
+    status:
+      type: string
+
+SupplierReference:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+
+# --- Stock Transfer Paths ---
+/stock-transfers:
+  post:
+    tags: [StockTransfer]
+    summary: Create a new stock transfer request
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateStockTransferDto'
+    responses:
+      201:
+        description: Stock transfer created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      400:
+        description: Validation error
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+  get:
+    tags: [StockTransfer]
+    summary: List stock transfers with filtering
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: tenantId
+        in: query
+        schema:
+          type: string
+      - name: toTenantId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, approved, completed, rejected, cancelled]
+      - name: storeId
+        in: query
+        schema:
+          type: string
+      - name: warehouseId
+        in: query
+        schema:
+          type: string
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: transferType
+        in: query
+        schema:
+          type: string
+          enum: [intra-tenant, cross-tenant]
+      - name: requestedBy
+        in: query
+        schema:
+          type: string
+      - name: approvedBy
+        in: query
+        schema:
+          type: string
+      - name: fromDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: toDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+    responses:
+      200:
+        description: List of stock transfers
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaginatedStockTransfers'
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+/stock-transfers/controlled:
+  post:
+    tags: [StockTransfer]
+    summary: Create a controlled substance transfer (additional validations)
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateStockTransferDto'
+    responses:
+      201:
+        description: Controlled substance transfer created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      400:
+        description: Validation error or missing required fields for controlled substances
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+/stock-transfers/{transferId}/approve:
+  post:
+    tags: [StockTransfer]
+    summary: Approve a stock transfer
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: transferId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              approvedBy:
+                type: string
+              notes:
+                type: string
+    responses:
+      200:
+        description: Transfer approved and completed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      400:
+        description: Validation error or transfer not pending
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Transfer not found
+
+/stock-transfers/{transferId}/reject:
+  post:
+    tags: [StockTransfer]
+    summary: Reject a stock transfer
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: transferId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              rejectedBy:
+                type: string
+              notes:
+                type: string
+    responses:
+      200:
+        description: Transfer rejected
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      400:
+        description: Validation error or transfer not pending
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Transfer not found
+
+/stock-transfers/{transferId}/cancel:
+  post:
+    tags: [StockTransfer]
+    summary: Cancel a stock transfer
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: transferId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              cancelledBy:
+                type: string
+              notes:
+                type: string
+    responses:
+      200:
+        description: Transfer cancelled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      400:
+        description: Validation error or transfer not pending
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Transfer not found
+
+/stock-transfers/{transferId}:
+  get:
+    tags: [StockTransfer]
+    summary: Get a stock transfer by ID
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: transferId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Stock transfer details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/StockTransferResponse'
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Transfer not found
+
+  delete:
+    tags: [StockTransfer]
+    summary: Delete a stock transfer
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: transferId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      204:
+        description: Transfer deleted
+      400:
+        description: Cannot delete completed transfer
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Transfer not found
+
+# --- Purchase Order Paths ---
+/purchase-orders:
+  post:
+    tags: [PurchaseOrder]
+    summary: Create a new purchase order
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePurchaseOrderDto'
+    responses:
+      201:
+        description: Purchase order created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+  get:
+    tags: [PurchaseOrder]
+    summary: List purchase orders with filtering
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: supplierId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, approved, received, cancelled]
+      - name: storeId
+        in: query
+        schema:
+          type: string
+      - name: warehouseId
+        in: query
+        schema:
+          type: string
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: fromDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: toDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+    responses:
+      200:
+        description: List of purchase orders
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaginatedPurchaseOrders'
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+/purchase-orders/controlled:
+  post:
+    tags: [PurchaseOrder]
+    summary: Create a controlled substance purchase order (additional validations)
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePurchaseOrderDto'
+    responses:
+      201:
+        description: Controlled substance purchase order created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error or missing required fields for controlled substances
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+
+/purchase-orders/{id}:
+  get:
+    tags: [PurchaseOrder]
+    summary: Get a purchase order by ID
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Purchase order details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Purchase order not found
+
+  put:
+    tags: [PurchaseOrder]
+    summary: Update a purchase order
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdatePurchaseOrderDto'
+    responses:
+      200:
+        description: Purchase order updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error or cannot update received/cancelled PO
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Purchase order not found
+
+/purchase-orders/{id}/cancel:
+  post:
+    tags: [PurchaseOrder]
+    summary: Cancel a purchase order
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              cancelledBy:
+                type: string
+              reason:
+                type: string
+    responses:
+      200:
+        description: Purchase order cancelled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error or cannot cancel received PO
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Purchase order not found
+
+/purchase-orders/{id}/receive:
+  post:
+    tags: [PurchaseOrder]
+    summary: Receive a purchase order (update inventory/stock)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Purchase order received and inventory updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error or PO already received/cancelled
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Purchase order not found
+
+/purchase-orders/{id}/link-payment:
+  post:
+    tags: [PurchaseOrder]
+    summary: Link a payment to a purchase order
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              paymentId:
+                type: string
+              amount:
+                type: number
+    responses:
+      200:
+        description: Payment linked to purchase order
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: '#/components/schemas/PurchaseOrderResponse'
+      400:
+        description: Validation error or payment already linked
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden (missing permissions)
+      404:
+        description: Purchase order or payment not found
 
 
 # --- Audit Schemas ---

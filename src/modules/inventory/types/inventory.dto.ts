@@ -32,6 +32,8 @@ export interface InventoryMovementDto {
   id: string;
   tenantId: string;
   userId?: string;
+  storeId?: string;
+  warehouseId?: string;
   productId: string;
   variantId?: string;
   batchNumber?: string;
@@ -98,7 +100,7 @@ export interface CreateInventoryMovementDto {
   variantId?: string;
   batchNumber?: string;
   quantity: number;
-  movementType: StockMovementType;
+  movementType: StockMovementType.TRANSFER_IN | StockMovementType.TRANSFER_OUT | StockMovementType.PURCHASE | StockMovementType.SALE | StockMovementType.ADJUSTMENT | StockMovementType.RETURN | StockMovementType.WASTAGE | StockMovementType.EXPIRE | StockMovementType.DAMAGE | StockMovementType.RECALL | StockMovementType.COMPOUNDING | StockMovementType.DONATION | StockMovementType.SAMPLES;
   source?: InventoryLocation;
   destination?: InventoryLocation;
   reference?: string;

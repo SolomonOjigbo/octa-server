@@ -13,6 +13,7 @@ import { logger } from "@logging/logger";
 const prisma = new PrismaClient();
 
 export class InventoryService {
+ 
   private readonly INVENTORY_CACHE_TTL = 60 * 15; // 15 minutes
 
   async recordMovement(dto: InventoryMovementDto): Promise<InventoryResponseDto> {

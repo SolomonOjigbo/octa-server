@@ -5,6 +5,9 @@ import { logger } from '../logging/logger';
 import { StockLevelDto } from '../modules/stock/types/stock.dto';
 
 export class CacheService {
+  invalidate(arg0: string) {
+    throw new Error("Method not implemented.");
+  }
   private readonly DEFAULT_TTL = 60 * 5; // 5 minutes
 
   constructor(private readonly redis = redisClient) {}
@@ -134,6 +137,7 @@ export class CacheService {
       logger.error('Inventory cache invalidation failed', { error });
     }
   }
+//   async invalidate
 }
 
 export const cacheService = new CacheService();
