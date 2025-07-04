@@ -1,71 +1,155 @@
-// modules/purchaseOrder/types/purchaseOrder.dto.ts
-import { z } from "zod";
-import { createPurchaseOrderItemSchema, createPurchaseOrderSchema, updatePurchaseOrderSchema, cancelPurchaseOrderSchema, linkPaymentSchema } from "../validations";
+// src/modules/purchaseOrder/types/purchaseOrder.dto.ts
 
-// Base Types
-export interface PurchaseOrderItemResponseDto {
-  id: string;
+export type PurchaseOrderStatus = 'pending' | 'approved' | 'received' | 'cancelled';
+
+export interface PurchaseOrderItemDto {
   productId: string;
-  productName: string;
-  productSku: string;
   quantity: number;
   costPrice: number;
   batchNumber?: string;
   expiryDate?: Date;
-  isControlled: boolean;
+  isControlled?: boolean;
+}
+
+
+export interface UpdatePurchaseOrderDto {
+  status?: PurchaseOrderStatus;
+  notes?: string;
+  receivedDate?: Date;
+  updatedBy: string;
+}
+
+export interface CancelPurchaseOrderDto {
+  reason?: string;
+  cancelledBy: string;
+}
+
+export interface LinkPaymentDto {
+  paymentId: string;
+  amount: number;
+  linkedBy: string;
+}
+
+export interface CreatePurchaseOrderDto {
+  tenantId: string;
+  supplierId: string;
+  storeId?: string;
+  warehouseId?: string;
+  orderDate: Date | string;
+  totalAmount: number;
+  notes?: string;
+  requestedBy: string;
+  items: {
+    productId: string;
+    quantity: number;
+    costPrice: number;
+    batchNumber?: string;
+    expiryDate?: Date | string;
+    isControlled?: boolean;
+  }[];
+}
+
+export interface UpdatePurchaseOrderDto {
+  status?: 'pending' | 'approved' | 'received' | 'cancelled';
+  notes?: string;
+  receivedDate?: Date;
+  updatedBy: string;
+}
+
+export interface CancelPurchaseOrderDto {
+  reason?: string;
+  cancelledBy: string;
+}
+
+export interface LinkPaymentDto {
+  paymentId: string;
+  amount: number;
+  linkedBy: string;
+}
+
+export interface ApprovePurchaseOrderDto {
+  approvedBy: string;
+  notes?: string;
+}
+
+export interface CreateControlledSubstanceOrderDto {
+  pharmacistId: string;
+  tenantId: string;
+  supplierId: string;
+  storeId?: string;
+  warehouseId?: string;
+  orderDate: Date | string;
+  totalAmount: number;
+  notes?: string;
+  requestedBy: string;
+  items: {
+    productId: string;
+    quantity: number;
+    costPrice: number;
+    batchNumber?: string;
+    expiryDate?: string;
+    isControlled?: boolean;
+  }[];
+}
+
+export interface ListPendingOrdersDto {
+  tenantId: string;
+  storeId?: string;
+  warehouseId?: string;
+  status?: PurchaseOrderStatus;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  supplierId?: string;
+  requestedBy?: string;
+  limit?: number;
+  page?: number;
 }
 
 export interface PurchaseOrderResponseDto {
   id: string;
   tenantId: string;
-  supplier: {
-    id: string;
-    name: string;
-  };
-  store?: {
-    id: string;
-    name: string;
-  };
-  warehouse?: {
-    id: string;
-    name: string;
-  };
+  supplierId: string;
+  storeId?: string;
+  warehouseId?: string;
   orderDate: Date;
-  receivedDate?: Date;
-  status: "pending" | "approved" | "received" | "cancelled";
   totalAmount: number;
-  paidAmount: number;
-  balance: number;
+  paidAmount?: number;
+  balance?: number;
+  paymentStatus?: 'pending' | 'paid' | 'partially_paid';
+  approvedBy?: string;
   notes?: string;
-  items: PurchaseOrderItemResponseDto[];
-  payments: {
-    id: string;
-    amount: number;
-    method: string;
-    status: string;
-    paidAt?: Date;
-  }[];
+  requestedBy: string;
+  status: PurchaseOrderStatus;
+  items: PurchaseOrderItemDto[];
+  createdAt: Date;
+  updatedAt: Date;
+  receivedDate?: Date;
+  cancelledBy?: string;
+  cancelledAt?: Date;
+}
+
+export interface PurchaseOrderItemResponseDto {
+  id: string;
+  productId: string;
+  quantity: number;
+  costPrice: number;
+  batchNumber?: string;
+  expiryDate?: Date;
+  isControlled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Request DTOs (infer from Zod schemas)
-export type CreatePurchaseOrderItemDto = z.infer<typeof createPurchaseOrderItemSchema>;
-export type CreatePurchaseOrderDto = z.infer<typeof createPurchaseOrderSchema>;
-export type UpdatePurchaseOrderDto = z.infer<typeof updatePurchaseOrderSchema>;
-export type CancelPurchaseOrderDto = z.infer<typeof cancelPurchaseOrderSchema>;
-export type LinkPaymentDto = z.infer<typeof linkPaymentSchema>;
-
-// Filter DTOs
 export interface ListPurchaseOrdersDto {
   tenantId: string;
-  supplierId?: string;
-  status?: "pending" | "approved" | "received" | "cancelled";
   storeId?: string;
   warehouseId?: string;
   productId?: string;
-  fromDate?: Date;
-  toDate?: Date;
-  page?: number;
+  status?: PurchaseOrderStatus;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  supplierId?: string;
+  requestedBy?: string;
   limit?: number;
+  page?: number;
 }

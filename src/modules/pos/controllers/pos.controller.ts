@@ -7,16 +7,19 @@ import {
   createPOSPaymentSchema,
   createSalesReturnSchema,
   createCashDropSchema,
+  reconcileCashSchema,
 } from "../validations";
-import { ClosePOSSessionDto, CreateCashDropDto, CreatePOSPaymentDto, CreatePOSTransactionDto, CreateSalesReturnDto, OpenPOSSessionDto } from "../types/pos.dto";
-import { PrismaClient } from "@prisma/client";
+import { CreateCashDropDto, CreatePOSPaymentDto, CreatePOSTransactionDto, CreateSalesReturnDto, OpenPOSSessionDto } from "../types/pos.dto";
+import prisma from "@shared/infra/database/prisma";
+import { AppError } from "@common/constants/app.errors";
+import { HttpStatusCode } from "@common/constants/http";
 
-const prisma = new PrismaClient();
 
 export class POSController {
   async openSession(req: Request, res: Response) {
     try {
-      const validated = openPOSSessionSchema.parse(req.body) as OpenPOSSessionDto;
+       const userId = req.user?.id;
+      const validated = openPOSSessionSchema.parse({...req.body, openedBy:userId}) as OpenPOSSessionDto;
       const session = await posService.openSession(validated);
       res.status(201).json(session);
     } catch (err) {
@@ -26,7 +29,11 @@ export class POSController {
 
   async closeSession(req: Request, res: Response) {
     try {
-      const validated = closePOSSessionSchema.parse(req.body) as ClosePOSSessionDto;
+      const parsed = closePOSSessionSchema.parse(req.body) as any;
+      const validated = {
+        ...parsed,
+        closedAt: parsed.closedAt ? new Date(parsed.closedAt) : undefined,
+      };
       const session = await posService.closeSession(validated);
       res.json(session);
     } catch (err) {
@@ -37,7 +44,8 @@ export class POSController {
   async getSessions(req: Request, res: Response) {
     const tenantId = req.query.tenantId as string;
     const storeId = req.query.storeId as string | undefined;
-    const sessions = await posService.getSessions(tenantId, storeId);
+    const filter = { storeId };
+    const sessions = await posService.getSessions(tenantId, filter);
     res.json(sessions);
   }
 
@@ -54,31 +62,42 @@ export class POSController {
     const tenantId = req.query.tenantId as string;
     const storeId = req.query.storeId as string | undefined;
     const sessionId = req.query.sessionId as string | undefined;
-    const transactions = await posService.getTransactions(tenantId, storeId, sessionId);
+    const query = {
+      storeId,
+      sessionId
+    }
+    const transactions = await posService.getTransactions(tenantId, query);
     res.json(transactions);
   }
 
-  async createPayment(req: Request, res: Response) {
-    try {
-      const validated = createPOSPaymentSchema.parse(req.body) as CreatePOSPaymentDto;
+    async createPayment(req: Request, res: Response) {
+      const userId = req.user?.id;
+      const validated = createPOSPaymentSchema.parse({
+        ...req.body,
+        processedBy: userId,
+      }) as CreatePOSPaymentDto;
+
       const payment = await posService.createPayment(validated);
       res.status(201).json(payment);
-    } catch (err) {
-      res.status(400).json({ message: err.errors || err.message });
     }
-  }
+
 
   async getPayments(req: Request, res: Response) {
     const tenantId = req.query.tenantId as string;
     const transactionId = req.query.transactionId as string | undefined;
-    const payments = await posService.getPayments(tenantId, transactionId);
+    const filter = transactionId ? { transactionId } : {};
+    const payments = await posService.getPayments(tenantId, filter);
     res.json(payments);
   }
 
 
   async createSalesReturn(req: Request, res: Response) {
   try {
-    const validated = createSalesReturnSchema.parse(req.body) as CreateSalesReturnDto;
+     const userId = req.user?.id;
+    const validated = createSalesReturnSchema.parse({
+      ...req.body,
+      processedBy: userId,
+    }) as CreateSalesReturnDto;
     const returnTxn = await posService.createSalesReturn(validated);
     res.status(201).json(returnTxn);
   } catch (err) {
@@ -95,26 +114,6 @@ async createCashDrop(req: Request, res: Response) {
     res.status(400).json({ message: err.errors || err.message });
   }
 }
-
-// Override createTransaction to enforce stock check
-// async createTransaction(req: Request, res: Response) {
-//   try {
-//     const validated = createPOSTransactionSchema.parse(req.body) as CreatePOSTransactionDto;
-//     // Stock check BEFORE creating transaction
-//     await posService.checkStockBeforeSale(
-//       validated.tenantId,
-//       validated.storeId,
-//       validated.items.map(i => ({
-//         productId: i.productId,
-//         quantity: i.quantity,
-//       }))
-//     );
-//     const transaction = await posService.createTransaction(validated);
-//     res.status(201).json(transaction);
-//   } catch (err) {
-//     res.status(400).json({ message: err.errors || err.message });
-//   }
-// }
 
 async createTransaction(req: Request, res: Response) {
     try {
@@ -177,11 +176,30 @@ async getSessionPaymentsBreakdown(req: Request, res: Response) {
   }
 
   async reconcileSessionCash(req: Request, res: Response) {
-    const { sessionId } = req.params;
-    const { declaredClosingCash } = req.body;
-    const result = await posService.reconcileSessionCash(sessionId, declaredClosingCash);
-    res.json(result);
+    try {
+      const { sessionId } = req.params;
+      const { declaredClosingCash } = reconcileCashSchema.parse(req.body);
+      const result = await posService.reconcileSessionCash(sessionId, declaredClosingCash);
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof AppError) {
+        return res.status(HttpStatusCode.CONFLICT).json({ message: error.message, code: error.code });
+      }
+      res.status(400).json({ message: "Failed to reconcile cash", details: error.errors || error.message });
+    }
   }
+
+
+  async getSessionSummary(req: Request, res: Response) {
+    const { sessionId } = req.params;
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) return res.status(403).json({ error: 'Unauthorized tenant context' });
+
+    const summary = await posService.getSessionSummary(sessionId, tenantId);
+    res.json({ success: true, data: summary });
+  }
+
 
 }
 

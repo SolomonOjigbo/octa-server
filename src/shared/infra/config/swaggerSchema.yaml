@@ -1682,4 +1682,62 @@ AuditLogList:
     pagination:
       $ref: '#/components/schemas/Pagination'
 
+  POSSessionSummary:
+    type: object
+    properties:
+      sessionId:
+        type: string
+      openedBy:
+        type: string
+      openedAt:
+        type: string
+        format: date-time
+      closedAt:
+        type: string
+        format: date-time
+        nullable: true
+      totalSales:
+        type: number
+        format: float
+      totalPayments:
+        type: number
+        format: float
+      totalReturns:
+        type: number
+        format: float
+      totalCashDrops:
+        type: number
+        format: float
+      totalReconciled:
+        type: number
+        format: float
+  paths:
+    /pos/sessions/{sessionId}/summary:
+    get:
+      tags: [POS]
+      summary: Get daily POS session summary (sales, returns, cash)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Summary data for session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/POSSessionSummary'
+        404:
+          description: POS session not found
+
+
+
 

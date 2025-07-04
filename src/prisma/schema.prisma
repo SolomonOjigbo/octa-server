@@ -15,7 +15,6 @@ model Tenant {
   contactEmail      String?
   branding          Json?
   settings          Json?
-  // ... other tenant fields
   products   Product[]
   categories ProductCategory[]
   stores     Store[]

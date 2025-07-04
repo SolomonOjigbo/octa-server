@@ -7,7 +7,7 @@ import {
   LinkPaymentDto,
   PurchaseOrderResponseDto,
   ListPurchaseOrdersDto,
-  PurchaseOrderItemResponseDto
+  ApprovePurchaseOrderDto,
 } from "../types/purchaseOrder.dto";
 import { inventoryService } from "../../inventory/services/inventory.service";
 import { stockService } from "../../stock/services/stock.service";
@@ -24,7 +24,7 @@ const prisma = new PrismaClient();
 export class PurchaseOrderService {
   private readonly CACHE_TTL = 60 * 10; // 10 minutes
 
-  async createPurchaseOrder(dto: CreatePurchaseOrderDto): Promise<PurchaseOrderResponseDto> {
+  async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
     return prisma.$transaction(async (tx) => {
       // Validate all products exist and are active
       for (const item of dto.items) {
@@ -116,7 +116,8 @@ export class PurchaseOrderService {
     });
   }
 
-  async receivePurchaseOrder(tenantId: string, id: string, userId: string): Promise<PurchaseOrderResponseDto> {
+  async receivePurchaseOrder(tenantId: string, id: string, userId: string) {
+
     return prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.findUnique({
         where: { id },
@@ -266,8 +267,8 @@ export class PurchaseOrderService {
         ...(filters.status && { status: filters.status }),
         ...(filters.storeId && { storeId: filters.storeId }),
         ...(filters.warehouseId && { warehouseId: filters.warehouseId }),
-        ...(filters.fromDate && { orderDate: { gte: filters.fromDate } }),
-        ...(filters.toDate && { orderDate: { lte: filters.toDate } }),
+        ...(filters.startDate && { orderDate: { gte: filters.startDate } }),
+        ...(filters.endDate && { orderDate: { lte: filters.endDate } }),
       };
 
       // Filter by product if specified
@@ -501,6 +502,35 @@ export class PurchaseOrderService {
     });
   }
 
+async approvePurchaseOrder(id: string, dto: ApprovePurchaseOrderDto) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.purchaseOrder.findUnique({ where: { id } });
+
+    if (!existing) throw new AppError("Not found", 404);
+    if (existing.status !== "pending") throw new AppError("Only pending orders can be approved", 400);
+
+    const updated = await tx.purchaseOrder.update({
+      where: { id },
+      data: {
+        status: "approved",
+        updatedAt: new Date(),
+      },
+    });
+
+    await auditService.log({
+      userId: dto.approvedBy,
+      tenantId: existing.tenantId,
+      action: "PURCHASE_ORDER_APPROVED",
+      entityType: "PurchaseOrder",
+      entityId: id,
+    });
+
+    eventEmitter.emit("purchaseOrder:approved", { poId: id, approvedBy: dto.approvedBy });
+    return this.toResponseDto(updated);
+  });
+}
+
+
   async linkPayment(id: string, dto: LinkPaymentDto): Promise<PurchaseOrderResponseDto> {
     return prisma.$transaction(async (tx) => {
       // Verify payment exists
@@ -588,18 +618,9 @@ export class PurchaseOrderService {
     return {
       id: po.id,
       tenantId: po.tenantId,
-      supplier: {
-        id: po.supplierId,
-        name: po.supplier?.name || 'Unknown Supplier'
-      },
-      store: po.storeId ? {
-        id: po.storeId,
-        name: po.store?.name || 'Unknown Store'
-      } : undefined,
-      warehouse: po.warehouseId ? {
-        id: po.warehouseId,
-        name: po.warehouse?.name || 'Unknown Warehouse'
-      } : undefined,
+      supplierId: po.supplierId,
+      storeId: po.storeId,
+      warehouseId: po.warehouseId,
       orderDate: po.orderDate,
       receivedDate: po.receivedDate || undefined,
       status: po.status,
@@ -618,13 +639,7 @@ export class PurchaseOrderService {
         expiryDate: item.expiryDate || undefined,
         isControlled: item.product?.isControlled || false
       })),
-      payments: po.payments.map((payment: any) => ({
-        id: payment.id,
-        amount: payment.amount,
-        method: payment.method,
-        status: payment.status,
-        paidAt: payment.paidAt || undefined
-      })),
+      requestedBy: po.requestedBy || 'Unknown',
       createdAt: po.createdAt,
       updatedAt: po.updatedAt
     };

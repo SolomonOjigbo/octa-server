@@ -236,6 +236,16 @@ export enum B2BAuditAction {
     CONNECTION_HISTORY_FETCHED = 'B2B_CONNECTION_HISTORY_FETCHED',
 }
 
+export enum POSAuditAction {
+    OPEN_POS_SESSION = 'POS_OPEN_SESSION',
+    CLOSE_POS_SESSION = 'POS_CLOSE_SESSION',
+    PROCESS_PAYMENT = 'POS_PROCESS_PAYMENT',
+    REFUND_PAYMENT = 'POS_REFUND_PAYMENT',
+    VOID_TRANSACTION = 'POS_VOID_TRANSACTION',
+    APPLY_DISCOUNT = 'POS_APPLY_DISCOUNT',
+    RECONCILE_POS_SESSION = 'POS_RECONCILE_SESSION',
+}
+
 
 // Unified Action Type
 export type AuditActionType = 
@@ -243,7 +253,8 @@ export type AuditActionType =
   | PharmacyAuditAction 
   | StockAuditAction
   | PurchaseOrderAuditAction
-  | B2BAuditAction;
+  | B2BAuditAction
+  | POSAuditAction;
 
   export interface AuditLogCreateParams<T = any> {
   tenantId: string;
@@ -254,6 +265,8 @@ export type AuditActionType =
   metadata?: T;
   ipAddress?: string;
   userAgent?: string;
+  details?: string; // Additional details about the action
+  timestamp?: Date; // Optional timestamp for the audit log
 }
 
 // Module-Specific Create Params

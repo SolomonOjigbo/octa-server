@@ -262,44 +262,44 @@ router.post(
   purchaseOrderController.createPurchaseOrder.bind(purchaseOrderController)
 );
 
-/**
- * @swagger
- * /purchase-orders/controlled:
- *   post:
- *     summary: Create a controlled substance purchase order (additional validations)
- *     tags: [PurchaseOrder]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreatePurchaseOrder'
- *     responses:
- *       201:
- *         description: Controlled substance purchase order created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/PurchaseOrder'
- *       400:
- *         description: Validation error or missing required fields for controlled substances
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (missing permissions)
- */
-router.post(
-  "/controlled",
-  requirePermission('purchaseOrder:create'),
-  purchaseOrderController.createControlledSubstanceOrder.bind(purchaseOrderController)
-);
+// /**
+//  * @swagger
+//  * /purchase-orders/controlled:
+//  *   post:
+//  *     summary: Create a controlled substance purchase order (additional validations)
+//  *     tags: [PurchaseOrder]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             $ref: '#/components/schemas/CreatePurchaseOrder'
+//  *     responses:
+//  *       201:
+//  *         description: Controlled substance purchase order created
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 success:
+//  *                   type: boolean
+//  *                 data:
+//  *                   $ref: '#/components/schemas/PurchaseOrder'
+//  *       400:
+//  *         description: Validation error or missing required fields for controlled substances
+//  *       401:
+//  *         description: Unauthorized
+//  *       403:
+//  *         description: Forbidden (missing permissions)
+//  */
+// router.post(
+//   "/controlled",
+//   requirePermission('purchaseOrder:create'),
+//   purchaseOrderController.createControlledSubstanceOrder.bind(purchaseOrderController)
+// );
 
 /**
  * @swagger
@@ -438,6 +438,45 @@ router.post(
   requirePermission('purchaseOrder:receive'),
   purchaseOrderController.receivePurchaseOrder.bind(purchaseOrderController)
 );
+
+
+/**
+ * @swagger
+ * /purchase-orders/{id}/approve:
+ *   patch:
+ *     summary: Approve a purchase order
+ *     tags: [PurchaseOrder]
+ *     security: 
+ *      - bearerAuth: []
+ *    parameters:
+ *      - in: path
+ *       name: id
+ *      schema:
+ *        type: string
+ *      required: true
+ *       description: Purchase order approval
+ *      responses:
+ *      200:
+ *      description: Purchase order approved
+ *      content:
+ *      application/json:
+ *      schema:
+ *      $ref: '#/components/schemas/PurchaseOrder'
+ *     400:
+ *      description: Validation error or cannot approve received/cancelled PO
+ *      401:
+ *     description: Unauthorized
+ *      403:
+ *      description: Forbidden (missing permissions)
+ *      404:
+ *      description: Purchase order not found
+ */
+router.patch(
+  "/:id/approve",
+  requirePermission("purchaseOrder:approve"),
+  purchaseOrderController.approvePurchaseOrder.bind(purchaseOrderController)
+);
+
 
 /**
  * @swagger
