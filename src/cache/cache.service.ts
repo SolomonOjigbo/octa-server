@@ -5,6 +5,9 @@ import { logger } from '../logging/logger';
 import { StockLevelDto } from '../modules/stock/types/stock.dto';
 
 export class CacheService {
+  delete(arg0: string) {
+    throw new Error("Method not implemented.");
+  }
   invalidate(arg0: string) {
     throw new Error("Method not implemented.");
   }

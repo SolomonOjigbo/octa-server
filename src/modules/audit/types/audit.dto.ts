@@ -52,6 +52,22 @@ export interface StockAuditMetadata {
   };
   batchNumber?: string;
 }
+export interface B2BAuditMetadata {
+    connectionId: string;
+    statusChange?: {
+        from: string;
+        to: string;
+    };
+    syncedData?: {
+        lastSyncedAt?: Date;
+        syncErrors?: string[];
+    };
+    notes?: string;
+    initiatedBy?: string; // User who initiated the action
+    targetTenantId?: string; // Target tenant for B2B actions
+    actionDetails?: string; // Additional details about the action taken
+    connectionType?: string; // Type of B2B connection (e.g., purchase order
+}
 
 // Module-Specific Audit Log Types
 export interface UserAuditLog extends BaseAuditLog {
@@ -68,8 +84,11 @@ export interface StockAuditLog extends BaseAuditLog {
 export interface PurchaseOrderAuditLog extends BaseAuditLog {
   metadata: PurchaseOrderAuditMetadata;
 }
+export interface B2BAuditLog extends BaseAuditLog {
+  metadata: B2BAuditMetadata;
+}
 
-export type AuditLog = UserAuditLog | PharmacyAuditLog | StockAuditLog | PurchaseOrderAuditLog;
+export type AuditLog = UserAuditLog | PharmacyAuditLog | StockAuditLog | PurchaseOrderAuditLog | B2BAuditLog;
 
 
 // Removed duplicate AuditLogCreateParams to resolve type conflict.
@@ -201,15 +220,30 @@ export enum PurchaseOrderAuditAction {
     DELETED = 'PURCHASE_ORDER_DELETED',
     RECEIVED = 'PURCHASE_ORDER_RECEIVED',
     CANCELLED = 'PURCHASE_ORDER_CANCELLED'
-
 }
+
+export enum B2BAuditAction {
+  CONNECTION_CREATED = 'B2B_CONNECTION_CREATED',
+  CONNECTION_UPDATED = 'B2B_CONNECTION_UPDATED',
+  CONNECTION_DELETED = 'B2B_CONNECTION_DELETED',
+  CONNECTION_APPROVED = 'B2B_CONNECTION_APPROVED', 
+  CONNECTION_REJECTED = 'B2B_CONNECTION_REJECTED',
+  CONNECTION_REVOKED = 'B2B_CONNECTION_REVOKED',
+  CONNECTION_SYNCED = 'B2B_CONNECTION_SYNCED',
+  CONNECTION_SYNC_FAILED = 'B2B_CONNECTION_SYNC_FAILED',
+  CONNECTION_STATUS_CHANGED = 'B2B_CONNECTION_STATUS_CHANGED',
+    CONNECTION_REQUESTED = 'B2B_CONNECTION_REQUESTED',
+    CONNECTION_HISTORY_FETCHED = 'B2B_CONNECTION_HISTORY_FETCHED',
+}
+
 
 // Unified Action Type
 export type AuditActionType = 
   | UserAuditAction 
   | PharmacyAuditAction 
   | StockAuditAction
-  | PurchaseOrderAuditAction;
+  | PurchaseOrderAuditAction
+  | B2BAuditAction;
 
   export interface AuditLogCreateParams<T = any> {
   tenantId: string;

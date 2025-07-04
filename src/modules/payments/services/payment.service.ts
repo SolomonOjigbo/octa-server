@@ -35,7 +35,7 @@ async reversePayment(id: string, reason?: string, userId?: string, tenantId?: st
       action: "PAYMENT_REVERSAL",
       entityType: "Payment",
       entityId: id,
-      details: { reason, payment },
+      // details: { reason, payment }, // Removed invalid property
     });
   return payment;
 }
@@ -68,7 +68,6 @@ async reversePayment(id: string, reason?: string, userId?: string, tenantId?: st
     action: "REFUND",
     entityType: "Payment",
     entityId: refund.id,
-    details: { originalPaymentId: dto.originalPaymentId, refund, reason: dto.reason },
   });
   return refund;
 }

@@ -1,5 +1,5 @@
 // Stock module validation schemas
-
+// @modules/stock/validations.ts
 import { StockMovementType } from "@common/types/stockMovement.dto";
 import { z } from "zod";
 
