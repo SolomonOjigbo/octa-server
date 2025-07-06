@@ -1,7 +1,7 @@
 export const permissionGroups = {
   USER_MANAGEMENT: 'User Management',
   TENANT_MANAGEMENT: 'Tenant Management',
-  BUSINESS_ENTITY: 'Business Entity',
+  BUSINESS_ENTITY_MANAGEMENT: 'Business Entity',
   STORE_MANAGEMENT: 'Store Management',
   WAREHOUSE_MANAGEMENT: 'Warehouse Management',
   PRODUCT_MANAGEMENT: 'Product Management',
@@ -30,9 +30,9 @@ export const permissions = [
   { name: "tenant:view", group: permissionGroups.TENANT_MANAGEMENT, description: "View tenant information" },
   
   // Business Entity
-  { name: "business_entity:create", group: permissionGroups.BUSINESS_ENTITY, description: "Create business entities" },
-  { name: "business_entity:update", group: permissionGroups.BUSINESS_ENTITY, description: "Update business entities" },
-  { name: "business_entity:view", group: permissionGroups.BUSINESS_ENTITY, description: "View business entities" },
+  { name: "business_entity:create", group: permissionGroups.BUSINESS_ENTITY_MANAGEMENT, description: "Create business entities" },
+  { name: "business_entity:update", group: permissionGroups.BUSINESS_ENTITY_MANAGEMENT, description: "Update business entities" },
+  { name: "business_entity:view", group: permissionGroups.BUSINESS_ENTITY_MANAGEMENT, description: "View business entities" },
   
   // Store Management
   { name: "store:create", group: permissionGroups.STORE_MANAGEMENT, description: "Create stores" },

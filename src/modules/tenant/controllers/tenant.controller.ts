@@ -1,30 +1,18 @@
 import { Request, Response } from "express";
 import { tenantService } from "../services/tenant.service";
-import { createTenantSchema, updateTenantSchema } from "../validations";
-import { CreateTenantDto, UpdateTenantDto, TenantResponseDto } from "../types/tenant.dto";
+import { tenantOnboardingSchema, updateTenantSchema } from "../validations";
+import {  UpdateTenantDto, TenantResponseDto, TenantOnboardingDto } from "../types/tenant.dto";
 import { auditService } from "../../audit/services/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 
 export class TenantController {
-  async createTenant(req: Request, res: Response) {
+  async atomicTenantOnboarding(req: Request, res: Response) {
     try {
-      const validated = createTenantSchema.parse(req.body) as CreateTenantDto;
-      const tenant = await tenantService.createTenant(validated);
-      
-      await auditService.log({
-        userId: req.user?.id,
-        tenantId: tenant.id,
-        action: AuditAction.TENANT_CREATED,
-        entityType: "Tenant",
-        entityId: tenant.id
-      });
-
-      res.status(201).json(tenant);
+      const validated = tenantOnboardingSchema.parse(req.body) as TenantOnboardingDto;
+      const result = await tenantService.atomicOnboard(validated);
+      res.status(201).json(result);
     } catch (err) {
-      res.status(400).json({ 
-        code: "VALIDATION_ERROR",
-        message: err.errors || err.message 
-      });
+      res.status(400).json({ message: err.errors || err.message });
     }
   }
 

@@ -1,43 +1,46 @@
 import { Request, Response } from "express";
 import { businessEntityService } from "../services/businessEntity.service";
-import { createBusinessEntitySchema } from "../validations";
-import { BusinessEntityDto } from "../types/businessEntity.dto";
+import { createBusinessEntitySchema, updateBusinessEntitySchema } from "../validations";
+import { CreateBusinessEntityDto } from "../types/businessEntity.dto";
 
 export class BusinessEntityController {
-  async createEntity(req: Request, res: Response) {
+async createEntity(req: Request, res: Response) {
     try {
-      const validated = createBusinessEntitySchema.parse(req.body) as BusinessEntityDto;
+      const validated = createBusinessEntitySchema.parse(req.body) as CreateBusinessEntityDto;
       const entity = await businessEntityService.createEntity(validated);
       res.status(201).json(entity);
     } catch (err) {
       res.status(400).json({ message: err.errors || err.message });
     }
   }
+
   async getEntities(req: Request, res: Response) {
     const tenantId = req.query.tenantId as string;
     const entities = await businessEntityService.getEntities(tenantId);
     res.json(entities);
   }
+
   async getEntityById(req: Request, res: Response) {
     const { id } = req.params;
     const entity = await businessEntityService.getEntityById(id);
-    if (!entity) return res.status(404).json({ message: "Not found" });
+    if (!entity) return res.status(404).json({ message: "BusinessEntity not found" });
     res.json(entity);
   }
+
   async updateEntity(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const validated = createBusinessEntitySchema.partial().parse(req.body);
+      const validated = updateBusinessEntitySchema.parse(req.body);
       const entity = await businessEntityService.updateEntity(id, validated);
       res.json(entity);
     } catch (err) {
       res.status(400).json({ message: err.errors || err.message });
     }
   }
+
   async deleteEntity(req: Request, res: Response) {
     const { id } = req.params;
-    const result = await businessEntityService.deleteEntity(id);
-    if (result.count === 0) return res.status(404).json({ message: "Not found" });
+    await businessEntityService.deleteEntity(id);
     res.status(204).send();
   }
 }

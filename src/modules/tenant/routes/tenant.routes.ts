@@ -2,30 +2,27 @@ import { Router } from "express";
 import { tenantController } from "../controllers/tenant.controller";
 import { requireAuth } from "../../../middleware/requireAuth";
 import { requirePermission } from "../../../middleware/requirePermission";
-// import { validate } from "../../common/middleware/validate";
-import { createTenantSchema, updateTenantSchema } from "../validations";
 
 const router = Router();
 
 // Tenant CRUD routes
 router.post(
-  "/",
-  requireAuth,
-  requirePermission("tenant:create"),
-  tenantController.createTenant.bind(tenantController)
+  "/onboard",
+  tenantController.atomicTenantOnboarding.bind(tenantController)
 );
 
+// Get all tenants (admin only)
 router.get(
   "/",
   requireAuth,
-  requirePermission("tenant:read"),
+  requirePermission("tenant:view"),
   tenantController.getTenants.bind(tenantController)
 );
 
 router.get(
   "/:id",
   requireAuth,
-  requirePermission("tenant:read"),
+  requirePermission("tenant:view"),
   tenantController.getTenantById.bind(tenantController)
 );
 
@@ -47,7 +44,7 @@ router.delete(
 router.get(
   "/b2b/connections",
   requireAuth,
-  requirePermission("tenant:read"),
+  requirePermission("tenant:view"),
   tenantController.getTenantsWithB2B.bind(tenantController)
 );
 

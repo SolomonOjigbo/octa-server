@@ -1,62 +1,81 @@
 import { PrismaClient } from "@prisma/client";
 import { 
-  CreateTenantDto, 
   UpdateTenantDto, 
   TenantResponseDto,
-  TenantWithRelationsDto
+  TenantWithRelationsDto,
+  TenantOnboardingDto
 } from "../types/tenant.dto";
-import { userService } from "../../user/services/user.service";
-import { businessEntityService } from "../../businessEntity/services/businessEntity.service";
-import { roleService } from "../../roles/services/role.service";
+import bcrypt from "bcryptjs";
+import { permissionGroups } from "@prisma/permissionsAndRoles";
 
 const prisma = new PrismaClient();
 
 export class TenantService {
-  async createTenant(dto: CreateTenantDto, createdBy?: string): Promise<TenantResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      // Create tenant
-      const tenant = await tx.tenant.create({ 
+  
+  async atomicOnboard(dto: TenantOnboardingDto) {
+    return await prisma.$transaction(async (tx) => {
+      // 1. Tenant
+      const tenant = await tx.tenant.create({ data: dto.tenant });
+
+      // 2. BusinessEntity
+      const businessEntity = await tx.businessEntity.create({
+        data: { ...dto.businessEntity, tenantId: tenant.id },
+      });
+
+      // 3. Store
+      const store = await tx.store.create({
         data: {
-          name: dto.name,
-          slug: dto.slug,
-          legalName: dto.legalName,
-          contactEmail: dto.contactEmail,
-          branding: dto.branding,
-          settings: dto.settings
-        }
-      });
-
-      // Create default business entity
-      await businessEntityService.createEntity({
-        tenantId: tenant.id,
-        name: dto.name,
-        legalAddress: dto.legalName ? `${dto.legalName} Headquarters` : undefined
-      });
-
-      // Create default roles for tenant
-      await roleService.createRole(tenant.id);
-
-      // Create admin user if provided
-      if (dto.adminUser) {
-        await userService.createUser({
+          ...dto.store,
           tenantId: tenant.id,
-          email: dto.adminUser.email,
-          name: dto.adminUser.name,
-          password: dto.adminUser.password,
+          businessEntityId: businessEntity.id,
+          isMain: dto.store.isMain ?? true,
+        },
+      });
+
+      // 4. Admin user
+      const hashedPwd = await bcrypt.hash(dto.adminUser.password, 10);
+      const user = await tx.user.create({
+        data: {
+          ...dto.adminUser,
+          tenantId: tenant.id,
+          storeId: store.id,
+          password: hashedPwd,
           isActive: true,
-          roles: ['Tenant Admin'] // Assign default admin role
+        },
+      });
+
+      // 5. Assign admin role (ensure role exists)
+      let adminRole = await tx.role.findFirst({
+        where: { name: "tenant_admin", tenantId: tenant.id },
+      });
+      if (!adminRole) {
+        adminRole = await tx.role.create({
+          data: {
+            name: "tenant_admin",
+            tenantId: tenant.id,
+            permissions: {
+              connect: [
+                // Connect all permissions or a defined set
+                permissionGroups.TENANT_MANAGEMENT,
+                permissionGroups.BUSINESS_ENTITY_MANAGEMENT,
+                permissionGroups.STORE_MANAGEMENT,
+                permissionGroups.USER_MANAGEMENT,
+                permissionGroups.ROLE_MANAGEMENT,
+                permissionGroups.AUDIT_MANAGEMENT,
+                permissionGroups.REPORTING,
+              ],
+            },
+          },
         });
       }
+      await tx.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: adminRole.id,
+        },
+      });
 
-      return {
-        id: tenant.id,
-        name: tenant.name,
-        slug: tenant.slug,
-        legalName: tenant.legalName || undefined,
-        contactEmail: tenant.contactEmail || undefined,
-        createdAt: tenant.createdAt,
-        updatedAt: tenant.updatedAt
-      };
+      return { tenant, businessEntity, store, user };
     });
   }
 
@@ -69,7 +88,7 @@ export class TenantService {
         legalName: dto.legalName,
         contactEmail: dto.contactEmail,
         branding: dto.branding,
-        settings: dto.settings
+        settings: dto.settings,
       }
     });
 
@@ -80,7 +99,8 @@ export class TenantService {
       legalName: tenant.legalName || undefined,
       contactEmail: tenant.contactEmail || undefined,
       createdAt: tenant.createdAt,
-      updatedAt: tenant.updatedAt
+      updatedAt: tenant.updatedAt,
+      updatedBy: updatedBy || null //User's ID if provided
     };
   }
 
