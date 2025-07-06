@@ -11,6 +11,7 @@ const openingHourSchema = z.object({
 
 export const createStoreSchema = z.object({
   tenantId: z.string().cuid(),
+  businessEntityId: z.string().cuid(),
   name: z.string().min(2),
   code: z.string().optional(),
   address: z.string().optional(),
@@ -21,8 +22,8 @@ export const createStoreSchema = z.object({
   isMain: z.boolean().optional(),
   managerId: z.string().cuid().optional(),
   openingHours: z.array(openingHourSchema).optional(),
-  branding: z.any().optional(),
-  settings: z.any().optional(),
 });
 
 export const updateStoreSchema = createStoreSchema.partial();
+
+

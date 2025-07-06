@@ -1,186 +1,55 @@
+// src/modules/store/services/store.service.ts
+
 import { PrismaClient } from "@prisma/client";
-import { 
-  CreateStoreDto, 
-  UpdateStoreDto,
-  StoreResponseDto,
-  StoreWithRelationsDto
-} from "../types/store.dto";
+import { CreateStoreDto, UpdateStoreDto } from "../types/store.dto";
 
 const prisma = new PrismaClient();
 
 export class StoreService {
-  async createStore(
-    dto: CreateStoreDto,
-    createdBy?: string
-  ): Promise<StoreResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      // Ensure only one main store per tenant
-      if (dto.isMain) {
-        await tx.store.updateMany({
-          where: { tenantId: dto.tenantId, isMain: true },
-          data: { isMain: false }
-        });
-      }
+  async createStore(dto: CreateStoreDto) {
+    // Ensure tenant and business entity exist and are related
+    const tenant = await prisma.tenant.findUnique({ where: { id: dto.tenantId } });
+    if (!tenant) throw new Error("Invalid tenantId: Tenant not found.");
 
-      const store = await tx.store.create({
-        data: {
-          tenantId: dto.tenantId,
-          businessEntityId: dto.businessEntityId,
-          name: dto.name,
-          code: dto.code,
-          address: dto.address,
-          phone: dto.phone,
-          email: dto.email,
-          type: dto.type || 'retail',
-          status: dto.status || 'active',
-          isMain: dto.isMain || false,
-          managerId: dto.managerId,
-          openingHours: dto.openingHours,
-          branding: dto.branding,
-          settings: dto.settings,
-          metadata: {
-            createdBy
-          }
-        },
-        select: this.defaultSelectFields()
-      });
-
-      return store;
-    });
-  }
-
-  async getStores(
-    tenantId: string,
-    options?: {
-      includeManager?: boolean;
-      includeInventoryCount?: boolean;
+    const businessEntity = await prisma.businessEntity.findUnique({ where: { id: dto.businessEntityId } });
+    if (!businessEntity || businessEntity.tenantId !== dto.tenantId) {
+      throw new Error("Invalid businessEntityId for this tenant.");
     }
-  ): Promise<StoreWithRelationsDto[]> {
-    return prisma.store.findMany({
-      where: { tenantId },
-      select: {
-        ...this.defaultSelectFields(),
-        ...(options?.includeManager && {
-          manager: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        }),
-        ...(options?.includeInventoryCount && {
-          _count: {
-            select: { inventories: true }
-          }
-        })
-      }
-    }).then(stores => stores.map(store => ({
-      ...store,
-      ...('_count' in store && { inventoryCount: store._count?.inventories })
-    })));
-  }
 
-  async getStoreById(
-    id: string,
-    tenantId: string,
-    options?: {
-      includeManager?: boolean;
-      includeBusinessEntity?: boolean;
+    // Ensure store code uniqueness within tenant
+    const existing = await prisma.store.findFirst({
+      where: { code: dto.code, tenantId: dto.tenantId },
+    });
+    if (existing) throw new Error("Store code already exists for this tenant.");
+
+    // (Optional) If managerId is provided, validate it
+    if (dto.managerId) {
+      const manager = await prisma.user.findUnique({ where: { id: dto.managerId } });
+      if (!manager || manager.tenantId !== dto.tenantId) {
+        throw new Error("Invalid managerId for this tenant.");
+      }
     }
-  ): Promise<StoreWithRelationsDto | null> {
-    return prisma.store.findUnique({
-      where: { id, tenantId },
-      select: {
-        ...this.defaultSelectFields(),
-        ...(options?.includeManager && {
-          manager: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        }),
-        ...(options?.includeBusinessEntity && {
-          businessEntity: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        })
-      }
+
+    return prisma.store.create({ data: dto });
+  }
+
+  async updateStore(id: string, dto: UpdateStoreDto) {
+    return prisma.store.update({
+      where: { id },
+      data: dto,
     });
   }
 
-  async updateStore(
-    dto: UpdateStoreDto,
-    tenantId: string,
-    updatedBy?: string
-  ): Promise<StoreResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      // Handle main store update
-      if (dto.isMain) {
-        await tx.store.updateMany({
-          where: { tenantId, isMain: true, NOT: { id: dto.id } },
-          data: { isMain: false }
-        });
-      }
-
-      return tx.store.update({
-        where: { id: dto.id, tenantId },
-        data: {
-          businessEntityId: dto.businessEntityId,
-          name: dto.name,
-          code: dto.code,
-          address: dto.address,
-          phone: dto.phone,
-          email: dto.email,
-          type: dto.type,
-          status: dto.status,
-          isMain: dto.isMain,
-          managerId: dto.managerId,
-          openingHours: dto.openingHours,
-          branding: dto.branding,
-          settings: dto.settings,
-          metadata: {
-            updatedBy
-          }
-        },
-        select: this.defaultSelectFields()
-      });
-    });
+  async getStores(tenantId: string) {
+    return prisma.store.findMany({ where: { tenantId } });
   }
 
-  async deleteStore(
-    id: string,
-    tenantId: string,
-    deletedBy?: string
-  ): Promise<void> {
-    await prisma.store.deleteMany({ 
-      where: { id, tenantId } 
-    });
+  async getStoreById(id: string) {
+    return prisma.store.findUnique({ where: { id } });
   }
 
-  private defaultSelectFields() {
-    return {
-      id: true,
-      tenantId: true,
-      businessEntityId: true,
-      name: true,
-      code: true,
-      address: true,
-      phone: true,
-      email: true,
-      type: true,
-      status: true,
-      isMain: true,
-      managerId: true,
-      openingHours: true,
-      createdAt: true,
-      updatedAt: true
-    };
+  async deleteStore(id: string) {
+    return prisma.store.delete({ where: { id } });
   }
 }
 

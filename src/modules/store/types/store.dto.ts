@@ -17,23 +17,30 @@ export type OpeningHour = z.infer<typeof openingHourSchema>;
 
 export interface CreateStoreDto {
   tenantId: string;
-  businessEntityId?: string;
+  businessEntityId: string;
   name: string;
-  code?: string;
+  code: string;
   address?: string;
   phone?: string;
   email?: string;
+  type?: string;
+  status?: string;
+  isMain?: boolean;
+  managerId?: string;
+  openingHours?: any[];
+}
+
+export interface UpdateStoreDto extends Partial<CreateStoreDto> {}
+
+export interface StoreQueryParams {
+  tenantId?: string;
+  businessEntityId?: string;
   type?: StoreType;
   status?: StoreStatus;
   isMain?: boolean;
-  managerId?: string;
-  openingHours?: OpeningHour[];
-  branding?: Record<string, unknown>;
-  settings?: Record<string, unknown>;
-}
-
-export interface UpdateStoreDto extends Partial<Omit<CreateStoreDto, 'tenantId'>> {
-  id: string;
+  search?: string; // For name or code search
+  page?: number;
+  limit?: number;
 }
 
 export interface StoreResponseDto {
