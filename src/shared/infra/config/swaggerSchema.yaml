@@ -1736,8 +1736,430 @@ AuditLogList:
                   data:
                     $ref: '#/components/schemas/POSSessionSummary'
         404:
-          description: POS session not found
+          description: POS session not Found
+          
+# ---- Tenant Schemas ---
+  Tenant:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        legalName:
+          type: string
+        contactEmail:
+          type: string
+        branding:
+          type: object
+        settings:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BusinessEntity:
+      type: object
+      required:
+        - tenantId
+        - name
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        taxId:
+          type: string
+        legalAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Store:
+      type: object
+      required:
+        - tenantId
+        - businessEntityId
+        - name
+        - code
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        businessEntityId:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        isMain:
+          type: boolean
+        managerId:
+          type: string
+        openingHours:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+tags:
+  - name: Tenant
+    description: Tenant management endpoints
+  - name: BusinessEntity
+    description: Business entity endpoints
+  - name: Store
+    description: Store endpoints
+
+paths:
+  /tenants/onboard:
+    post:
+      summary: Atomic tenant onboarding (tenant, business entity, store, admin user)
+      tags: [Tenant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenant:
+                  $ref: '#/components/schemas/Tenant'
+                businessEntity:
+                  $ref: '#/components/schemas/BusinessEntity'
+                store:
+                  $ref: '#/components/schemas/Store'
+                adminUser:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                    password:
+                      type: string
+      responses:
+        201:
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
+                  businessEntity:
+                    $ref: '#/components/schemas/BusinessEntity'
+                  store:
+                    $ref: '#/components/schemas/Store'
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      email: { type: string }
+        400:
+          description: Validation or onboarding error
+
+  /tenants:
+    get:
+      summary: Get all tenants (admin only)
+      tags: [Tenant]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tenant'
+        403:
+          description: Forbidden
+
+  /tenants/{id}:
+    get:
+      summary: Get tenant by ID
+      tags: [Tenant]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Tenant ID
+      responses:
+        200:
+          description: Tenant found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        404:
+          description: Not found
+    put:
+      summary: Update tenant by ID
+      tags: [Tenant]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Tenant ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tenant'
+      responses:
+        200:
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        400:
+          description: Validation error
+        403:
+          description: Forbidden
 
 
+# --- Business Entity ----
 
+  /business-entities:
+    post:
+      summary: Create a business entity
+      tags: [BusinessEntity]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessEntity'
+      responses:
+        201:
+          description: Business entity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEntity'
+        400:
+          description: Validation error
+        403:
+          description: Forbidden
+    get:
+      summary: Get all business entities for a tenant
+      tags: [BusinessEntity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: tenantId
+          schema:
+            type: string
+          required: true
+          description: Tenant ID
+      responses:
+        200:
+          description: List of business entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessEntity'
+        403:
+          description: Forbidden
 
+  /business-entities/{id}:
+    get:
+      summary: Get business entity by ID
+      tags: [BusinessEntity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Business entity ID
+      responses:
+        200:
+          description: Business entity found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEntity'
+        404:
+          description: Not found
+        403:
+          description: Forbidden
+    put:
+      summary: Update business entity by ID
+      tags: [BusinessEntity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Business entity ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessEntity'
+      responses:
+        200:
+          description: Business entity updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessEntity'
+        400:
+          description: Validation error
+        403:
+          description: Forbidden
+
+#---Store Schemas---
+  /stores:
+    post:
+      summary: Create a store
+      tags: [Store]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Store'
+      responses:
+        201:
+          description: Store created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        400:
+          description: Validation error
+        403:
+          description: Forbidden
+    get:
+      summary: Get all stores for a tenant
+      tags: [Store]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: tenantId
+          schema:
+            type: string
+          required: true
+          description: Tenant ID
+      responses:
+        200:
+          description: List of stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Store'
+        403:
+          description: Forbidden
+
+  /stores/{id}:
+    get:
+      summary: Get store by ID
+      tags: [Store]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Store ID
+      responses:
+        200:
+          description: Store found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        404:
+          description: Not found
+        403:
+          description: Forbidden
+    put:
+      summary: Update store by ID
+      tags: [Store]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Store ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Store'
+      responses:
+        200:
+          description: Store updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        400:
+          description: Validation error
+        403:
+          description: Forbidden
