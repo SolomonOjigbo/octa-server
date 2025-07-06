@@ -52,17 +52,17 @@ export interface UpdateB2BConnectionDto extends Partial<Omit<BaseB2BConnectionDt
 }
 
 export interface ApproveB2BConnectionDto {
-  approvedBy: string;
+  approvedBy?: string;
   notes?: string;
 }
 
 export interface RejectB2BConnectionDto {
-  rejectedBy: string;
+  rejectedBy?: string;
   notes?: string;
 }
 
 export interface RevokeB2BConnectionDto {
-  revokedBy: string;
+  revokedBy?: string;
   notes?: string;
 }
 

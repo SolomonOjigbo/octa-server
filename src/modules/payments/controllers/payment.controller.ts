@@ -34,8 +34,10 @@ export class PaymentController {
    async reversePayment(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
+      const tenantId = req.user?.tenantId;
       const { reason } = reversePaymentSchema.parse(req.body);
-      const payment = await paymentService.reversePayment(id, reason);
+      const payment = await paymentService.reversePayment(id, reason, userId, tenantId);
       res.json(payment);
     } catch (err) {
       res.status(400).json({ message: err.errors || err.message });

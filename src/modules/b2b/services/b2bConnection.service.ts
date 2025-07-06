@@ -105,7 +105,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(dto.tenantAId, dto.tenantBId);
+      await this.clearConnectionCache(dto.tenantAId, dto.tenantBId, connection.id);
 
       return connection;
     });
@@ -225,7 +225,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(existing.tenantAId, existing.tenantBId);
+      await this.clearConnectionCache(existing.tenantAId, existing.tenantBId, dto.id);
 
       // Emit event
       eventEmitter.emit(B2BConnectionEvent.CONNECTION_UPDATED, {
@@ -282,7 +282,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId);
+      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId, id);
 
       // Emit event
       eventEmitter.emit(B2BConnectionEvent.CONNECTION_DELETED, {
@@ -422,7 +422,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId);
+      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId, id);
 
       // Emit event
       eventEmitter.emit(B2BConnectionEvent.CONNECTION_APPROVED, {
@@ -490,7 +490,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId);
+      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId, id);
 
       // Emit event
       eventEmitter.emit(B2BConnectionEvent.CONNECTION_REJECTED, {
@@ -558,7 +558,7 @@ export class B2BConnectionService {
       });
 
       // Clear cache
-      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId);
+      await this.clearConnectionCache(connection.tenantAId, connection.tenantBId, id);
 
       // Emit event
       eventEmitter.emit(B2BConnectionEvent.CONNECTION_REVOKED, {
@@ -613,15 +613,22 @@ export class B2BConnectionService {
     }
   }
 
-  private async clearConnectionCache(tenantAId: string, tenantBId: string): Promise<void> {
+ private async clearConnectionCache(tenantAId: string, tenantBId: string, connectionId: string): Promise<void> {
     try {
-      await Promise.all([
-        cacheService.del(`b2b-connections:${tenantAId}`),
-        cacheService.del(`b2b-connections:${tenantBId}`),
-        cacheService.del(`b2b-connection:*`) // Clear individual connection caches
-      ]);
+        const sortedIds = [tenantAId, tenantBId].sort().join(':');
+        const keysToDel = [
+            `b2b-connection:${connectionId}`,
+            `b2b-status:${sortedIds}`,
+            // Clear all list caches for both tenants as their connection lists have changed
+            `b2b-connections:${tenantAId}:*`, 
+            `b2b-connections:${tenantBId}:*`
+        ];
+        await cacheService.del(keysToDel[0]); // Clear specific connection cache
+        // Clear all connections cache for both tenants
+        await Promise.all(keysToDel.slice(2).map(key => cacheService.del(key)));
+        logger.info("B2B connection cache cleared", { connectionId, tenantAId, tenantBId });
     } catch (error) {
-      logger.error("Failed to clear B2B connection cache", { error });
+      logger.error("Failed to clear B2B connection cache", { error, connectionId });
     }
   }
 
@@ -653,6 +660,53 @@ export class B2BConnectionService {
       }
     };
   }
+
+  async getConnectionStatus(tenantId1: string, tenantId2: string): Promise<{ status: B2BConnectionStatus | null }> {
+    const cacheKey = `b2b-status:${[tenantId1, tenantId2].sort().join(':')}`;
+    const cached = await cacheService.get<{ status: B2BConnectionStatus | null }>(cacheKey);
+    if (cached) return cached;
+
+    const connection = await prisma.b2BConnection.findFirst({
+      where: {
+        OR: [
+          { tenantAId: tenantId1, tenantBId: tenantId2 },
+          { tenantAId: tenantId2, tenantBId: tenantId1 },
+        ],
+        status: { notIn: ['rejected', 'revoked'] } // Typically only care about active or pending
+      },
+      select: { status: true }
+    });
+
+    const result = { status: connection?.status || null };
+    await cacheService.set(cacheKey, result, this.CACHE_TTL);
+    return result;
+  }
+
+  async getConnectionByTenants(
+    tenantAId: string,
+    tenantBId: string
+  ): Promise<B2BConnectionResponseDto | null> {
+    const cacheKey = `b2b-connection:${tenantAId}:${tenantBId}`;
+    const cached = await cacheService.get<B2BConnectionResponseDto>(cacheKey);
+    if (cached) return cached;
+
+    const connection = await prisma.b2BConnection.findFirst({
+      where: {
+        OR: [
+          { tenantAId, tenantBId },
+          { tenantAId: tenantBId, tenantBId: tenantAId }
+        ]
+      },
+      select: this.defaultSelectFields()
+    });
+
+    if (connection) {
+      await cacheService.set(cacheKey, connection, this.CACHE_TTL);
+    }
+
+    return connection;
+  }
+  
 }
 
 export const b2bConnectionService = new B2BConnectionService();

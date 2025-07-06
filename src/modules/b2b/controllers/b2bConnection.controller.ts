@@ -6,7 +6,8 @@ import {
   approveB2BConnectionSchema,
   rejectB2BConnectionSchema,
   revokeB2BConnectionSchema,
-  listB2BConnectionsSchema
+  listB2BConnectionsSchema,
+  checkConnectionStatusSchema
 } from "../validations";
 import { 
   CreateB2BConnectionDto, 
@@ -331,6 +332,19 @@ export class B2BConnectionController {
         HttpStatusCode.INTERNAL_SERVER_ERROR,
         ErrorCode.INTERNAL_ERROR
       );
+    }
+  }
+
+  async checkConnectionStatus(req: Request, res: Response) {
+    try {
+      const { partnerTenantId } = checkConnectionStatusSchema.parse(req.query);
+      const result = await b2bConnectionService.getConnectionStatus(req.user.tenantId, partnerTenantId);
+      res.status(200).json(result);
+    } catch (err) {
+        if (err instanceof AppError) {
+            return res.status(err.statusCode).json({ message: err.message, code: err.code });
+        }
+        res.status(400).json({ message: "Request failed", details: err.errors || err.message });
     }
   }
 }

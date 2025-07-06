@@ -209,6 +209,47 @@ router.delete(
   b2bConnectionController.deleteConnection.bind(b2bConnectionController)
 );
 
+/**
+   * @swagger
+   * /b2b/connections/status:
+   * get:
+   * tags: [B2B Connections]
+   * summary: Check connection status with a partner tenant
+   * description: Quickly retrieve the current connection status (e.g., 'approved', 'pending', or null) with a specific partner tenant. This is useful for UI logic, such as enabling a 'Place Purchase Order' button.
+   * security:
+   * - bearerAuth: []
+   * parameters:
+   * - in: query
+   * name: partnerTenantId
+   * required: true
+   * schema:
+   * type: string
+   * description: The ID of the partner tenant to check the connection status with.
+   * responses:
+   * 200:
+   * description: The current connection status.
+   * content:
+   * application/json:
+   * schema:
+   * type: object
+   * properties:
+   * status:
+   * type: string
+   * enum: [pending, approved, null]
+   * description: The status of the connection, or null if no active/pending connection exists.
+   * 400:
+   * description: Invalid partnerTenantId provided.
+   * 401:
+   * description: Unauthorized.
+   */
+router.get(
+  "/status",
+  requireAuth,
+  requirePermission("b2b:read"),
+  b2bConnectionController.checkConnectionStatus.bind(b2bConnectionController)
+);
+
+
 // Connection lifecycle routes
 /**
    * @swagger
@@ -293,7 +334,7 @@ router.put(
 router.put(
   "/:id/reject",
   requireAuth,
-  requirePermission("b2b:approve"),
+  requirePermission("b2b:reject"), 
   b2bConnectionController.rejectConnection.bind(b2bConnectionController)
 );
 
@@ -338,7 +379,7 @@ router.put(
 router.put(
   "/:id/revoke",
   requireAuth,
-  requirePermission("b2b:approve"),
+  requirePermission("b2b:revoke"), 
   b2bConnectionController.revokeConnection.bind(b2bConnectionController)
 );
 
