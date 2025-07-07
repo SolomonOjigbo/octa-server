@@ -2163,3 +2163,257 @@ paths:
           description: Validation error
         403:
           description: Forbidden
+
+# ----------------------
+# CRM Components & Paths
+# ----------------------
+components:
+  schemas:
+    CreateCustomerDto:
+      type: object
+      required:
+        - name
+      properties:
+        tenantId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+        dateOfBirth:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        loyaltyNumber:
+          type: string
+        segment:
+          type: string
+        tags:
+          type: array
+          items: { type: string }
+        defaultPaymentTerm:
+          type: string
+
+    Customer:
+      allOf:
+        - $ref: '#/components/schemas/CreateCustomerDto'
+        - type: object
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    UpdateCustomerDto:
+      allOf:
+        - $ref: '#/components/schemas/CreateCustomerDto'
+      type: object
+      properties: {}
+
+    CreateCommunicationLogDto:
+      type: object
+      required:
+        - method
+        - content
+        - direction
+        - userId
+      properties:
+        tenantId: { type: string }
+        method: { type: string }
+        content: { type: string }
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        userId: { type: string }
+        customerId: { type: string }
+        supplierId: { type: string }
+
+    CommunicationLog:
+      allOf:
+        - $ref: '#/components/schemas/CreateCommunicationLogDto'
+        - type: object
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+
+    CustomerSummary:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        totalPurchases: { type: number, format: float }
+        totalPaid: { type: number, format: float }
+        balance: { type: number, format: float }
+        lastPurchase:
+          type: object
+        commsCount: { type: integer }
+
+    TopCustomer:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        totalAmount: { type: number, format: float }
+
+    PurchaseFrequencyResponse:
+      type: object
+      properties:
+        frequencyDays:
+          type: number
+          nullable: true
+
+    OutstandingCustomer:
+      allOf:
+        - $ref: '#/components/schemas/Customer'
+        - type: object
+          properties:
+            balance: { type: number, format: float }
+
+paths:
+  /crm/customers:
+    post:
+      $ref: '#/crm/customers/post'
+    get:
+      $ref: '#/crm/customers/get'
+
+  /crm/customers/{id}:
+    get:
+      $ref: '#/crm/customers/{id}/get'
+    put:
+      $ref: '#/crm/customers/{id}/put'
+    delete:
+      $ref: '#/crm/customers/{id}/delete'
+
+  /crm/logs:
+    post:
+      $ref: '#/crm/logs/post'
+
+  /crm/logs/customer/{customerId}:
+    get:
+      $ref: '#/crm/logs/customer/{customerId}/get'
+
+  /crm/logs/supplier/{supplierId}:
+    get:
+      $ref: '#/crm/logs/supplier/{supplierId}/get'
+
+  /crm/logs/user/{userId}:
+    get:
+      $ref: '#/crm/logs/user/{userId}/get'
+
+  /crm/logs/{id}:
+    get:
+      $ref: '#/crm/logs/{id}/get'
+
+  /crm/reports/{customerId}/summary:
+    get:
+      $ref: '#/crm/reports/{customerId}/summary'
+
+  /crm/reports/top-customers:
+    get:
+      $ref: '#/crm/reports/top-customers/get'
+
+  /crm/reports/{customerId}/frequency:
+    get:
+      $ref: '#/crm/reports/{customerId}/frequency/get'
+
+  /crm/reports/outstanding:
+    get:
+      $ref: '#/crm/reports/outstanding/get'
+
+# --------------------------
+# Supplier Components & Paths
+# --------------------------
+components:
+  schemas:
+    CreateSupplierDto:
+      type: object
+      required:
+        - name
+      properties:
+        tenantId: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        address: { type: string }
+        leadTime: { type: integer }
+        performanceMetrics:
+          type: object
+        paymentTerms: { type: string }
+        notes: { type: string }
+
+    Supplier:
+      allOf:
+        - $ref: '#/components/schemas/CreateSupplierDto'
+        - type: object
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    UpdateSupplierDto:
+      allOf:
+        - $ref: '#/components/schemas/CreateSupplierDto'
+      type: object
+
+    CreateProductSupplierDto:
+      type: object
+      required:
+        - supplierId
+        - productId
+        - price
+        - currency
+      properties:
+        tenantId: { type: string }
+        supplierId: { type: string }
+        productId: { type: string }
+        price: { type: number }
+        currency: { type: string }
+        leadTime: { type: integer }
+
+    ProductSupplier:
+      allOf:
+        - $ref: '#/components/schemas/CreateProductSupplierDto'
+        - type: object
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+
+    UpdateProductSupplierDto:
+      allOf:
+        - $ref: '#/components/schemas/CreateProductSupplierDto'
+      type: object
+
+paths:
+  /supplier:
+    post:
+      $ref: '#/supplier/post'
+    get:
+      $ref: '#/supplier/get'
+
+  /supplier/{id}:
+    put:
+      $ref: '#/supplier/{id}/put'
+    delete:
+      $ref: '#/supplier/{id}/delete'
+
+  /supplier/products/link:
+    post:
+      $ref: '#/supplier/products/link/post'
+
+  /supplier/products/{productId}:
+    get:
+      $ref: '#/supplier/products/{productId}/get'
+
+  /supplier/products/link/{id}:
+    patch:
+      $ref: '#/supplier/products/link/{id}/patch'
+    delete:
+      $ref: '#/supplier/products/link/{id}/delete'

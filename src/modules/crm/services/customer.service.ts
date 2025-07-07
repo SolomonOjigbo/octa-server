@@ -25,32 +25,12 @@ export class CustomerService {
       include: { transactions: true, payments: true, communicationLogs: true },
     });
   }
-
+async deleteCustomer(id: string) {
+    return prisma.customer.delete({ where: { id } });
+  }
+  
   // Loyalty, purchase history, segmentation logic can be added here
+  
 }
 
 export const customerService = new CustomerService();
-
-
-// export class CustomerService {
-  // type Customer = Awaited<ReturnType<typeof prisma.customer.create>>;
-//   async createCustomer(data: Partial<Customer>): Promise<Customer> {
-//     return prisma.customer.create({ data });
-//   }
-
-//   async getCustomerById(id: string): Promise<Customer | null> {
-//     return prisma.customer.findUnique({ where: { id } });
-//   }
-
-//   async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer> {
-//     return prisma.customer.update({ where: { id }, data });
-//   }
-
-//   async deleteCustomer(id: string): Promise<Customer> {
-//     return prisma.customer.delete({ where: { id } });
-//   }
-
-//   async listCustomersByTenant(tenantId: string): Promise<Customer[]> {
-//     return prisma.customer.findMany({ where: { tenantId } });
-//   }
-// }

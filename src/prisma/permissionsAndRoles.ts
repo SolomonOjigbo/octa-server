@@ -10,6 +10,8 @@ export const permissionGroups = {
   PURCHASE_MANAGEMENT: 'Purchase Management',
   SALES_MANAGEMENT: 'Sales Management',
   CUSTOMER_MANAGEMENT: 'Customer Management',
+  COMMUNICATION_MANAGEMENT: 'Communication Management',
+  CRM_REPORTING: 'CRM Reporting',
   PAYMENT_MANAGEMENT: 'Payment Management',
   ROLE_MANAGEMENT: 'Role Management',
   AUDIT_MANAGEMENT: 'Audit Management',
@@ -79,13 +81,28 @@ export const permissions = [
   { name: "tax:manage", group: permissionGroups.SALES_MANAGEMENT, description: "Manage taxes" },
   { name: "loyalty:apply", group: permissionGroups.SALES_MANAGEMENT, description: "Apply loyalty points" },
   { name: "loyalty:view", group: permissionGroups.SALES_MANAGEMENT, description: "View loyalty programs" },
+
+//<----CRM MANAGEMENT ----->
   
   // Customer Management
-  { name: "customer:create", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Create customers" },
-  { name: "customer:update", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Update customers" },
-  { name: "customer:view", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "View customers" },
-  { name: "customer:history", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "View customer history" },
-  { name: "communication:manage", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Manage communication logs" },
+  { name: "crm:customer:create", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Create customers" },
+  { name: "crm:customer:update", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Update customers" },
+  { name: "crm:customer:view", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "View customers" },
+  { name: "crm:customer:delete", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Delete customer" },
+  { name: "crm:customer:history", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "View customer history" },
+  { name: "crm:communication:manage", group: permissionGroups.CUSTOMER_MANAGEMENT, description: "Manage communication logs" },
+  
+  
+  //Communication Logs
+  { name: "crm:communication:create", group: permissionGroups.COMMUNICATION_MANAGEMENT, description: "Create communication logs" },
+  { name: "crm:communication:view", group: permissionGroups.COMMUNICATION_MANAGEMENT, description: "Manage communication logs" },
+  { name: "crm:communication:delete", group: permissionGroups.COMMUNICATION_MANAGEMENT, description: "Manage communication logs" },
+
+
+  //CRM Report 
+  { name: "crm:report:create", group: permissionGroups.CRM_REPORTING, description: "Create CRM Reports" },
+  { name: "crm:report:view", group: permissionGroups.CRM_REPORTING, description: "View CRM report" },
+  { name: "crm:report:update", group: permissionGroups.CRM_REPORTING, description: "Manage CRM Reporting" },
   
   // Payment Management
   { name: "payment:manage", group: permissionGroups.PAYMENT_MANAGEMENT, description: "Manage payments" },

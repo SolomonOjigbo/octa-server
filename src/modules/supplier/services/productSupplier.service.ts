@@ -1,27 +1,21 @@
-import { PrismaClient} from "@prisma/client";
-const prisma = new PrismaClient();
+// src/modules/supplier/services/productSupplier.service.ts
 
 
-type Supplier = Awaited<ReturnType<typeof prisma.supplier.create>>;
+import prisma from '@shared/infra/database/prisma';
+import { CreateProductSupplierDto, UpdateProductSupplierDto } from '../types/supplier.dto';
 
 export class ProductSupplierService {
-  async createSupplier(data: Partial<Supplier>): Promise<Supplier> {
-    return prisma.supplier.create({ data });
+  linkProductToSupplier(dto: CreateProductSupplierDto) {
+    return prisma.productSupplier.create({ data: dto });
   }
-
-  async getSupplierById(id: string): Promise<Supplier | null> {
-    return prisma.supplier.findUnique({ where: { id } });
+  updateLink(id: string, dto: UpdateProductSupplierDto) {
+    return prisma.productSupplier.update({ where: { id }, data: dto });
   }
-
-  async updateSupplier(id: string, data: Partial<Supplier>): Promise<Supplier> {
-    return prisma.supplier.update({ where: { id }, data });
+  unlinkProduct(id: string) {
+    return prisma.productSupplier.delete({ where: { id } });
   }
-
-  async deleteSupplier(id: string): Promise<Supplier> {
-    return prisma.supplier.delete({ where: { id } });
-  }
-
-  async listSuppliersByTenant(tenantId: string): Promise<Supplier[]> {
-    return prisma.supplier.findMany({ where: { tenantId } });
+  getLinksForProduct(productId: string, tenantId: string) {
+    return prisma.productSupplier.findMany({ where: { productId, tenantId }, include: { supplier: true } });
   }
 }
+export const productSupplierService = new ProductSupplierService();
