@@ -15,7 +15,7 @@ import paymentRoutes from '../../../../modules/payments/payments.module';
 import posRoutes from '../../../../modules/pos/pos.module';
 import purchaseOrderRoutes from '../../../../modules/purchaseOrder/purchaseOrder.module';
 import customerRoutes, { communicationLogRoutes, crmReportingRoutes } from '../../../../modules/crm/crm.module';
-import { roleRoutes } from '../../../../modules/roles/role.module';
+import { roleRoutes } from '../../../../modules/role/role.module';
 import auditRoutes from '../../../../modules/audit/audit.module';
 
 

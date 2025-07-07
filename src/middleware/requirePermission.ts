@@ -1,4 +1,4 @@
-import { roleService } from "../modules/roles/services/role.service";
+import { roleService } from "../modules/role/services/role.service";
 import { Request, Response, NextFunction } from "express";
 
 import { redisClient } from "../middleware/cache";
