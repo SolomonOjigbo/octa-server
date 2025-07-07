@@ -3,24 +3,17 @@ export interface CreateRoleDto {
   tenantId?: string;
   storeId?: string;
   warehouseId?: string;
-  permissionIds: string[]; // assign these permissions to role
+  permissionIds: string[];
 }
+
+export interface UpdateRoleDto extends Partial<CreateRoleDto> {}
+
 
 export interface AssignRoleDto {
   userId: string;
   roleId: string;
   assignedBy?: string;
 }
-
-export interface UpdateRoleDto {
-  id: string;
-  name?: string;
-  tenantId?: string;
-  storeId?: string;
-  warehouseId?: string;
-  permissionIds?: string[]; // update permissions for role
-}
-
 export interface RoleResponseDto {
   id: string;
   name: string;

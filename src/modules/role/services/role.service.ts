@@ -1,10 +1,24 @@
 import { PrismaClient } from "@prisma/client";
-import { CreateRoleDto, AssignRoleDto } from "../types/role.dto";
+import { CreateRoleDto, UpdateRoleDto } from "../types/role.dto";
 
 const prisma = new PrismaClient();
 
 export class RoleService {
   async createRole(dto: CreateRoleDto) {
+    // Optionally ensure tenant/store/warehouse exist
+    if (dto.tenantId) {
+      const t = await prisma.tenant.findUnique({ where: { id: dto.tenantId } });
+      if (!t) throw new Error("Invalid tenantId.");
+    }
+    if (dto.storeId) {
+      const s = await prisma.store.findUnique({ where: { id: dto.storeId } });
+      if (!s) throw new Error("Invalid storeId.");
+    }
+    if (dto.warehouseId) {
+      const w = await prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
+      if (!w) throw new Error("Invalid warehouseId.");
+    }
+    // Create role with permissions
     return prisma.role.create({
       data: {
         name: dto.name,
@@ -19,39 +33,36 @@ export class RoleService {
     });
   }
 
-  async assignRole(dto: AssignRoleDto) {
-    return prisma.userRole.create({
+  async updateRole(id: string, dto: UpdateRoleDto) {
+    return prisma.role.update({
+      where: { id },
       data: {
-        userId: dto.userId,
-        roleId: dto.roleId,
-        assignedBy: dto.assignedBy,
+        ...dto,
+        permissions: dto.permissionIds
+          ? { set: dto.permissionIds.map(id => ({ id })) }
+          : undefined,
       },
+      include: { permissions: true },
     });
   }
 
-  async getUserPermissions(userId: string, tenantId?: string, storeId?: string, warehouseId?: string) {
-    // Get all user roles in this context (tenant/store/warehouse)
-    const roles = await prisma.userRole.findMany({
-      where: { userId, role: { tenantId, storeId, warehouseId } },
-      include: { role: { include: { permissions: true } } },
-    });
-    // Flatten to a unique permission set
-    const permissionSet = new Set<string>();
-    for (const ur of roles) {
-      for (const perm of ur.role.permissions) {
-        permissionSet.add(perm.name);
-      }
-    }
-    return Array.from(permissionSet);
+  async deleteRole(id: string) {
+    return prisma.role.delete({ where: { id } });
   }
 
-  async getRoleById (id: string) {
+  async getRoles(context: { tenantId?: string; storeId?: string; warehouseId?: string }) {
+    return prisma.role.findMany({
+      where: context,
+      include: { permissions: true },
+    });
+  }
+
+  async getRoleById(id: string) {
     return prisma.role.findUnique({
       where: { id },
       include: { permissions: true },
     });
   }
-
 }
 
 export const roleService = new RoleService();
