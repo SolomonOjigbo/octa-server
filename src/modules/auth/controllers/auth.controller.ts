@@ -18,7 +18,7 @@ import {
   LogoutDto
 } from "../types/auth.dto";
 import { AuditAction } from "../../audit/types/audit.dto";
-import { auditService } from "../../audit/services/audit.service";
+import { auditService } from "../../audit/types/audit.service";
 
 export class AuthController {
   async login(req: Request, res: Response) {

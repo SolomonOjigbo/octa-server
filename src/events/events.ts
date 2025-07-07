@@ -1,0 +1,41 @@
+// src/events/events.ts
+export const EVENTS = {
+  USER_CREATED: "user.created",
+  TRANSACTION_COMPLETED: "transaction.completed",
+  TRANSACTION_FAILED: "transaction.failed",
+  PAYMENT_FAILED: "payment.failed",
+  PAYMENT_UPDATED: "payment.updated",
+  PAYMENT_REVERSED: "payment.reversed",
+  PAYMENT_REFUNDED: "payment.refunded",
+  STOCK_MOVEMENT_CREATED: "stockMovement.created",
+  STOCK_MOVEMENT_UPDATED: "stockMovement.updated",
+  STOCK_MOVEMENT_REMOVED: "stockMovement.removed",
+  STOCK_EXPIRY_PROCESSED: "stock.expiryProcessed",
+  PURCHASE_ORDER_CREATED: "purchaseOrder.created",
+  PURCHASE_ORDER_UPDATED: "purchaseOrder.updated",
+  PURCHASE_ORDER_RECEIVED: "purchaseOrder.received",
+  PURCHASE_ORDER_CANCELLED: "purchaseOrder.cancelled",
+  PURCHASE_ORDER_APPROVED: "purchaseOrder.approved",
+  PURCHASE_ORDER_SHIPPED: "purchaseOrder.shipped",
+  PURCHASE_ORDER_DELIVERED: "purchaseOrder.delivered",
+  PURCHASE_ORDER_RETURNED: "purchaseOrder.returned",
+  PURCHASE_ORDER_REFUNDED: "purchaseOrder.refunded",
+  TENANT_CREATED: "tenant.created",
+  TENANT_UPDATED: "tenant.updated",
+  TENANT_DELETED: "tenant.deleted",
+  B2B_CONNECTION_CREATED: "b2bConnection.created",
+  B2B_CONNECTION_UPDATED: "b2bConnection.updated",
+  B2B_CONNECTION_DELETED: "b2bConnection.deleted",
+  B2B_CONNECTION_APPROVED: "b2bConnection.approved",
+  B2B_CONNECTION_REJECTED: "b2bConnection.rejected",
+  B2B_CONNECTION_REVOKED: "b2bConnection.revoked",
+  B2B_CONNECTION_SYNCED: "b2bConnection.synced",
+  B2B_CONNECTION_SYNC_FAILED: "b2bConnection.syncFailed",
+  TENANT_NOT_FOUND: "tenant.notFound",
+  TENANT_EXISTS: "tenant.exists",
+  INVALID_STATUS_CHANGE: "invalidStatusChange",
+  // … more user events …
+
+  // … more transaction events …
+  // … more domain events …
+};

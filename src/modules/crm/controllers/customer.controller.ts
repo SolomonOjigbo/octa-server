@@ -6,7 +6,7 @@ import { customerService } from '../services/customer.service';
 import { createCustomerSchema, updateCustomerSchema } from '../validations';
 import { CreateCustomerDto, UpdateCustomerDto } from '../types/crm.dto';
 import { AuditLogCreateParams } from '@modules/audit/types/audit.dto';
-import { auditService } from '@modules/audit/services/audit.service';
+import { auditService } from '@modules/audit/types/audit.service';
 import { eventEmitter } from '@events/event.emitter';
 
 export class CustomerController {

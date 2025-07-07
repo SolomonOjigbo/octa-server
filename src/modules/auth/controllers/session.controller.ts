@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { sessionService } from "../services/session.service";
 import { requireAuth } from "../../../middleware/requireAuth";
-import { auditService } from "../../audit/services/audit.service";
+import { auditService } from "../../audit/types/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 
 export class SessionController {

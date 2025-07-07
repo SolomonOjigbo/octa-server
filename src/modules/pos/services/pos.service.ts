@@ -16,7 +16,7 @@ import {
 } from "../types/pos.dto";
 import { inventoryService } from "../../inventory/services/inventory.service";
 import { stockService } from "../../stock/services/stock.service";
-import { auditService } from "@modules/audit/services/audit.service";
+import { auditService } from "@modules/audit/types/audit.service";
 import { eventEmitter } from "@events/event.emitter";
 import { POSEvent } from "@events/types/posEvents.dto";
 import { AppError, ErrorCode } from "@common/constants/app.errors";

@@ -15,7 +15,7 @@ import { eventEmitter } from "@events/event.emitter";
 import { B2BConnectionEvent } from "@events/types/b2bEvents.dto";
 import { cacheService } from "@cache/cache.service";
 import { AuditAction, B2BAuditAction } from "@modules/audit/types/audit.dto";
-import { auditService } from "@modules/audit/services/audit.service";
+import { auditService } from "@modules/audit/types/audit.service";
 import { AppError, ErrorCode } from "@common/constants/app.errors";
 import { HttpStatusCode } from "@common/constants/http";
 import { logger } from "@logging/logger";

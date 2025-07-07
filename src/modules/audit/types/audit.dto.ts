@@ -1,4 +1,17 @@
 // Base Audit Types
+
+export interface AuditEntry {
+  id?: string;
+  tenantId: string;
+  userId?: string;
+  module: string;       // e.g. "user", "store", "transaction"
+  action: string;       // e.g. "create", "update", "delete"
+  entityId?: string;    // ID of the affected record
+  details?: any;        // JSON blob of what changed
+  timestamp?: Date;
+  metadata?: any;
+}
+
 export interface BaseAuditLog {
   id: string;
   tenantId: string;

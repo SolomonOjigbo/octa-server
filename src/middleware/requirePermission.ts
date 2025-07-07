@@ -2,7 +2,7 @@ import { roleService } from "../modules/role/services/role.service";
 import { Request, Response, NextFunction } from "express";
 
 import { redisClient } from "../middleware/cache";
-import { auditService } from "../modules/audit/services/audit.service";
+import { auditService } from "../modules/audit/types/audit.service";
 import { UserActivity } from "../modules/audit/types/audit.dto";
 import { ForbiddenError } from "./errors";
 

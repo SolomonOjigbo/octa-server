@@ -5,7 +5,7 @@ import {
   PaginatedInventory,
 } from "../types/inventory.dto";
 import { cacheService } from "@cache/cache.service";
-import { auditService } from "@modules/audit/services/audit.service";
+import { auditService } from "@modules/audit/types/audit.service";
 import { eventEmitter } from "@events/event.emitter";
 import { StockMovementType } from "@common/types/stockMovement.dto";
 import { logger } from "@logging/logger";

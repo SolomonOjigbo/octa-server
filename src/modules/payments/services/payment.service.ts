@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { CreatePaymentDto, CreateRefundDto, UpdatePaymentDto } from "../types/payment.dto";
-import { auditService } from "../../audit/services/audit.service";
+import { auditService } from "../../audit/types/audit.service";
 import { AppError, ErrorCode } from "@common/constants/app.errors";
 import { HttpStatusCode } from "@common/constants/http";
 import { eventEmitter } from "@events/event.emitter";

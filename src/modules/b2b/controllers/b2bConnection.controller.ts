@@ -13,7 +13,7 @@ import {
   CreateB2BConnectionDto, 
   UpdateB2BConnectionDto,
 } from "../types/b2bConnection.dto";
-import { auditService } from "@modules/audit/services/audit.service";
+import { auditService } from "@modules/audit/types/audit.service";
 import { AuditAction, B2BAuditAction } from "@modules/audit/types/audit.dto";
 import { AppError, ErrorCode } from "@common/constants/app.errors";
 import { HttpStatusCode } from "@common/constants/http";

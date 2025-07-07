@@ -1,7 +1,7 @@
 // src/modules/stock/services/stock.service.ts
 import { PrismaClient } from "@prisma/client";
 import { cacheService, CacheService } from "@cache/cache.service";
-import { auditService, AuditService } from "@modules/audit/services/audit.service";
+import { auditService, AuditService } from "@modules/audit/types/audit.service";
 import { eventEmitter, EventEmitter } from "@events/event.emitter";
 import {
   StockLevelDto,

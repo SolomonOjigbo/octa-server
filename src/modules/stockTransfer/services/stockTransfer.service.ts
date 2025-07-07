@@ -10,7 +10,7 @@ import {
 } from "../types/stockTransfer.dto";
 import { inventoryService } from "../../inventory/services/inventory.service";
 import { stockService } from "../../stock/services/stock.service";
-import { auditService } from "@modules/audit/services/audit.service";
+import { auditService } from "@modules/audit/types/audit.service";
 import { eventEmitter } from "@events/event.emitter";
 import { logger } from "@logging/logger";
 import { cacheService } from "@cache/cache.service";

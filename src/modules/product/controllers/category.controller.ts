@@ -8,7 +8,7 @@ import {
   CreateProductCategoryDto,
   UpdateProductCategoryDto,
 } from "../types/product.dto";
-import { auditService } from "../../audit/services/audit.service";
+import { auditService } from "../../audit/types/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 import { HttpStatusCode } from "@common/constants/http";
 import { AppError } from "@common/constants/app.errors";

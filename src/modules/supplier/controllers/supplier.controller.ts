@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { supplierService } from '../services/supplier.service';
 import { createSupplierSchema, updateSupplierSchema } from '../validations';
-import { auditService } from '@modules/audit/services/audit.service';
+import { auditService } from '@modules/audit/types/audit.service';
 import { eventEmitter } from '@events/event.emitter';
 import { CreateSupplierDto } from '../types/supplier.dto';
 
