@@ -71,6 +71,137 @@ model BusinessEntity {
   stores       Store[]
 }
 
+model GlobalCategory {
+  id          String           @id @default(cuid())
+  name        String
+  imageUrl      String?
+  parentId    String?          
+  description String?
+  products    GlobalProduct[]  
+
+  parent      GlobalCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  subcategories GlobalCategory[] @relation("CategoryHierarchy")
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([name])
+}
+
+model GlobalProduct {
+  id                 String                   @id @default(cuid())
+  globalCategoryId   String
+  sku                String                   @unique
+  name               String
+  barcode            String?                  // UPC/EAN code
+  imageUrl           String?                  // image link for UI
+  brand              String?                  // manufacturer/brand
+  dosageForm         String?
+  strength           String?
+  description        String?
+  isPrescription     Boolean                  @default(false)
+  isActive           Boolean                  @default(true)
+  deletedAt          DateTime?                // soft‐delete
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  category           GlobalCategory           @relation(fields: [globalCategoryId], references: [id])
+  variants           GlobalProductVariant[]
+  tenantOverrides    TenantProduct[]          // tenant‐scoped overrides
+
+  // cross‐module relations
+  B2BConnection      B2BConnection[]          @relation("GlobalProductB2B")  
+  ProductSupplier    ProductSupplier[]        // which suppliers supply this global SKU
+  stocks             Stock[]                  // stock entries across tenants
+  stockTransfers     StockTransfer[]          // all transfer records involving this product
+  purchaseOrderItems PurchaseOrderItem[]      // PO line items
+
+  @@unique([sku], map: "GlobalProduct_sku_unique")
+}
+
+model GlobalProductVariant {
+  id               String         @id @default(cuid())
+  globalProductId  String
+  name             String
+  sku              String
+  imageUrl      String?
+  costPrice        Decimal
+  sellingPrice     Decimal
+  stock            Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  product          GlobalProduct  @relation(fields:[globalProductId], references:[id])
+
+  @@unique([globalProductId, sku])
+}
+
+model TenantProduct {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  globalProductId    String?                  // null for tenant‐only
+  tenantCategoryId   String?
+  sku                String?                  // optional override
+  name               String?                  // optional override
+  barcode            String?                  // tenant‐specific if needed
+  imageUrl           String?
+  brand              String?
+  description        String?
+  isTransferable     Boolean                  @default(false)
+  isActive           Boolean                  @default(true)
+  deletedAt          DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  category           TenantCategory?          @relation(fields: [tenantCategoryId], references: [id])
+  globalProduct      GlobalProduct?           @relation(fields: [globalProductId], references: [id])
+  variants           TenantProductVariant[]
+
+  // cross‐module relations
+  ProductSupplier    ProductSupplier[]        // supplier links for this tenant product
+  stocks             Stock[]                  // stock at tenant’s stores/warehouses
+  stockTransfers     StockTransfer[]          // transfers involving this tenant’s product
+  purchaseOrderItems PurchaseOrderItem[]      // PO line items for this tenant product
+
+  @@unique([tenantId, sku])
+}
+
+model TenantCategory {
+  id          String           @id @default(cuid())
+  tenantId    String
+  name        String
+  parentId    String?          
+  description String?
+  imageUrl      String?
+  products    TenantProduct[]  
+
+  parent      TenantCategory?  @relation("TenantCategoryHierarchy", fields: [parentId], references: [id])
+  subcategories TenantCategory[] @relation("TenantCategoryHierarchy")
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([tenantId, name])
+}
+
+
+model TenantProductVariant {
+  id               String         @id @default(cuid())
+  tenantProductId  String
+  name             String
+  sku              String
+  imageUrl         String?
+  costPrice        Decimal
+  sellingPrice     Decimal
+  stock            Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  tenantProduct    TenantProduct  @relation(fields:[tenantProductId], references:[id])
+  @@unique([tenantProductId, sku])
+}
+
+
 model ProductCategory {
   id          String   @id @default(cuid())
   tenantId    String
@@ -235,6 +366,8 @@ model Stock {
   warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
 
   @@unique([tenantId, productId, storeId, warehouseId])
+  TenantProduct TenantProduct[]
+  GlobalProduct GlobalProduct[]
 }
 
 model Transaction {
@@ -482,6 +615,8 @@ model B2BConnection {
   products      Product[]
 
   StockTransfer StockTransfer[]
+
+  GlobalProduct GlobalProduct[] @relation("GlobalProductB2B")
 }
 
 
@@ -496,6 +631,10 @@ model ProductSupplier {
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   product       Product   @relation(fields: [productId], references: [id])
   supplier      Supplier  @relation(fields: [supplierId], references: [id])
+
+  TenantProduct TenantProduct[]
+
+  GlobalProduct GlobalProduct[]
 }
 
 model PurchaseOrder {
@@ -531,6 +670,10 @@ model PurchaseOrderItem {
   expiryDate    DateTime?
   product       Product   @relation(fields: [productId], references: [id])
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  TenantProduct TenantProduct[]
+
+  GlobalProduct GlobalProduct[]
 }
 
 
@@ -569,6 +712,10 @@ model StockTransfer {
   Tenant Tenant[]
 
   Store Store[] @relation("stockTransferFrom")
+
+  TenantProduct TenantProduct[]
+
+  GlobalProduct GlobalProduct[]
 }
 
 

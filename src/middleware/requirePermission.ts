@@ -2,7 +2,7 @@ import { roleService } from "../modules/role/services/role.service";
 import { Request, Response, NextFunction } from "express";
 
 import { redisClient } from "../middleware/cache";
-import { auditService } from "../modules/audit/types/audit.service";
+import { auditService } from "../modules/audit/services/audit.service";
 import { UserActivity } from "../modules/audit/types/audit.dto";
 import { ForbiddenError } from "./errors";
 
@@ -41,11 +41,12 @@ export function requirePermission(permission: string) {
         permissions = JSON.parse(cachedPermissions);
       } else {
         // Get from database if not in cache
-        permissions = await roleService.getUserPermissions(
-          userId, 
-          tenantId, 
-          storeId, 
+        permissions = await roleService.getRoles(
+         {
+          tenantId,
+          storeId,
           warehouseId
+        }
         );
         
         // Cache permissions for 5 minutes
@@ -62,7 +63,7 @@ export function requirePermission(permission: string) {
           tenantId,
           action: UserActivity.PERMISSION_DENIED,
           entityId: '',
-          entityType: ""
+          module: "user"
         });
 
         throw new ForbiddenError(

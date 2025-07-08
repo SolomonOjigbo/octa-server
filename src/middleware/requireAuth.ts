@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { ForbiddenError, UnauthorizedError } from "./errors";
-import { auditService } from "../modules/audit/types/audit.service";
+import { auditService } from "../modules/audit/services/audit.service";
 import { AuditAction } from "../modules/audit/types/audit.dto";
 import { PrismaClient } from "@prisma/client";
 
@@ -56,7 +56,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         userId: decoded.userId,
         tenantId: decoded.tenantId,
         action: AuditAction.PERMISSION_DENIED,
-        entityType: "User",
+        module: "User",
         entityId: decoded.userId,
         metadata: {
           ip: req.ip,
