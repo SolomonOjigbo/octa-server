@@ -4,19 +4,30 @@ import {
   b2bConnectionTypes 
 } from "./types/b2bConnection.dto";
 
+
+
+export const connectionActionSchema = z.object({
+  reason: z.string().optional(),
+});
+ 
+
 export const createB2BConnectionSchema = z.object({
-  tenantAId: z.string().cuid().optional(), // Will be set from auth context
-  tenantBId: z.string().cuid(),
-  status: z.enum(b2bConnectionStatuses).default("pending"),
-  type: z.enum(b2bConnectionTypes).default("general"),
-  settings: z.record(z.unknown()).optional()
+  // tenantAId is set by your controller from auth context
+  tenantBId:    z.string().cuid(),
+  type:         z.enum(b2bConnectionTypes),         // enforce B2BConnectionType
+  settings:     z.record(z.unknown()).optional(),
+  status:       z.enum(b2bConnectionStatuses).default('pending'),
+  isActive:     z.boolean().default(true),          // if you add activation
 });
 
 export const updateB2BConnectionSchema = z.object({
-  id: z.string().cuid(),
-  type: z.enum(b2bConnectionTypes).optional(),
-  settings: z.record(z.unknown()).optional()
+  id:         z.string().cuid(),
+  type:       z.enum(b2bConnectionTypes).optional(),
+  settings:   z.record(z.unknown()).optional(),
+  status:     z.enum(b2bConnectionStatuses).optional(),
+  isActive:   z.boolean().optional(),
 });
+
 
 export const approveB2BConnectionSchema = z.object({
   approvedBy: z.string().cuid().optional(), // Will be set from auth context

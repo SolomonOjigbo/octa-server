@@ -50,6 +50,10 @@ export const EVENTS = {
   STOCK_LEVEL_UPDATED: "stockLevel.updated",
   STOCK_DELETED: "stock.deleted",
   STOCK_ADJUSTED: "stock.adjusted",
+  INVENTORY_MOVEMENT_CREATED: "inventory_movement.created",
+  INVENTORY_MOVEMENT_UPDATED: "inventory_movement.updated",
+  INVENTORY_MOVEMENT_DELETED: "inventory_movement.deleted",
+
 
   // … more user events …
 

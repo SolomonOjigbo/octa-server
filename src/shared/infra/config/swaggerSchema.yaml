@@ -1293,6 +1293,64 @@ SupplierReference:
       404:
         description: Transfer not found
 
+        components:
+  schemas:
+    CreateB2BConnectionDto:
+      type: object
+      required:
+        - tenantBId
+      properties:
+        tenantBId:
+          type: string
+        settings:
+          type: object
+          additionalProperties: true
+
+    ConnectionActionDto:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    B2BConnectionResponseDto:
+      type: object
+      properties:
+        id:           { type: string }
+        tenantAId:    { type: string }
+        tenantBId:    { type: string }
+        status:
+          type: string
+          enum: [pending, approved, rejected, revoked]
+        settings:
+          type: object
+          additionalProperties: true
+        createdAt:    { type: string, format: date-time }
+        updatedAt:    { type: string, format: date-time }
+
+paths:
+  /b2b-connections:
+    get:
+      $ref: '#/paths/~1b2b-connections/get'
+    post:
+      $ref: '#/paths/~1b2b-connections/post'
+
+  /b2b-connections/{id}:
+    get:
+      $ref: '#/paths/~1b2b-connections~1{id}/get'
+
+  /b2b-connections/{id}/approve:
+    patch:
+      $ref: '#/paths/~1b2b-connections~1{id}~1approve/patch'
+
+  /b2b-connections/{id}/reject:
+    patch:
+      $ref: '#/paths/~1b2b-connections~1{id}~1reject/patch'
+
+  /b2b-connections/{id}/revoke:
+    patch:
+      $ref: '#/paths/~1b2b-connections~1{id}~1revoke/patch'
+
+
 # --- Purchase Order Paths ---
 /purchase-orders:
   post:

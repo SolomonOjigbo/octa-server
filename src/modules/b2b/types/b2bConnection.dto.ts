@@ -19,6 +19,27 @@ export const b2bConnectionTypes = [
 export type B2BConnectionStatus = typeof b2bConnectionStatuses[number];
 export type B2BConnectionType = typeof b2bConnectionTypes[number];
 
+
+export interface CreateB2BConnectionDto {
+  tenantBId: string;
+  settings?: Record<string, any>;
+}
+
+export interface ConnectionActionDto {
+  reason?: string;
+}
+
+export interface B2BConnectionResponseDto {
+  id: string;
+  tenantAId: string;
+  tenantBId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'revoked';
+  settings?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
 // Base DTOs
 export interface BaseB2BConnectionDto {
   tenantAId: string;
@@ -27,19 +48,21 @@ export interface BaseB2BConnectionDto {
   type: B2BConnectionType;
   settings?: Record<string, unknown>;
   metadata?: {
-    createdBy?: string;
-    createdAt?: string;
-    updatedBy?: string;
-    updatedAt?: string;
-    approvedBy?: string;
-    approvedAt?: string;
-    rejectedBy?: string;
-    rejectedAt?: string;
-    revokedBy?: string;
-    revokedAt?: string;
-    rejectionReason?: string;
-    revocationReason?: string;
-  };
+  createdBy?:     string;
+  createdAt?:     string;
+  updatedBy?:     string;
+  updatedAt?:     string;
+  approvedBy?:    string;
+  approvedAt?:    string;
+  rejectedBy?:    string;
+  rejectedAt?:    string;
+  revokedBy?:     string;
+  revokedAt?:     string;
+  rejectionReason?: string;
+  revocationReason?: string;
+  deletedBy?:     string;     // new
+  deletedAt?:     string;     // new
+};
 }
 
 // Request DTOs
@@ -79,6 +102,8 @@ export interface B2BConnectionResponseDto extends BaseB2BConnectionDto {
   id: string;
   createdAt: Date;
   updatedAt: Date;
+  isActive: boolean;
+  deletedAt?: Date;
   tenantA: {
     id: string;
     name: string;
@@ -93,21 +118,6 @@ export interface B2BConnectionResponseDto extends BaseB2BConnectionDto {
   };
 }
 
-export interface B2BConnectionWithRelationsDto extends B2BConnectionResponseDto {
-  purchaseOrders: {
-    id: string;
-    status: string;
-    orderDate: Date;
-    totalAmount: number;
-  }[];
-  stockTransfers: {
-    id: string;
-    status: string;
-    transferType: string;
-    createdAt: Date;
-    quantity: number;
-  }[];
-}
 
 // Zod Schemas
 export const b2bConnectionResponseSchema = z.object({
@@ -146,6 +156,37 @@ export const b2bConnectionResponseSchema = z.object({
     logoUrl: z.string().url().optional()
   })
 });
+
+
+
+export interface B2BConnectionWithRelationsDto extends B2BConnectionResponseDto {
+  purchaseOrders: {
+    id: string;
+    status: string;
+    orderDate: Date;
+    totalAmount: number;
+  }[];
+  inventories: {
+    id: string;
+    tenantProductId: string;
+    quantity: number;
+    movementType: string;
+    createdAt: Date;
+  }[];
+  stockTransfers: {
+    id: string;
+    status: string;
+    transferType: string;
+    createdAt: Date;
+    quantity: number;
+  }[];
+  globalProducts: {
+    id: string;
+    sku: string;
+    name: string;
+  }[];
+}
+
 
 export const b2bConnectionWithRelationsSchema = b2bConnectionResponseSchema.extend({
   purchaseOrders: z.array(z.object({

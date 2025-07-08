@@ -4,35 +4,25 @@ import { StockMovementType } from "@common/types/stockMovement.dto";
 import { z } from "zod";
 
 
-// Validation Schemas
+// src/modules/inventory/validations.ts
+
 export const InventoryMovementSchema = z.object({
-  tenantId: z.string().cuid(),
-  productId: z.string().cuid(),
-  variantId: z.string().cuid().optional(),
-  batchNumber: z.string().min(1).optional(),
-  quantity: z.number().positive(),
-  movementType: z.nativeEnum(StockMovementType),
-  source: z.object({
-    type: z.enum(['store', 'warehouse', 'supplier']),
-    id: z.string()
-  }).optional(),
-  destination: z.object({
-    type: z.enum(['store', 'warehouse', 'customer']),
-    id: z.string()
-  }).optional(),
-  reference: z.string().optional(),
-  costPrice: z.number().positive().optional(),
-  expiryDate: z.string().datetime().optional(),
-  metadata: z.object({
-    prescriptionId: z.string().optional(),
-    pharmacistId: z.string().optional(),
-    temperatureLog: z.object({
-      min: z.number(),
-      max: z.number(),
-      avg: z.number()
-    }).optional()
-  }).optional()
+  tenantProductId:        z.string().cuid(),
+  tenantProductVariantId: z.string().cuid().optional(),
+  quantity:               z.number(),
+  costPrice:              z.number().optional(),
+  movementType:           z.string().min(1),
+  reference:              z.string().optional(),
+  batchNumber:            z.string().optional(),
+  expiryDate:             z.coerce.date().optional(),
+  storeId:                z.string().cuid().optional(),
+  warehouseId:            z.string().cuid().optional(),
+  temperature:            z.number().optional(),
+  isControlled:           z.boolean().optional(),
+  requiresRefrigeration:  z.boolean().optional(),
+  metadata:               z.record(z.any()).optional(),
 });
+
 
 export const InventoryAdjustmentSchema = z.object({
   tenantId: z.string().cuid(),

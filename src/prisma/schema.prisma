@@ -161,6 +161,7 @@ model TenantProduct {
   purchaseOrderItems PurchaseOrderItem[]      // PO line items for this tenant product
 
   @@unique([tenantId, sku])
+  Inventory Inventory[]
 }
 
 model TenantCategory {
@@ -197,6 +198,7 @@ model TenantProductVariant {
   tenantProduct    TenantProduct  @relation(fields:[tenantProductId], references:[id])
   @@unique([tenantProductId, sku])
   Stock Stock[]
+  Inventory Inventory[]
 }
 
 
@@ -255,26 +257,47 @@ model Warehouse {
 }
 
 model Inventory {
-  id              String   @id @default(cuid())
-  tenantId        String
-  productId       String
-  batchNumber     String?
-  quantity        Int      @default(0)
-  storeId         String?
-  warehouseId     String?
-  costPrice       Float?
-  expiryDate      DateTime?
-  movementType    String   // e.g. "IN", "OUT", "ADJUST", "TRANSFER"
-  reference       String? // e.g. "purchase", "sale", "adjustment", etc.
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
-  store           Store?   @relation(fields: [storeId], references: [id])
-  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+  id                       String                  @id @default(cuid())
+  tenantId                 String
+  tenantProductId          String
+  tenantProductVariantId   String?                 
+  batchNumber              String?                 
+  quantity                 Decimal                 @default(0)
+  costPrice                Decimal?                
+  expiryDate               DateTime?               
+  movementType             String                  
+  reference                String?                 
+  storeId                  String?                 
+  warehouseId              String?                 
+  temperature              Float?                  
+  isControlled             Boolean                 @default(false)
+  requiresRefrigeration    Boolean                 @default(false)
+  metadata                 Json?                   
+  createdById              String?                 
+  verifiedById             String?                 
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id])
+  tenantProduct            TenantProduct           @relation(fields: [tenantProductId], references: [id])
+  tenantVariant            TenantProductVariant?   @relation(fields: [tenantProductVariantId], references: [id])
+  store                    Store?                  @relation(fields: [storeId], references: [id])
+  warehouse                Warehouse?              @relation(fields: [warehouseId], references: [id])
+  createdBy                User?                   @relation("InventoryCreatedBy", fields: [createdById], references: [id])
+  verifiedBy               User?                   @relation("InventoryVerifiedBy", fields: [verifiedById], references: [id])
 
   @@index([tenantId])
+  @@index([tenantProductId])
+  @@index([batchNumber])
+  @@index([expiryDate])
+  @@index([storeId])
+  @@index([warehouseId])
+  @@index([movementType])
+  @@index([isControlled])
+  @@unique([tenantId, tenantProductId, tenantProductVariantId, batchNumber, storeId, warehouseId])
   B2BConnection B2BConnection[]
 }
+
 
 model Stock {
   id                     String                 @id @default(cuid())
@@ -478,6 +501,10 @@ model User {
   Payment Payment[]
 
   AuditLog AuditLog[]
+
+ // Relations to Inventory
+  createdInventories Inventory[] @relation("InventoryCreatedBy")
+  verifiedInventories Inventory[] @relation("InventoryVerifiedBy")
 }
 
 model RefreshToken {
