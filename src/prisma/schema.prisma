@@ -15,8 +15,7 @@ model Tenant {
   contactEmail      String?
   branding          Json?
   settings          Json?
-  products   Product[]
-  categories ProductCategory[]
+  
   stores     Store[]
   warehouses Warehouse[]
   users      User[]
@@ -34,8 +33,6 @@ model Tenant {
   b2bConnectionsA B2BConnection[] @relation("b2bA")
 
   b2bConnectionsB B2BConnection[] @relation("b2bB")
-
-  ProductVariant ProductVariant[]
 
   Supplier Supplier[]
 
@@ -202,73 +199,6 @@ model TenantProductVariant {
 }
 
 
-model ProductCategory {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  description String?
-  parentId    String?
-  parent      ProductCategory?  @relation("SubCategories", fields: [parentId], references: [id])
-  children    ProductCategory[] @relation("SubCategories")
-  deletedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  products    Product[]
-}
-
-model Product {
-  id              String   @id @default(cuid())
-  tenantId        String
-  categoryId      String?
-  name            String
-  sku             String   @unique
-  barcode         String?
-  description     String?
-  brand           String?
-  costPrice       Float
-  sellingPrice    Float
-  isPrescription  Boolean @default(false)
-  controlledSubstance Boolean @default(false)
-  requiresRefrigeration Boolean @default(false)
-  isActive        Boolean  @default(true)
-  deletedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
-  category        ProductCategory? @relation(fields: [categoryId], references: [id])
-  variants        ProductVariant[]
-  inventories     Inventory[]
-  stocks          Stock[]
-
-  B2BConnection B2BConnection[]
-
-  ProductSupplier ProductSupplier[]
-
-  TransactionItem TransactionItem[]
-
-  StockTransfer StockTransfer[]
-
-  PurchaseOrderItem PurchaseOrderItem[]
-}
-
-model ProductVariant {
-  id        String   @id @default(cuid())
-  tenantId  String
-  productId String
-  name      String
-  sku       String   @unique
-  barcode   String?
-  costPrice Float
-  sellingPrice Float
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id])
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-
-  TransactionItem TransactionItem[]
-}
-
 model Store {
   id            String   @id @default(cuid())
   tenantId      String
@@ -338,7 +268,6 @@ model Inventory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id])
-  product         Product  @relation(fields: [productId], references: [id])
   store           Store?   @relation(fields: [storeId], references: [id])
   warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
 
@@ -361,7 +290,6 @@ model Stock {
   expiryDate DateTime?   
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  product     Product  @relation(fields: [productId], references: [id])
   store       Store?   @relation(fields: [storeId], references: [id])
   warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
 
@@ -421,8 +349,7 @@ model Payment {
   purchaseOrder  PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id])
   user           User?           @relation(fields: [userId], references: [id])
   posSession     POSSession?     @relation(fields: [sessionId], references: [id])
-  // ...customer, session, etc.
-
+ 
   Supplier Supplier[] @relation("SupplierPayments")
 
   Customer Customer[] @relation("CustomerPayments")
@@ -612,7 +539,6 @@ model B2BConnection {
   // Optionally, reference PurchaseOrders or Inventory if B2B includes cross-tenant procurement
   purchaseOrders PurchaseOrder[]
   inventories   Inventory[]
-  products      Product[]
 
   StockTransfer StockTransfer[]
 
@@ -629,7 +555,6 @@ model ProductSupplier {
   updatedAt     DateTime @updatedAt
 
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  product       Product   @relation(fields: [productId], references: [id])
   supplier      Supplier  @relation(fields: [supplierId], references: [id])
 
   TenantProduct TenantProduct[]
@@ -668,7 +593,6 @@ model PurchaseOrderItem {
   costPrice     Float
   batchNumber   String?
   expiryDate    DateTime?
-  product       Product   @relation(fields: [productId], references: [id])
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
 
   TenantProduct TenantProduct[]
@@ -701,7 +625,6 @@ model StockTransfer {
   fromWarehouse   Warehouse? @relation("stockTransferFromWarehouse", fields: [fromWarehouseId], references: [id])
   toWarehouse     Warehouse? @relation("stockTransferToWarehouse", fields: [toWarehouseId], references: [id])
   toStore         Store?   @relation("stockTransferTo", fields: [toStoreId], references: [id])
-  product         Product  @relation(fields: [productId], references: [id])
   b2bConnection   B2BConnection? @relation(fields: [b2bConnectionId], references: [id])
 
 
@@ -732,8 +655,6 @@ model TransactionItem {
   expiryDate      DateTime?
 
   transaction     Transaction @relation(fields: [transactionId], references: [id])
-  product         Product     @relation(fields: [productId], references: [id])
-  productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id])
 }
 
 model AuditLog {
