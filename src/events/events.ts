@@ -46,6 +46,11 @@ export const EVENTS = {
   ORDER_CREATED: "order.created",
   ORDER_UPDATED: "order.updated",
   ORDER_DELETED: "order.deleted",
+  STOCK_UPDATED: "stock.updated",
+  STOCK_LEVEL_UPDATED: "stockLevel.updated",
+  STOCK_DELETED: "stock.deleted",
+  STOCK_ADJUSTED: "stock.adjusted",
+
   // … more user events …
 
   // … more transaction events …

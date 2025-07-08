@@ -196,6 +196,7 @@ model TenantProductVariant {
 
   tenantProduct    TenantProduct  @relation(fields:[tenantProductId], references:[id])
   @@unique([tenantProductId, sku])
+  Stock Stock[]
 }
 
 
@@ -276,27 +277,34 @@ model Inventory {
 }
 
 model Stock {
-  id          String   @id @default(cuid())
-  tenantId    String
-  productId   String
-  storeId     String?
-  warehouseId String?
-  quantity    Int
-  minStockLevel Int?   
-  maxStockLevel Int?   
-  reorderPoint Int?    
-  isCritical Boolean?
-  batchNumber String?
-  expiryDate DateTime?   
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  store       Store?   @relation(fields: [storeId], references: [id])
-  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+  id                     String                 @id @default(cuid())
+  tenantId               String
+  tenantProductId        String
+  tenantProductVariantId String?                // optional
+  storeId                String?
+  warehouseId            String?
+  quantity               Int
+  minStockLevel          Int?
+  maxStockLevel          Int?
+  reorderPoint           Int?
+  isCritical             Boolean?
+  batchNumber            String?
+  expiryDate             DateTime?
+  updatedAt              DateTime               @updatedAt
 
-  @@unique([tenantId, productId, storeId, warehouseId])
-  TenantProduct TenantProduct[]
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id])
+  tenantProduct    TenantProduct          @relation(fields: [tenantProductId], references: [id])
+  tenantVariant    TenantProductVariant?  @relation(fields: [tenantProductVariantId], references: [id])
+  store            Store?                 @relation(fields: [storeId], references: [id])
+  warehouse        Warehouse?             @relation(fields: [warehouseId], references: [id])
+
+  StockTransfer    StockTransfer[]        // back-ref
+  PurchaseOrderItem PurchaseOrderItem[]   // back-ref
+
+  @@unique([tenantId, tenantProductId, storeId, warehouseId])
   GlobalProduct GlobalProduct[]
 }
+
 
 model Transaction {
   id              String   @id @default(cuid())
@@ -598,6 +606,8 @@ model PurchaseOrderItem {
   TenantProduct TenantProduct[]
 
   GlobalProduct GlobalProduct[]
+
+  Stock Stock[]
 }
 
 
@@ -639,6 +649,8 @@ model StockTransfer {
   TenantProduct TenantProduct[]
 
   GlobalProduct GlobalProduct[]
+
+  Stock Stock[]
 }
 
 
