@@ -1,28 +1,49 @@
 import { z } from 'zod';
 
+
+// Category schemas
+export const createCategorySchema = z.object({
+  tenantId: z.string().cuid(),
+  name: z.string().min(2),
+  description: z.string().optional(),
+});
+export const updateCategorySchema = createCategorySchema.partial();
+
+// Variant schema
+export const variantSchema = z.object({
+  id: z.string().cuid().optional(),
+  attributes: z.record(z.any()),           // ensure it's an object
+  priceDelta: z.number().nonnegative().optional(),
+  barcode: z.string().optional(),
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().transform(d => new Date(d)).optional(),
+});
+
+// Main product schemas
 export const createProductSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.string().cuid(),
+  categoryId: z.string().cuid().optional(),
+  // Inline create category?
+  category: createCategorySchema.optional(),
+
   name: z.string().min(1),
-  sku: z.string().optional(),
+  sku: z.string().min(1),
   barcode: z.string().optional(),
   description: z.string().optional(),
   brand: z.string().optional(),
-  categoryId: z.string().uuid(),
-  costPrice: z.number().min(0),
-  sellingPrice: z.number().min(0),
-  isActive: z.boolean().optional(),
-  variants: z.array(z.object({
-    name: z.string(),
-    sku: z.string().optional(),
-    costPrice: z.number().min(0),
-    sellingPrice: z.number().min(0),
-    stock: z.number().min(0).optional(),
-  })).optional(),
-});
 
+  costPrice: z.number().nonnegative(),
+  sellingPrice: z.number().nonnegative(),
+
+  threshold: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+
+  variants: z.array(variantSchema).optional(),
+});
 export const updateProductSchema = createProductSchema.partial().extend({
   id: z.string().uuid(),
-});
+});;
+
 
 export const productFilterSchema = z.object({
   search: z.string().optional(),

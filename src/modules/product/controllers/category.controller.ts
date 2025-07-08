@@ -4,16 +4,14 @@ import {
   createProductCategorySchema,
   updateProductCategorySchema,
 } from "../validations";
-import { 
-  CreateProductCategoryDto,
-  UpdateProductCategoryDto,
-} from "../types/product.dto";
-import { auditService } from "../../audit/types/audit.service";
+
+import { auditService } from "../../audit/services/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 import { HttpStatusCode } from "@common/constants/http";
 import { AppError } from "@common/constants/app.errors";
 import { asyncHandler } from "@middleware/errorHandler";
 import { categoryService} from "../services/category.service";
+import { CreateCategoryDto, UpdateCategoryDto } from "../types/product.dto";
 
 export class CategoryController {
   // ========== Product Category Endpoints ==========
@@ -21,7 +19,7 @@ export class CategoryController {
     const validated = createProductCategorySchema.parse({
       ...req.body,
       tenantId: req.user?.tenantId
-    }) as CreateProductCategoryDto;
+    }) as CreateCategoryDto;
     if (!req.user?.tenantId) {
       throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
     }
@@ -31,7 +29,7 @@ export class CategoryController {
       userId: req.user?.id,
       tenantId: validated.tenantId,
       action: AuditAction.PRODUCT_CATEGORY_CREATED,
-      entityType: "ProductCategory",
+      module: "product",
       entityId: category.id,
       metadata: {
         name: category.name
@@ -79,7 +77,7 @@ export class CategoryController {
       ...req.body,
       id,
       tenantId
-    }) as UpdateProductCategoryDto;
+    }) as UpdateCategoryDto;
     
     const category = await categoryService.updateCategory(
       tenantId,
@@ -92,7 +90,7 @@ export class CategoryController {
       userId: req.user?.id,
       tenantId,
       action: AuditAction.PRODUCT_CATEGORY_UPDATED,
-      entityType: "ProductCategory",
+      module: "ProductCategory",
       entityId: id,
       metadata: {
         changes: req.body
@@ -112,7 +110,7 @@ export class CategoryController {
       userId: req.user?.id,
       tenantId,
       action: AuditAction.PRODUCT_CATEGORY_DELETED,
-      entityType: "ProductCategory",
+      module: "ProductCategory",
       entityId: id
     });
 

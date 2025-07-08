@@ -8,7 +8,7 @@ import {
   CreateProductDto,
   UpdateProductDto,
 } from "../types/product.dto";
-import { auditService } from "../../audit/types/audit.service";
+import { auditService } from "../../audit/services/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 import { HttpStatusCode } from "@common/constants/http";
 import { AppError } from "@common/constants/app.errors";
@@ -26,19 +26,6 @@ export class ProductController {
       validated,
       req.user?.id
     );
-
-    await auditService.log({
-      userId: req.user?.id,
-      tenantId: validated.tenantId,
-      action: AuditAction.PRODUCT_CREATED,
-      entityType: "Product",
-      entityId: product.id,
-      metadata: {
-        name: product.name,
-        sku: product.sku
-      }
-    });
-
     res.status(HttpStatusCode.CREATED).json(product);
   });
 
@@ -131,7 +118,7 @@ export class ProductController {
       userId: req.user?.id,
       tenantId,
       action: AuditAction.PRODUCT_UPDATED,
-      entityType: "Product",
+      module: "Product",
       entityId: id,
       metadata: {
         changes: req.body
@@ -151,7 +138,7 @@ export class ProductController {
       userId: req.user?.id,
       tenantId,
       action: AuditAction.PRODUCT_DELETED,
-      entityType: "Product",
+      module: "Product",
       entityId: id
     });
 
@@ -179,7 +166,7 @@ export class ProductController {
       userId: req.user?.id,
       tenantId,
       action: AuditAction.PRODUCTS_IMPORTED,
-      entityType: "Product",
+      module: "Product",
       metadata: {
         importedCount: result.success.length,
         errorCount: result.errors.length

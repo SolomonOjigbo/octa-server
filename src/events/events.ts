@@ -34,6 +34,13 @@ export const EVENTS = {
   TENANT_NOT_FOUND: "tenant.notFound",
   TENANT_EXISTS: "tenant.exists",
   INVALID_STATUS_CHANGE: "invalidStatusChange",
+  PRODUCT_CATEGORY_CREATED: "product_category.created",
+  PRODUCT_CREATED: "product.created",
+  PRODUCT_CATEGORY_UPDATED: "product_category.updated",
+  PRODUCT_CATEGORY_DELETED: "product_category.deleted",
+  PRODUCT_VARIANT_CREATED: "product_variant.created",
+  PRODUCT_VARIANT_UPDATED: "product_variant.updated",
+  PRODUCT_VARIANT_DELETED: "product_variant.deleted",
   // … more user events …
 
   // … more transaction events …

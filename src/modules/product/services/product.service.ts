@@ -2,15 +2,18 @@ import { PrismaClient } from "@prisma/client";
 import { 
   CreateProductDto,
   UpdateProductDto,
-  CreateProductCategoryDto,
-  UpdateProductCategoryDto,
-  CreateProductVariantDto,
-  UpdateProductVariantDto,
+  
   ProductResponseDto,
   ProductVariantResponseDto,
-  ProductCategoryResponseDto
+  ProductCategoryResponseDto,
+  CreateVariantDto,
+  UpdateVariantDto
 } from "../types/product.dto";
 import { PaginationOptionsDto, PaginatedResult } from "@common/types/pagination.dto";
+import { auditService } from "@modules/audit/services/audit.service";
+import { eventBus } from "@events/eventBus";
+import { EVENTS } from "@events/events";
+import { cacheService } from "@cache/cache.service";
 // import { StockLocation } from "../../inventory/types/inventory.dto";
 
 const prisma = new PrismaClient();
@@ -23,35 +26,76 @@ export class ProductService {
 
   // ========== Product CRUD ==========
   async createProduct(
-    data: CreateProductDto,
+    dto: CreateProductDto,
     createdBy?: string
-  ): Promise<ProductResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      const { variants, ...productData } = data;
-      
-      const product = await tx.product.create({
-        data: {
-          ...productData,
-          metadata: {
-            createdBy
-          },
-          variants: variants?.length ? {
-            create: variants.map(v => ({
-              ...v,
-              metadata: {
-                createdBy
-              }
-            }))
-          } : undefined
-        },
-        include: {
-          category: true,
-          variants: true
-        }
-      });
+  ) {
+    // handle category inline vs. reference
+let categoryConnect: { id: string } | undefined;
+if (dto.categoryId) {
+  // existing
+  categoryConnect = { id: dto.categoryId };
+} else if (dto.category) {
+  // inline create
+  const newCat = await prisma.productCategory.create({
+    data: { ...dto.category, tenantId: dto.tenantId }
+  });
+  categoryConnect = { id: newCat.id };
+  // audit & event
+  await auditService.log({ 
+    userId: createdBy,
+    tenantId: dto.tenantId,
+    action: "PRODUCT_CATEGORY_CREATED",
+    module: "product",
+    entityId: newCat.id,
+    metadata: {
+      name: newCat.name
+    },
+    details: {
+      categoryId: newCat.id,
+      categoryName: newCat.name
+    }
+   });
+  eventBus.emit(EVENTS.PRODUCT_CATEGORY_CREATED, {
+    tenantId: dto.tenantId,
+    categoryId: newCat.id
+  });
+  cacheService.del(`categories:list:${dto.tenantId}`);
+}
 
-      return this.mapProductToDto(product);
+// then create product
+const product = await prisma.product.create({
+  data: {
+    ...dto,
+    category: categoryConnect ? { connect: categoryConnect } : undefined,
+    variants: dto.variants
+      ? { create: dto.variants.map(v => ({ 
+        ...v,
+         id: v.id,
+        attributes: v.attributes,
+        priceDelta: v.priceDelta,
+        barcode: v.barcode,
+        batchNumber: v.batchNumber,
+        expiryDate: v.expiryDate,
+       })) }
+      : undefined,
+  }
+});
+
+await auditService.log({
+      tenantId: dto.tenantId,
+      userId: createdBy,
+      module: "product",
+      action: "create",
+      entityId: product.id,
+      details: dto,
     });
+
+     eventBus.emit(EVENTS.PRODUCT_CREATED, {
+    tenantId: dto.tenantId,
+    productId: product.id,
+    createdBy: createdBy,
+  });
+
   }
 
   async getProducts(
@@ -196,7 +240,7 @@ export class ProductService {
 
   // ========== Product Variant CRUD ==========
   async createVariant(
-    data: CreateProductVariantDto,
+    data: CreateVariantDto,
     createdBy?: string
   ): Promise<ProductVariantResponseDto> {
     return prisma.productVariant.create({
@@ -229,7 +273,7 @@ export class ProductService {
   async updateVariant(
     tenantId: string,
     id: string,
-    data: UpdateProductVariantDto,
+    data: UpdateVariantDto,
     updatedBy?: string
   ): Promise<ProductVariantResponseDto> {
     return prisma.productVariant.update({

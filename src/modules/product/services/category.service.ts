@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { CreateProductCategoryDto, ProductCategoryResponseDto, UpdateProductCategoryDto } from "../types/product.dto";
+import { CreateCategoryDto, ProductCategoryResponseDto, UpdateCategoryDto } from "../types/product.dto";
 import { PaginatedResult, PaginationOptionsDto } from "@common/types/pagination.dto";
 const prisma = new PrismaClient();
 
@@ -9,7 +9,7 @@ export class CategoryService {
 
    // ========== Product Category CRUD ==========
     async createCategory(
-      data: CreateProductCategoryDto,
+      data: CreateCategoryDto,
       createdBy?: string
     ): Promise<ProductCategoryResponseDto> {
       return prisma.productCategory.create({
@@ -71,7 +71,7 @@ export class CategoryService {
     async updateCategory(
       tenantId: string,
       id: string,
-      data: UpdateProductCategoryDto,
+      data: UpdateCategoryDto,
       updatedBy?: string
     ): Promise<ProductCategoryResponseDto> {
       return prisma.productCategory.update({

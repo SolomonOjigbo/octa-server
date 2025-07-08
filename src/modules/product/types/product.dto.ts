@@ -1,15 +1,43 @@
 import { z } from "zod";
-import { createProductCategorySchema, createProductSchema, createProductVariantSchema } from "../validations";
+// src/modules/product/types/product.dto.ts
 
-// DTO Types
-export type CreateProductCategoryDto = z.infer<typeof createProductCategorySchema>;
-export type UpdateProductCategoryDto = Partial<CreateProductCategoryDto>;
+export interface ProductVariantDto {
+  id?: string;               // optional on create
+  attributes: Record<string, any>;
+  priceDelta?: number;       // relative to base price
+  barcode?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
+}
 
-export type CreateProductVariantDto = z.infer<typeof createProductVariantSchema>;
-export type UpdateProductVariantDto = Partial<CreateProductVariantDto>;
+export interface ProductCategoryDto {
+  id?: string;
+  name: string;
+  description?: string;
+}
 
-export type CreateProductDto = z.infer<typeof createProductSchema>;
-export type UpdateProductDto = Partial<CreateProductDto>;
+export interface CreateProductDto {
+  tenantId: string;
+  categoryId?: string;       // reference to existing
+  category?: ProductCategoryDto;  // inline create option
+  name: string;
+  sku: string;
+  barcode?: string;
+  description?: string;
+  brand?: string;
+  costPrice: number;
+  sellingPrice: number;
+  threshold?: number;
+  isActive?: boolean;
+  variants?: ProductVariantDto[];
+}
+
+export interface UpdateProductDto extends Partial<CreateProductDto> {}
+export interface CreateCategoryDto extends ProductCategoryDto {
+  tenantId: string;
+}
+export interface UpdateCategoryDto extends Partial<CreateCategoryDto> {}
+
 
 // Response DTOs
 export interface ProductResponseDto {
