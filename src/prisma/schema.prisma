@@ -76,6 +76,10 @@ model ProductCategory {
   tenantId    String
   name        String
   description String?
+  parentId    String?
+  parent      ProductCategory?  @relation("SubCategories", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("SubCategories")
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
@@ -97,6 +101,7 @@ model Product {
   controlledSubstance Boolean @default(false)
   requiresRefrigeration Boolean @default(false)
   isActive        Boolean  @default(true)
+  deletedAt       DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id])

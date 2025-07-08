@@ -38,6 +38,32 @@ export interface CreateCategoryDto extends ProductCategoryDto {
 }
 export interface UpdateCategoryDto extends Partial<CreateCategoryDto> {}
 
+export interface CategoryQueryFilters {
+  tenantId?: string;
+  name?: string;
+  description?: string;
+  search?: any;
+  parentId?: string;
+  page?: number;
+  limit?: number;
+  withProducts?: boolean;
+}
+
+export interface ProductQueryFilters {
+      search?: string;
+      categoryId?: string;
+      sku?: string;
+      barcode?: string;
+      brand?: string;
+      isActive?: boolean;
+      page?: number;
+      limit?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      locationType?: 'store' | 'warehouse';
+      locationId?: string;
+    }
+
 
 // Response DTOs
 export interface ProductResponseDto {
@@ -103,6 +129,7 @@ export interface ProductCategoryResponseDto {
 // Product Variant DTOs
 
 export interface CreateVariantDto {
+  tenantId: string;
   name: string;
   sku?: string;
   costPrice: number;
@@ -110,6 +137,7 @@ export interface CreateVariantDto {
   productId: string;
   stock?: number;
 }
+
 
 export interface UpdateVariantDto extends Partial<CreateVariantDto> {}
 

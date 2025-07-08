@@ -1,135 +1,133 @@
+// src/modules/product/services/category.service.ts
 import { PrismaClient } from "@prisma/client";
-import { CreateCategoryDto, ProductCategoryResponseDto, UpdateCategoryDto } from "../types/product.dto";
-import { PaginatedResult, PaginationOptionsDto } from "@common/types/pagination.dto";
+import { CreateCategoryDto, UpdateCategoryDto } from "../types/product.dto";
+import { cacheService } from "@cache/cache.service";
+import { CacheKeys } from "@cache/cacheKeys";
+import { auditService } from "@modules/audit/services/audit.service";
+import { eventBus } from "@events/eventBus";
+import { EVENTS } from "@events/events";
+import {logger} from "@logging/logger";
+
 const prisma = new PrismaClient();
 
-type ProductCategory = Awaited<ReturnType<typeof prisma.productCategory.create>>;
-
 export class CategoryService {
+  async createCategory(dto: CreateCategoryDto, actorId: string) {
+    // Ensure tenant exists
+    const tenant = await prisma.tenant.findUnique({ where: { id: dto.tenantId } });
+    if (!tenant) throw new Error("Tenant not found.");
 
-   // ========== Product Category CRUD ==========
-    async createCategory(
-      data: CreateCategoryDto,
-      createdBy?: string
-    ): Promise<ProductCategoryResponseDto> {
-      return prisma.productCategory.create({
-        data: {
-          ...data,
-          metadata: {
-            createdBy
-          }
-        },
-        select: this.categorySelectFields()
+    // Unique name per tenant
+    const exists = await prisma.productCategory.findFirst({
+      where: { name: dto.name, tenantId: dto.tenantId },
+    });
+    if (exists) throw new Error("Category name already exists for this tenant.");
+
+    // Create
+    const category = await prisma.productCategory.create({ data: dto });
+
+    // Audit
+    await auditService.log({
+      tenantId: dto.tenantId,
+      userId: actorId,
+      module: "product_category",
+      action: "create",
+      entityId: category.id,
+      details: dto,
+    });
+
+    // Event
+    eventBus.emit(EVENTS.PRODUCT_CATEGORY_CREATED, {
+      tenantId: dto.tenantId,
+      categoryId: category.id,
+      actorId,
+    });
+
+    // Cache
+    await cacheService.del(CacheKeys.categoryList(dto.tenantId));
+
+    logger.info(`Category created: ${category.id} (${category.name})`);
+    return category;
+  }
+
+  async updateCategory(id: string, dto: UpdateCategoryDto, actorId: string) {
+    // Partial unique-name check
+    if (dto.name) {
+      const conflict = await prisma.productCategory.findFirst({
+        where: { name: dto.name, tenantId: dto.tenantId!, id: { not: id } },
       });
+      if (conflict) throw new Error("Category name already exists.");
     }
-  
-    async getCategories(
-      tenantId: string,
-      options: PaginationOptionsDto & {
-        search?: string;
-        withProducts?: boolean;
-      }
-    ): Promise<PaginatedResult<ProductCategoryResponseDto>> {
-      const { page = 1, limit = 10, search, withProducts } = options;
-      const where = {
-        tenantId,
-        ...(search && {
-          name: { contains: search, mode: 'insensitive' }
-        })
-      };
-  
-      const [total, categories] = await Promise.all([
-        prisma.productCategory.count({ where }),
-        prisma.productCategory.findMany({
-          where,
-          skip: (page - 1) * limit,
-          take: limit,
-          select: {
-            ...this.categorySelectFields(),
-            ...(withProducts && {
-              _count: { select: { products: true } }
-            })
-          },
-          orderBy: { name: 'asc' }
-        })
-      ]);
-  
-      return {
-        data: categories.map(c => ({
-          ...c,
-          ...('_count' in c && { productCount: c._count?.products })
-        })),
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      };
+
+    const category = await prisma.productCategory.update({
+      where: { id_tenantId: { id, tenantId: dto.tenantId! } },
+      data: dto as any,
+    });
+
+    await auditService.log({
+      tenantId: category.tenantId,
+      userId: actorId,
+      module: "product_category",
+      action: "update",
+      entityId: category.id,
+      details: dto,
+    });
+
+    eventBus.emit(EVENTS.PRODUCT_CATEGORY_UPDATED, {
+      tenantId: category.tenantId,
+      categoryId: category.id,
+      actorId,
+    });
+
+    await cacheService.del(CacheKeys.categoryList(category.tenantId));
+    await cacheService.del(CacheKeys.categoryDetail(category.tenantId, category.id));
+
+    logger.info(`Category updated: ${category.id}`);
+    return category;
+  }
+
+  async deleteCategory(id: string, tenantId: string, actorId: string) {
+    const category = await prisma.productCategory.delete({
+      where: { id_tenantId: { id, tenantId } },
+    });
+
+    await auditService.log({
+      tenantId,
+      userId: actorId,
+      module: "product_category",
+      action: "delete",
+      entityId: id,
+    });
+
+    eventBus.emit(EVENTS.PRODUCT_CATEGORY_DELETED, { tenantId, categoryId: id, actorId });
+
+    await cacheService.del(CacheKeys.categoryList(tenantId));
+    await cacheService.del(CacheKeys.categoryDetail(tenantId, id));
+
+    logger.info(`Category deleted: ${id}`);
+    return category;
+  }
+
+  async getCategories(tenantId: string) {
+    const key = CacheKeys.categoryList(tenantId);
+    let list = await cacheService.get<any[]>(key);
+    if (!list) {
+      list = await prisma.productCategory.findMany({ where: { tenantId } });
+      await cacheService.set(key, list, 300);
     }
-  
-    async updateCategory(
-      tenantId: string,
-      id: string,
-      data: UpdateCategoryDto,
-      updatedBy?: string
-    ): Promise<ProductCategoryResponseDto> {
-      return prisma.productCategory.update({
-        where: { id, tenantId },
-        data: {
-          ...data,
-          metadata: {
-            updatedBy
-          }
-        },
-        select: this.categorySelectFields()
+    return list;
+  }
+
+  async getCategoryById(id: string, tenantId: string) {
+    const key = CacheKeys.categoryDetail(tenantId, id);
+    let cat = await cacheService.get<any>(key);
+    if (!cat) {
+      cat = await prisma.productCategory.findUnique({
+        where: { id_tenantId: { id, tenantId } },
       });
+      if (!cat) throw new Error("Category not found.");
+      await cacheService.set(key, cat, 300);
     }
-  
-    async deleteCategory(tenantId: string, id: string): Promise<void> {
-      await prisma.productCategory.delete({ where: { id, tenantId } });
-    }
-
-
-  async getCategoryById(tenantId: string, id: string): Promise<ProductCategory | null> {
-    return prisma.productCategory.findUnique({ where: { id } });
-  }
-  private categorySelectFields() {
-    return {
-      id: true,
-      name: true,
-      description: true,
-      metadata: true,
-      createdAt: true,
-      updatedAt: true,
-      tenantId: true
-    };
-  }
-
-  async getCategoryByName(tenantId: string, name: string): Promise<ProductCategory | null> {
-    return prisma.productCategory.findFirst({
-      where: { tenantId, name },
-      select: this.categorySelectFields()
-    });
-  }
-
-  async getCategoryBySlug(tenantId: string, slug: string): Promise<ProductCategory | null> {
-    return prisma.productCategory.findFirst({
-      where: { tenantId, slug },
-      select: this.categorySelectFields()
-    });
-  }
-
-  async getCategoriesByStore(tenantId: string, storeId: string, p0?: { page: number; limit: number; search: string; }): Promise<ProductCategory[]> {
-    // const { page = 1, limit = 10, search = "" } = p0;
-    return prisma.productCategory.findMany({
-      where: { storeId },
-      select: this.categorySelectFields()
-    });
-  }
-
-  async listCategoriesByTenant(tenantId: string): Promise<ProductCategory[]> {
-    return prisma.productCategory.findMany({ where: { tenantId } });
+    return cat;
   }
 }
 

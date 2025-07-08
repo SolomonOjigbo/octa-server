@@ -128,11 +128,11 @@ export class ProductController {
     res.json(product);
   });
 
-  deleteProduct = asyncHandler(async (req, res) => {
+  deleteProduct = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user?.tenantId;
     const { id } = req.params;
     
-    await productService.deleteProduct(tenantId, id);
+    await productService.deleteProduct(id, req.user?.id, tenantId );
 
     await auditService.log({
       userId: req.user?.id,

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { productVariantController } from "../controllers/productVariant.controller";
+import { productVariantsController } from "../controllers/productVariant.controller";
 import { requireAuth } from "@middleware/requireAuth";
 import { requirePermission } from "@middleware/requirePermission";
 import { validate } from "@middleware/validate";
@@ -67,7 +67,7 @@ router.post(
   requireAuth,
   requirePermission('product:variant:create'),
   validate(createProductVariantSchema),
-  productVariantController.createVariant
+  productVariantsController.createVariant
 );
 
 /**
@@ -107,7 +107,7 @@ router.get(
   '/:id/variants',
   requireAuth,
   requirePermission('product:variant:read'),
-  productVariantController.getVariants
+  productVariantsController.getVariants
 );
 
 /**
@@ -154,7 +154,7 @@ router.put(
   requireAuth,
   requirePermission('product:variant:update'),
   validate(updateProductVariantSchema),
-  productVariantController.updateVariant
+  productVariantsController.updateVariant
 );
 
 

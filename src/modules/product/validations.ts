@@ -9,6 +9,8 @@ export const createCategorySchema = z.object({
 });
 export const updateCategorySchema = createCategorySchema.partial();
 
+export const bulkCreateCategoriesSchema = z.array(createCategorySchema);
+
 // Variant schema
 export const variantSchema = z.object({
   id: z.string().cuid().optional(),

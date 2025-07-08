@@ -117,7 +117,7 @@ router.post(
 router.get(
   '/categories',
   requireAuth,
-  requirePermission('product:category:read'),
+  requirePermission('product:category:view'),
   categoryController.getCategories
 );
 /**
@@ -154,7 +154,7 @@ router.get(
 router.get(
   '/categories/:id',
   requireAuth,
-  requirePermission('product:category:read'),
+  requirePermission('product:category:view'),
   categoryController.getCategoryById
 );
 /**
@@ -225,66 +225,66 @@ router.delete(
   categoryController.deleteCategory
 );
 
-/**
- * @swagger
- * /products/categories/store/{storeId}:
- *   get:
- *     summary: Get all product categories for a store
- *     tags: [Product Categories]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: storeId
- *         schema:
- *           type: string
- *         required: true
- *         description: Store ID
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search term for category name
- *       - in: query
- *         name: withProducts
- *         schema:
- *           type: boolean
- *         description: Include product count in response
- *     responses:
- *       200:
- *         description: List of product categories for the store
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *              properties:
- *                data:
- *                 type: array
- *                items:
- *                 $ref: '#/components/schemas/ProductCategory'
- *               pagination:
- *                $ref: '#/components/schemas/Pagination'
- * *       401:
- *        description: Unauthorized
- * */
-router.get(
-    '/categories/store/:storeId',
-    requireAuth,
-    requirePermission('product:category:read'),
-    categoryController.getCategoriesByStore
-    );
+// /**
+//  * @swagger
+//  * /products/categories/store/{storeId}:
+//  *   get:
+//  *     summary: Get all product categories for a store
+//  *     tags: [Product Categories]
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: storeId
+//  *         schema:
+//  *           type: string
+//  *         required: true
+//  *         description: Store ID
+//  *       - in: query
+//  *         name: page
+//  *         schema:
+//  *           type: integer
+//  *           default: 1
+//  *         description: Page number
+//  *       - in: query
+//  *         name: limit
+//  *         schema:
+//  *           type: integer
+//  *           default: 10
+//  *         description: Items per page
+//  *       - in: query
+//  *         name: search
+//  *         schema:
+//  *           type: string
+//  *         description: Search term for category name
+//  *       - in: query
+//  *         name: withProducts
+//  *         schema:
+//  *           type: boolean
+//  *         description: Include product count in response
+//  *     responses:
+//  *       200:
+//  *         description: List of product categories for the store
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *              properties:
+//  *                data:
+//  *                 type: array
+//  *                items:
+//  *                 $ref: '#/components/schemas/ProductCategory'
+//  *               pagination:
+//  *                $ref: '#/components/schemas/Pagination'
+//  * *       401:
+//  *        description: Unauthorized
+//  * */
+// router.get(
+//     '/categories/store/:storeId',
+//     requireAuth,
+//     requirePermission('product:category:view'),
+//     categoryController.getCategoriesByStore
+//     );
 /** * @swagger
  * /products/categories/warehouse/{warehouseId}:
  *  get:

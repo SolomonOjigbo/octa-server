@@ -7,7 +7,8 @@ import {
   ProductVariantResponseDto,
   ProductCategoryResponseDto,
   CreateVariantDto,
-  UpdateVariantDto
+  UpdateVariantDto,
+  ProductQueryFilters
 } from "../types/product.dto";
 import { PaginationOptionsDto, PaginatedResult } from "@common/types/pagination.dto";
 import { auditService } from "@modules/audit/services/audit.service";
@@ -98,85 +99,51 @@ await auditService.log({
 
   }
 
-  async getProducts(
-    tenantId: string,
-    filters: {
-      search?: string;
-      categoryId?: string;
-      sku?: string;
-      barcode?: string;
-      isActive?: boolean;
-      minPrice?: number;
-      maxPrice?: number;
-      locationType?: 'store' | 'warehouse';
-      locationId?: string;
-    } & PaginationOptionsDto
-  ): Promise<PaginatedResult<ProductResponseDto>> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      categoryId,
-      sku,
-      barcode,
-      isActive,
-      minPrice,
-      maxPrice,
-      locationType,
-      locationId
-    } = filters;
-
-    const where = {
-      tenantId,
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } }
-        ]
-      }),
-      ...(categoryId && { categoryId }),
-      ...(sku && { sku }),
-      ...(barcode && { barcode }),
-      ...(isActive !== undefined && { isActive }),
-      ...((minPrice || maxPrice) && {
-        sellingPrice: {
-          ...(minPrice && { gte: minPrice }),
-          ...(maxPrice && { lte: maxPrice })
-        }
-      })
-    };
-
-    const [total, products] = await Promise.all([
-      prisma.product.count({ where }),
-      prisma.product.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          category: true,
-          variants: true,
-          ...(locationType && locationId && {
-            stocks: {
-              where: {
-                [locationType === 'store' ? 'storeId' : 'warehouseId']: locationId
-              }
-            }
-          })
+  async getProducts(tenantId: string, filters: ProductQueryFilters) {
+    const cacheKey = `products:${tenantId}:${JSON.stringify(filters)}`;
+    let products = await cacheService.get(cacheKey);
+    if (!products) {
+      products = await prisma.product.findMany({
+        where: {
+          tenantId,
+          deletedAt: null, // Exclude soft-deleted
+          categoryId: filters.categoryId,
+          brand: filters.brand,
+          isActive: filters.isActive,
+          sellingPrice: {
+            gte: filters.minPrice,
+            lte: filters.maxPrice,
+          },
+          OR: filters.search ? [
+            { name: { contains: filters.search, mode: 'insensitive' } },
+            { sku: { contains: filters.search, mode: 'insensitive' } },
+            { description: { contains: filters.search, mode: 'insensitive' } },
+          ] : undefined,
         },
-        orderBy: { name: 'asc' }
-      })
-    ]);
+        include: { category: true, variants: true }
+      });
+      await cacheService.set(cacheKey, products, 300);
+    }
+    return products;
+  }
 
-    return {
-      data: products.map(this.mapProductToDto),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
+
+  async deleteProduct(id: string, userId: string, tenantId: string) {
+    const product = await prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    await auditService.log({
+      tenantId,
+      userId,
+      module: "Product",
+      action: "delete",
+      entityId: id,
+    });
+    eventBus.emit(EVENTS.PRODUCT_DELETED, { tenantId, productId: id });
+    await cacheService.del(`products:${tenantId}`);
+    return product;
   }
 
   async getProductById(
@@ -232,10 +199,6 @@ await auditService.log({
         variants: true
       }
     }).then(this.mapProductToDto);
-  }
-
-  async deleteProduct(tenantId: string, id: string): Promise<void> {
-    await prisma.product.delete({ where: { id, tenantId } });
   }
 
   // ========== Product Variant CRUD ==========

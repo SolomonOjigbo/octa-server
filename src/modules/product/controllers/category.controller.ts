@@ -1,139 +1,171 @@
+// src/modules/product/controllers/category.controller.ts
 import { Request, Response } from "express";
-
-import { 
-  createProductCategorySchema,
-  updateProductCategorySchema,
-} from "../validations";
-
-import { auditService } from "../../audit/services/audit.service";
-import { AuditAction } from "../../audit/types/audit.dto";
-import { HttpStatusCode } from "@common/constants/http";
-import { AppError } from "@common/constants/app.errors";
-import { asyncHandler } from "@middleware/errorHandler";
-import { categoryService} from "../services/category.service";
-import { CreateCategoryDto, UpdateCategoryDto } from "../types/product.dto";
+import { categoryService } from "../services/category.service";
+import { createCategorySchema, updateCategorySchema } from "../validations";
+import { CreateCategoryDto } from "../types/product.dto";
 
 export class CategoryController {
-  // ========== Product Category Endpoints ==========
-  createCategory = asyncHandler(async (req: Request, res: Response) => {
-    const validated = createProductCategorySchema.parse({
-      ...req.body,
-      tenantId: req.user?.tenantId
-    }) as CreateCategoryDto;
-    if (!req.user?.tenantId) {
-      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+  /**
+   * @swagger
+   * /categories:
+   *   post:
+   *     summary: Create a product category
+   *     tags: [ProductCategory]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateCategory'
+   *     responses:
+   *       201:
+   *         $ref: '#/components/responses/Category'
+   */
+  async createCategory(req: Request, res: Response) {
+    try {
+      const dto = createCategorySchema.parse(req.body) as CreateCategoryDto;
+      const userId = req.user.id;  //actorId
+      const category = await categoryService.createCategory(dto, userId);
+      res.status(201).json(category);
+    } catch (err: any) {
+      res.status(400).json({ message: err.errors || err.message });
     }
-    const category = await categoryService.createCategory(validated, req.user?.id);
+  }
 
-    await auditService.log({
-      userId: req.user?.id,
-      tenantId: validated.tenantId,
-      action: AuditAction.PRODUCT_CATEGORY_CREATED,
-      module: "product",
-      entityId: category.id,
-      metadata: {
-        name: category.name
-      }
-    });
-
-    res.status(HttpStatusCode.CREATED).json(category);
-  });
-
-  getCategories = asyncHandler(async (req, res) => {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+  /**
+   * @swagger
+   * /categories:
+   *   get:
+   *     summary: Get all product categories for a tenant
+   *     tags: [ProductCategory]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: tenantId
+   *         schema:
+   *           type: string
+   *         required: true
+   *     responses:
+   *       200:
+   *         description: List of categories
+   */
+  async getCategories(req: Request, res: Response) {
+    try {
+      const tenantId = req.query.tenantId as string;
+      const list = await categoryService.getCategories(tenantId);
+      res.json(list);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
     }
+  }
 
-    const { page, limit, search, withProducts } = req.query;
-    const result = await categoryService.getCategories(tenantId, {
-      page: page ? parseInt(page as string) : 1,
-      limit: limit ? parseInt(limit as string) : 10,
-      search: search as string,
-      withProducts: withProducts === 'true'
-    });
-
-    res.json(result);
-  });
-
-  getCategoryById = asyncHandler(async (req, res) => {
-    const tenantId = req.user?.tenantId;
-    const { id } = req.params;
-    if (!tenantId) {
-      throw new AppError("Tenant context is required", HttpStatusCode.BAD_REQUEST);
+  /**
+   * @swagger
+   * /categories/{id}:
+   *   get:
+   *     summary: Get a category by ID
+   *     tags: [ProductCategory]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         schema:
+   *           type: string
+   *         required: true
+   *       - in: query
+   *         name: tenantId
+   *         schema:
+   *           type: string
+   *         required: true
+   *     responses:
+   *       200:
+   *         $ref: '#/components/responses/Category'
+   */
+  async getCategoryById(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const tenantId = req.query.tenantId as string;
+      const cat = await categoryService.getCategoryById(id, tenantId);
+      res.json(cat);
+    } catch (err: any) {
+      res.status(404).json({ message: err.message });
     }
-    const category = await categoryService.getCategoryById(tenantId, id);
-    if (!category) {
-      throw new AppError("Category not found", HttpStatusCode.NOT_FOUND);
+  }
+
+  /**
+   * @swagger
+   * /categories/{id}:
+   *   put:
+   *     summary: Update a category
+   *     tags: [ProductCategory]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         schema:
+   *           type: string
+   *         required: true
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/UpdateCategory'
+   *     responses:
+   *       200:
+   *         $ref: '#/components/responses/Category'
+   */
+  async updateCategory(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const partial = updateCategorySchema.parse(req.body);
+      const actorId = req.user?.id;
+      const cat = await categoryService.updateCategory(id, partial, actorId);
+      res.json(cat);
+    } catch (err: any) {
+      res.status(400).json({ message: err.errors || err.message });
     }
-    res.json(category);
-  });
+  }
 
-  updateCategory = asyncHandler(async (req, res) => {
-    const tenantId = req.user?.tenantId;
-    const { id } = req.params;
-    
-    const validated = updateProductCategorySchema.parse({
-      ...req.body,
-      id,
-      tenantId
-    }) as UpdateCategoryDto;
-    
-    const category = await categoryService.updateCategory(
-      tenantId,
-      id,
-      validated,
-      req.user?.id
-    );
-
-    await auditService.log({
-      userId: req.user?.id,
-      tenantId,
-      action: AuditAction.PRODUCT_CATEGORY_UPDATED,
-      module: "ProductCategory",
-      entityId: id,
-      metadata: {
-        changes: req.body
-      }
-    });
-
-    res.json(category);
-  });
-
-  deleteCategory = asyncHandler(async (req, res) => {
-    const tenantId = req.user?.tenantId;
-    const { id } = req.params;
-    
-    await categoryService.deleteCategory(tenantId, id);
-
-    await auditService.log({
-      userId: req.user?.id,
-      tenantId,
-      action: AuditAction.PRODUCT_CATEGORY_DELETED,
-      module: "ProductCategory",
-      entityId: id
-    });
-
-    res.status(HttpStatusCode.NO_CONTENT).send();
-  });
-
-  getCategoriesByStore = asyncHandler(async (req, res) => {
-    const tenantId = req.user?.tenantId;
-    const storeId = req.user?.storeId;
-    if (!tenantId || !storeId) {
-      throw new AppError("Tenant and store context are required", HttpStatusCode.BAD_REQUEST);
+  /**
+   * @swagger
+   * /categories/{id}:
+   *   delete:
+   *     summary: Delete a category
+   *     tags: [ProductCategory]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         schema:
+   *           type: string
+   *         required: true
+   *       - in: query
+   *         name: tenantId
+   *         schema:
+   *           type: string
+   *         required: true
+   *     responses:
+   *       200:
+   *         description: Deletion success
+   */
+  async deleteCategory(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const tenantId = req.query.tenantId as string;
+      const actorId = req.user?.id;
+      const cat = await categoryService.deleteCategory(id, tenantId, actorId);
+      res.json(cat);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
     }
-    const { page, limit, search } = req.query;
-    const result = await categoryService.getCategoriesByStore(tenantId, storeId, {
-      page: page ? parseInt(page as string) : 1,
-      limit: limit ? parseInt(limit as string) : 10,
-      search: search as string
-    });
-    res.json(result);
-  });
-
-    // ========== End of Product Category Endpoints ==========
-  
+  }
 }
 
 export const categoryController = new CategoryController();
