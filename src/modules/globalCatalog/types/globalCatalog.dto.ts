@@ -19,6 +19,8 @@ export interface CreateGlobalProductDto {
   isPrescription?: boolean;
   description?: string;
   brand?: string;
+  isActive?: boolean;           
+  deletedAt?: Date; 
 }
 export interface UpdateGlobalProductDto extends Partial<CreateGlobalProductDto> {}
 

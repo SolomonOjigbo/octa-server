@@ -7,6 +7,11 @@ export const b2bConnectionStatuses = [
   "revoked"
 ] as const;
 
+export const StatusEnum = z.enum([
+  'pending','approved','rejected','revoked'
+]);
+
+
 export const b2bConnectionTypes = [
   "general",
   "wholesale",
@@ -60,8 +65,6 @@ export interface BaseB2BConnectionDto {
   revokedAt?:     string;
   rejectionReason?: string;
   revocationReason?: string;
-  deletedBy?:     string;     // new
-  deletedAt?:     string;     // new
 };
 }
 
@@ -102,8 +105,6 @@ export interface B2BConnectionResponseDto extends BaseB2BConnectionDto {
   id: string;
   createdAt: Date;
   updatedAt: Date;
-  isActive: boolean;
-  deletedAt?: Date;
   tenantA: {
     id: string;
     name: string;

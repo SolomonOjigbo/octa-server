@@ -11,6 +11,11 @@ export interface AdjustStockDto {
   reference?: string;
   batchNumber?: string;
   expiryDate?: Date;
+  minStockLevel?: number;   
+  maxStockLevel?: number;
+  reorderPoint?: number;
+  isCritical?: boolean;
+
 }
 
 export interface StockLevelDto {

@@ -675,6 +675,7 @@ model StockTransfer {
   expiryDate                   DateTime?
   createdById                  String?
   approvedById                 String?
+  transferType                 String?   @default("intra-tenant") // or enum
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
 

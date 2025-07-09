@@ -17,8 +17,11 @@ export interface CreateTenantProductDto {
   name?: string;
   isTransferable?: boolean;
   description?: string;
+  barcode?: string;
   brand?: string;
   imageUrl?: string;
+  isActive?: boolean;           // ← add
+  deletedAt?: Date; 
 }
 export interface UpdateTenantProductDto extends Partial<CreateTenantProductDto> {}
 

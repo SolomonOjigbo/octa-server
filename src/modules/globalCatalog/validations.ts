@@ -18,6 +18,8 @@ export const GlobalProductSchema = z.object({
   isPrescription: z.boolean().optional(),
   description: z.string().optional(),
   brand: z.string().optional(),
+  isActive: z.boolean().optional(),        
+  deletedAt: z.coerce.date().optional(), 
 });
 
 export const GlobalProductVariantSchema = z.object({
