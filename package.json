@@ -78,6 +78,9 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.4"
   },
+  "prisma": {
+  "schema": "src/prisma/schema.prisma"
+},
   "_moduleAliases": {
     "@modules": "dist/modules",
     "@shared": "dist/shared",

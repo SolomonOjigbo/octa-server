@@ -53,6 +53,15 @@ export const EVENTS = {
   INVENTORY_MOVEMENT_CREATED: "inventory_movement.created",
   INVENTORY_MOVEMENT_UPDATED: "inventory_movement.updated",
   INVENTORY_MOVEMENT_DELETED: "inventory_movement.deleted",
+  STOCK_TRANSFER_REQUESTED: "stockTransfer.requested",
+  STOCK_TRANSFER_REJECTED: "stockTransfer.rejected",
+  STOCK_TRANSFER_APPROVED: "stockTransfer.approved",
+  STOCK_TRANSFER_UPDATED: "stockTransfer.updated",
+  STOCK_TRANSFER_COMPLETED: "stockTransfer.completed",
+  STOCK_TRANSFER_CANCELED: "stockTransfer.canceled",
+
+
+
 
 
   // … more user events …

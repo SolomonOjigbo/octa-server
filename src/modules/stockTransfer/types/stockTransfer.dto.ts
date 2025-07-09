@@ -1,63 +1,61 @@
+// src/modules/stockTransfer/types/stockTransfer.dto.ts
 export type StockTransferStatus = 'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled';
 export type StockTransferType = 'intra-tenant' | 'cross-tenant';
 
+
+
+
 export interface CreateStockTransferDto {
-  tenantId: string;
+  sourceTenantProductId: string;
+  sourceTenantProductVariantId?: string;
   fromStoreId?: string;
   fromWarehouseId?: string;
-  toTenantId?: string;
+  destTenantId: string;
+  destTenantProductId: string;
+  destTenantProductVariantId?: string;
   toStoreId?: string;
   toWarehouseId?: string;
-  productId: string;
   quantity: number;
-  transferType: StockTransferType;
-  b2bConnectionId?: string;
-  requestedBy: string;
-  notes?: string;
   batchNumber?: string;
   expiryDate?: Date;
-  isControlled?: boolean;
-  pharmacistId?: string;
-  temperature?: number;
+  transferType: StockTransferType;
 }
 
-export interface ApproveStockTransferDto {
-  approvedBy: string;
-  notes?: string;
+export interface ApproveStockTransferDto extends CreateStockTransferDto { 
+  reason?: string;
 }
 
 export interface RejectStockTransferDto {
-  rejectedBy: string;
-  notes?: string;
+  reason?: string;
 }
 
 export interface CancelStockTransferDto {
-  cancelledBy: string;
-  notes?: string;
+  reason?: string;
 }
 
 export interface StockTransferResponseDto {
   id: string;
   tenantId: string;
-  fromStore?: { id: string; name: string };
-  fromWarehouse?: { id: string; name: string };
-  toTenant?: { id: string; name: string };
-  toStore?: { id: string; name: string };
-  toWarehouse?: { id: string; name: string };
-  product: { id: string; name: string; sku: string; isControlled: boolean };
+  sourceTenantProductId: string;
+  sourceTenantProductVariantId?: string;
+  fromStoreId?: string;
+  fromWarehouseId?: string;
+  destTenantId: string;
+  destTenantProductId: string;
+  destTenantProductVariantId?: string;
+  toStoreId?: string;
+  toWarehouseId?: string;
   quantity: number;
-  transferType: StockTransferType;
-  b2bConnection?: { id: string; status: string };
-  requestedBy: { id: string; name: string };
-  approvedBy?: { id: string; name: string };
-  status: StockTransferStatus;
   batchNumber?: string;
   expiryDate?: Date;
-  isControlled?: boolean;
-  notes?: string;
+  transferType: StockTransferType;
+  status: StockTransferStatus;
+  createdById?: string;
+  approvedById?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
 
 export interface ListStockTransfersDto {
   tenantId?: string;

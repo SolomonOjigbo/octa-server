@@ -143,6 +143,19 @@ export class B2BConnectionService {
     eventBus.emit(EVENTS.B2B_CONNECTION_REVOKED, updated);
     return updated;
   }
+
+/** Finds a single connection between two tenants, regardless of ordering */
+async findConnection(tenantAId: string, tenantBId: string) {
+  return prisma.b2BConnection.findFirst({
+    where: {
+      OR: [
+        { tenantAId, tenantBId },
+        { tenantAId: tenantBId, tenantBId: tenantAId },
+      ],
+    },
+  });
+}
+
 }
 
 export const b2bConnectionService = new B2BConnectionService();
