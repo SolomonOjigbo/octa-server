@@ -1,648 +1,189 @@
 // modules/purchaseOrder/services/purchaseOrder.service.ts
-import { PrismaClient } from "@prisma/client";
-import { 
-  CreatePurchaseOrderDto,
-  UpdatePurchaseOrderDto,
-  CancelPurchaseOrderDto,
-  LinkPaymentDto,
-  PurchaseOrderResponseDto,
-  ListPurchaseOrdersDto,
-  ApprovePurchaseOrderDto,
-} from "../types/purchaseOrder.dto";
 import { inventoryService } from "../../inventory/services/inventory.service";
 import { stockService } from "../../stock/services/stock.service";
-import { auditService } from "@modules/audit/types/audit.service";
-import { eventEmitter } from "@events/event.emitter";
+import { auditService } from "@modules/audit/services/audit.service";
 import { logger } from "@logging/logger";
 import { cacheService } from "@cache/cache.service";
 import { AppError } from "@common/constants/app.errors";
 import { HttpStatusCode } from "@common/constants/http";
 import { StockMovementType } from "@common/types/stockMovement.dto";
 
-const prisma = new PrismaClient();
+
+import {
+  CreatePurchaseOrderDto,
+  UpdatePurchaseOrderDto,
+  CancelPurchaseOrderDto,
+  LinkPaymentDto,
+  PurchaseOrderResponseDto
+} from '../types/purchaseOrder.dto';
+
+import { eventBus } from '@events/eventBus';
+import { EVENTS } from '@events/events';
+import prisma from "@shared/infra/database/prisma";
 
 export class PurchaseOrderService {
-  private readonly CACHE_TTL = 60 * 10; // 10 minutes
+  private cacheKey(tenantId: string) {
+    return `purchase_orders:${tenantId}`;
+  }
 
-  async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
-    return prisma.$transaction(async (tx) => {
-      // Validate all products exist and are active
-      for (const item of dto.items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-          select: { isActive: true, isControlled: true }
-        });
+  async list(tenantId: string) {
+    const key = this.cacheKey(tenantId);
+    const cached = await cacheService.get<PurchaseOrderResponseDto[]>(key);
+    if (cached) return cached;
+    const data = await prisma.purchaseOrder.findMany({
+      where: { tenantId },
+      include: { items: true },
+      orderBy: { orderDate: 'desc' },
+    });
+    await cacheService.set(key, data, 300);
+    return data;
+  }
 
-        if (!product || !product.isActive) {
-          throw new AppError(`Product ${item.productId} not found or inactive`, HttpStatusCode.BAD_REQUEST);
-        }
+  async getById(tenantId: string, id: string) {
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id, tenantId },
+      include: { items: true },
+    });
+    if (!po) throw new AppError('Not found', 404);
+    return po;
+  }
 
-        // Additional validation for controlled substances
-        if (product.isControlled && (!item.batchNumber || !item.expiryDate)) {
-          throw new AppError(
-            `Batch number and expiry date required for controlled substance ${item.productId}`,
-            HttpStatusCode.BAD_REQUEST
-          );
-        }
-      }
-
-      // Create the purchase order
-      const po = await tx.purchaseOrder.create({
-        data: {
-          tenantId: dto.tenantId,
-          supplierId: dto.supplierId,
-          storeId: dto.storeId,
-          warehouseId: dto.warehouseId,
-          orderDate: new Date(dto.orderDate),
-          status: "pending",
-          totalAmount: dto.totalAmount,
-          notes: dto.notes,
-          items: {
-            create: dto.items.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              costPrice: item.costPrice,
-              batchNumber: item.batchNumber,
-              expiryDate: item.expiryDate ? new Date(item.expiryDate) : undefined
-            }))
-          }
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      // Audit log
-      await auditService.log({
-        userId: dto.requestedBy, // Assuming requestedBy is added to DTO
-        tenantId: dto.tenantId,
-        action: "PURCHASE_ORDER_CREATED",
-        entityType: "PurchaseOrder",
-        entityId: po.id,
-        metadata: {
-          supplierId: dto.supplierId,
-          itemCount: dto.items.length,
-          totalAmount: dto.totalAmount
-        }
-      });
-
-      // Emit event
-      eventEmitter.emit("purchaseOrder:created", {
-        poId: po.id,
-        tenantId: dto.tenantId,
+  async create(
+    tenantId: string,
+    userId: string,
+    dto: CreatePurchaseOrderDto
+  ): Promise<PurchaseOrderResponseDto> {
+    const rec = await prisma.purchaseOrder.create({
+      data: {
+        tenantId,
         supplierId: dto.supplierId,
-        itemCount: dto.items.length,
-        totalAmount: dto.totalAmount
-      });
-
-      // Invalidate cache
-      await cacheService.invalidate(`purchaseOrders:${dto.tenantId}`);
-
-      return this.toResponseDto(po);
-    });
-  }
-
-  async receivePurchaseOrder(tenantId: string, id: string, userId: string) {
-
-    return prisma.$transaction(async (tx) => {
-      const po = await tx.purchaseOrder.findUnique({
-        where: { id },
-        include: { 
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true
-        }
-      });
-
-      if (!po) {
-        throw new AppError('Purchase order not found', HttpStatusCode.NOT_FOUND);
-      }
-
-      if (po.status === "received") {
-        throw new AppError('Purchase order already received', HttpStatusCode.BAD_REQUEST);
-      }
-
-      if (po.status === "cancelled") {
-        throw new AppError('Cannot receive a cancelled purchase order', HttpStatusCode.BAD_REQUEST);
-      }
-
-      if (po.tenantId !== tenantId) {
-        throw new AppError('Unauthorized access to purchase order', HttpStatusCode.FORBIDDEN);
-      }
-
-      // Inventory + Stock Update for each item
-      for (const item of po.items) {
-        // Add inventory movement
-        await inventoryService.recordMovement({
-          tenantId,
-          productId: item.productId,
-          storeId: po.storeId,
-          warehouseId: po.warehouseId,
-          batchNumber: item.batchNumber,
-          quantity: item.quantity,
-          movementType: StockMovementType.PURCHASE,
-          costPrice: item.costPrice,
-          expiryDate: item.expiryDate,
-          reference: po.id,
-          id: item.id,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-
-        // Adjust stock
-        await stockService.incrementStockLevel({
-          tenantId,
-          productId: item.productId,
-          storeId: po.storeId,
-          warehouseId: po.warehouseId,
-          delta: item.quantity
-        }, userId);
-      }
-
-      // Mark PO as received
-      const updatedPo = await tx.purchaseOrder.update({
-        where: { id },
-        data: {
-          status: "received",
-          receivedDate: new Date()
+        storeId: dto.storeId,
+        warehouseId: dto.warehouseId,
+        orderDate: dto.orderDate,
+        receivedDate: dto.receivedDate,
+        totalAmount: dto.totalAmount,
+        notes: dto.notes,
+        createdById: userId,
+        items: {
+          create: dto.items.map(item => ({
+            tenantProductId:            item.tenantProductId,
+            tenantProductVariantId:     item.tenantProductVariantId,
+            quantity:                   item.quantity,
+            costPrice:                  item.costPrice,
+            batchNumber:                item.batchNumber,
+            expiryDate:                 item.expiryDate,
+          })),
         },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      // Audit log
-      await auditService.log({
-        userId,
-        tenantId,
-        action: "PURCHASE_ORDER_RECEIVED",
-        entityType: "PurchaseOrder",
-        entityId: po.id,
-        metadata: {
-          itemCount: po.items.length,
-          totalAmount: po.totalAmount
-        }
-      });
-
-      // Emit event
-      eventEmitter.emit("purchaseOrder:received", {
-        poId: po.id,
-        tenantId,
-        itemCount: po.items.length,
-        receivedBy: userId
-      });
-
-      // Invalidate cache
-      await cacheService.invalidate(`purchaseOrders:${tenantId}`);
-
-      return this.toResponseDto(updatedPo);
+      },
+      include: { items: true },
     });
-  }
 
-  async listPurchaseOrders(filters: ListPurchaseOrdersDto): Promise<{
-    data: PurchaseOrderResponseDto[];
-    pagination: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
-  }> {
-    const cacheKey = `purchaseOrders:${JSON.stringify(filters)}`;
-    
-    try {
-      const cached = await cacheService.get<{
-        data: PurchaseOrderResponseDto[];
-        pagination: {
-          total: number;
-          page: number;
-          limit: number;
-          totalPages: number;
-        };
-      }>(cacheKey);
-      if (cached) return cached;
-
-      const where: any = {
-        tenantId: filters.tenantId,
-        ...(filters.supplierId && { supplierId: filters.supplierId }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.storeId && { storeId: filters.storeId }),
-        ...(filters.warehouseId && { warehouseId: filters.warehouseId }),
-        ...(filters.startDate && { orderDate: { gte: filters.startDate } }),
-        ...(filters.endDate && { orderDate: { lte: filters.endDate } }),
-      };
-
-      // Filter by product if specified
-      if (filters.productId) {
-        where.items = {
-          some: {
-            productId: filters.productId
-          }
-        };
-      }
-
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const skip = (page - 1) * limit;
-
-      const [total, pos] = await Promise.all([
-        prisma.purchaseOrder.count({ where }),
-        prisma.purchaseOrder.findMany({
-          where,
-          skip,
-          take: limit,
-          include: {
-            items: {
-              include: {
-                product: {
-                  select: {
-                    name: true,
-                    sku: true,
-                    isControlled: true
-                  }
-                }
-              }
-            },
-            supplier: true,
-            store: true,
-            warehouse: true,
-            payments: true
-          },
-          orderBy: { orderDate: "desc" }
-        })
-      ]);
-
-      const result = {
-        data: pos.map(this.toResponseDto),
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit)
-        }
-      };
-
-      await cacheService.set(cacheKey, result, this.CACHE_TTL);
-      return result;
-    } catch (error) {
-      logger.error("Failed to fetch purchase orders", { error });
-      throw new AppError('Failed to fetch purchase orders', HttpStatusCode.INTERNAL_SERVER);
-    }
-  }
-
-  async getPurchaseOrderById(tenantId: string, id: string): Promise<PurchaseOrderResponseDto | null> {
-    try {
-      const po = await prisma.purchaseOrder.findFirst({
-        where: { id, tenantId },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      return po ? this.toResponseDto(po) : null;
-    } catch (error) {
-      logger.error("Failed to fetch purchase order", { error });
-      throw new AppError('Failed to fetch purchase order', HttpStatusCode.INTERNAL_SERVER);
-    }
-  }
-
-  async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderDto): Promise<PurchaseOrderResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      const existingPo = await tx.purchaseOrder.findUnique({
-        where: { id },
-        select: { status: true, tenantId: true }
-      });
-
-      if (!existingPo) {
-        throw new AppError('Purchase order not found', HttpStatusCode.NOT_FOUND);
-      }
-
-      // Prevent updates to received or cancelled POs
-      if (existingPo.status === "received" || existingPo.status === "cancelled") {
-        throw new AppError(`Cannot update a ${existingPo.status} purchase order`, HttpStatusCode.BAD_REQUEST);
-      }
-
-      const updatedPo = await tx.purchaseOrder.update({
-        where: { id },
-        data: {
-          status: data.status,
-          receivedDate: data.receivedDate ? new Date(data.receivedDate) : undefined,
-          notes: data.notes
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      // Audit log
-      await auditService.log({
-        userId: data.updatedBy || 'system', // Assuming updatedBy is added to DTO
-        tenantId: existingPo.tenantId,
-        action: "PURCHASE_ORDER_UPDATED",
-        entityType: "PurchaseOrder",
-        entityId: id,
-        metadata: {
-          newStatus: data.status,
-          previousStatus: existingPo.status
-        }
-      });
-
-      // Emit event if status changed
-      if (data.status && data.status !== existingPo.status) {
-        eventEmitter.emit("purchaseOrder:status_changed", {
-          poId: id,
-          tenantId: existingPo.tenantId,
-          previousStatus: existingPo.status,
-          newStatus: data.status
-        });
-      }
-
-      // Invalidate cache
-      await cacheService.invalidate(`purchaseOrders:${existingPo.tenantId}`);
-
-      return this.toResponseDto(updatedPo);
+    await cacheService.del(this.cacheKey(tenantId));
+    await auditService.log({
+      tenantId,
+      userId,
+      module: 'PurchaseOrder',
+      action: 'create',
+      entityId: rec.id,
+      details: dto,
     });
+    eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, rec);
+    return rec;
   }
 
-  async cancelPurchaseOrder(id: string, dto: CancelPurchaseOrderDto): Promise<PurchaseOrderResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      const existingPo = await tx.purchaseOrder.findUnique({
-        where: { id },
-        select: { status: true, tenantId: true }
-      });
-
-      if (!existingPo) {
-        throw new AppError('Purchase order not found', HttpStatusCode.NOT_FOUND);
-      }
-
-      if (existingPo.status === "received") {
-        throw new AppError('Cannot cancel a received purchase order', HttpStatusCode.BAD_REQUEST);
-      }
-
-      if (existingPo.status === "cancelled") {
-        throw new AppError('Purchase order already cancelled', HttpStatusCode.BAD_REQUEST);
-      }
-
-      const updatedPo = await tx.purchaseOrder.update({
-        where: { id },
-        data: {
-          status: "cancelled",
-          notes: dto.reason ? `Cancelled: ${dto.reason}` : undefined
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      // Audit log
-      await auditService.log({
-        userId: dto.cancelledBy,
-        tenantId: existingPo.tenantId,
-        action: "PURCHASE_ORDER_CANCELLED",
-        entityType: "PurchaseOrder",
-        entityId: id,
-        metadata: {
-          reason: dto.reason
-        }
-      });
-
-      // Emit event
-      eventEmitter.emit("purchaseOrder:cancelled", {
-        poId: id,
-        tenantId: existingPo.tenantId,
-        cancelledBy: dto.cancelledBy,
-        reason: dto.reason
-      });
-
-      // Invalidate cache
-      await cacheService.invalidate(`purchaseOrders:${existingPo.tenantId}`);
-
-      return this.toResponseDto(updatedPo);
-    });
-  }
-
-async approvePurchaseOrder(id: string, dto: ApprovePurchaseOrderDto) {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.purchaseOrder.findUnique({ where: { id } });
-
-    if (!existing) throw new AppError("Not found", 404);
-    if (existing.status !== "pending") throw new AppError("Only pending orders can be approved", 400);
-
-    const updated = await tx.purchaseOrder.update({
+  async update(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdatePurchaseOrderDto
+  ) {
+    const existing = await this.getById(tenantId, id);
+    const rec = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        status: "approved",
-        updatedAt: new Date(),
+        status:       dto.status,
+        receivedDate: dto.receivedDate,
+        notes:        dto.notes,
+        updatedById:  userId,
       },
+      include: { items: true },
     });
-
+    await cacheService.del(this.cacheKey(tenantId));
     await auditService.log({
-      userId: dto.approvedBy,
-      tenantId: existing.tenantId,
-      action: "PURCHASE_ORDER_APPROVED",
-      entityType: "PurchaseOrder",
+      tenantId,
+      userId,
+      module: 'PurchaseOrder',
+      action: 'update',
       entityId: id,
+      details: dto,
     });
-
-    eventEmitter.emit("purchaseOrder:approved", { poId: id, approvedBy: dto.approvedBy });
-    return this.toResponseDto(updated);
-  });
-}
-
-
-  async linkPayment(id: string, dto: LinkPaymentDto): Promise<PurchaseOrderResponseDto> {
-    return prisma.$transaction(async (tx) => {
-      // Verify payment exists
-      const payment = await tx.payment.findUnique({
-        where: { id: dto.paymentId }
-      });
-
-      if (!payment) {
-        throw new AppError('Payment not found', HttpStatusCode.NOT_FOUND);
-      }
-
-      // Verify PO exists
-      const po = await tx.purchaseOrder.findUnique({
-        where: { id },
-        select: { tenantId: true, totalAmount: true, payments: true }
-      });
-
-      if (!po) {
-        throw new AppError('Purchase order not found', HttpStatusCode.NOT_FOUND);
-      }
-
-      // Check if payment is already linked
-      if (po.payments.some(p => p.id === dto.paymentId)) {
-        throw new AppError('Payment already linked to this purchase order', HttpStatusCode.BAD_REQUEST);
-      }
-
-      // Link payment to PO
-      const updatedPo = await tx.purchaseOrder.update({
-        where: { id },
-        data: {
-          payments: {
-            connect: { id: dto.paymentId }
-          }
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  sku: true,
-                  isControlled: true
-                }
-              }
-            }
-          },
-          supplier: true,
-          store: true,
-          warehouse: true,
-          payments: true
-        }
-      });
-
-      // Audit log
-      await auditService.log({
-        userId: dto.linkedBy || 'system', // Assuming linkedBy is added to DTO
-        tenantId: po.tenantId,
-        action: "PURCHASE_ORDER_PAYMENT_LINKED",
-        entityType: "PurchaseOrder",
-        entityId: id,
-        metadata: {
-          paymentId: dto.paymentId,
-          amount: dto.amount
-        }
-      });
-
-      // Emit event
-      eventEmitter.emit("purchaseOrder:payment_linked", {
-        poId: id,
-        tenantId: po.tenantId,
-        paymentId: dto.paymentId,
-        amount: dto.amount
-      });
-
-      // Invalidate cache
-      await cacheService.invalidate(`purchaseOrders:${po.tenantId}`);
-
-      return this.toResponseDto(updatedPo);
-    });
+    eventBus.emit(EVENTS.PURCHASE_ORDER_UPDATED, rec);
+    return rec;
   }
 
-  private toResponseDto(po: any): PurchaseOrderResponseDto {
-    const paidAmount = po.payments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
-    
-    return {
-      id: po.id,
-      tenantId: po.tenantId,
-      supplierId: po.supplierId,
-      storeId: po.storeId,
-      warehouseId: po.warehouseId,
-      orderDate: po.orderDate,
-      receivedDate: po.receivedDate || undefined,
-      status: po.status,
-      totalAmount: po.totalAmount,
-      paidAmount,
-      balance: po.totalAmount - paidAmount,
-      notes: po.notes || undefined,
-      items: po.items.map((item: any) => ({
-        id: item.id,
-        productId: item.productId,
-        productName: item.product?.name || 'Unknown Product',
-        productSku: item.product?.sku || 'N/A',
-        quantity: item.quantity,
-        costPrice: item.costPrice,
-        batchNumber: item.batchNumber || undefined,
-        expiryDate: item.expiryDate || undefined,
-        isControlled: item.product?.isControlled || false
-      })),
-      requestedBy: po.requestedBy || 'Unknown',
-      createdAt: po.createdAt,
-      updatedAt: po.updatedAt
-    };
+  async cancel(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: CancelPurchaseOrderDto
+  ) {
+    const existing = await this.getById(tenantId, id);
+    if (existing.status === 'cancelled')
+      throw new AppError('Already cancelled', 400);
+    const rec = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        status:      'cancelled',
+        updatedById: userId,
+        notes:       dto.reason ?? existing.notes,
+      },
+      include: { items: true },
+    });
+    await cacheService.del(this.cacheKey(tenantId));
+    await auditService.log({
+      tenantId,
+      userId,
+      module: 'PurchaseOrder',
+      action: 'cancel',
+      entityId: id,
+      details: dto,
+    });
+    eventBus.emit(EVENTS.PURCHASE_ORDER_CANCELLED, rec);
+    return rec;
+  }
+
+  async linkPayment(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: LinkPaymentDto
+  ) {
+    // attach Payment to PO
+    const rec = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        payments: {
+          create: {
+            paymentId: dto.paymentId,
+            amount:    dto.amount,
+            createdBy: { connect: { id: userId } },
+          },
+        },
+        updatedById: userId,
+      },
+      include: { items: true, payments: true },
+    });
+    await cacheService.del(this.cacheKey(tenantId));
+    await auditService.log({
+      tenantId,
+      userId,
+      module: 'PurchaseOrder',
+      action: 'linkPayment',
+      entityId: id,
+      details: dto,
+    });
+    eventBus.emit(EVENTS.PURCHASE_ORDER_PAYMENT_LINKED, rec);
+    return rec;
   }
 }
 

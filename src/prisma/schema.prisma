@@ -205,6 +205,7 @@ model TenantProductVariant {
   StockTransferDestination StockTransfer[] @relation("TransferDestVariant")
 
   @@unique([tenantProductId, sku])
+  PurchaseOrderItem PurchaseOrderItem[]
 }
 
 model Store {
@@ -512,14 +513,18 @@ model User {
   AuditLog AuditLog[]
 
   // Relations to Inventory
-  createdInventories  Inventory[] @relation("InventoryCreatedBy")
-  verifiedInventories Inventory[] @relation("InventoryVerifiedBy")
+  createdInventories  Inventory[]   @relation("InventoryCreatedBy")
+  verifiedInventories Inventory[]   @relation("InventoryVerifiedBy")
 
-  Payment Payment[] @relation("PaymentUser")
+  Payment             Payment[]     @relation("PaymentUser")
 
   StockTransferCreator StockTransfer[] @relation("TransferCreatedBy")
 
   StockTransferApprover StockTransfer[] @relation("TransferApprovedBy")
+
+  PurchaseOrder PurchaseOrder[]     @relation("poCreatedBy")
+
+  PurchaseOrderUpdate PurchaseOrder[]     @relation("poUpdatedBy")
 }
 
 model RefreshToken {
@@ -612,49 +617,54 @@ model ProductSupplier {
 }
 
 model PurchaseOrder {
-  id           String              @id @default(cuid())
+  id           String               @id @default(cuid())
   tenantId     String
   supplierId   String
-  storeId      String?
+  storeId      String? 
   warehouseId  String?
-  status       String // pending, approved, received, cancelled
+  status       String               // pending, approved, received, cancelled
   orderDate    DateTime
   receivedDate DateTime?
   totalAmount  Float
   notes        String?
-  payments     Payment[]
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  tenant       Tenant               @relation(fields:[tenantId], references:[id])
+  supplier     Supplier             @relation(fields:[supplierId], references:[id])
+  store        Store?               @relation(fields:[storeId], references:[id])
+  warehouse    Warehouse?           @relation(fields:[warehouseId], references:[id])
+  createdBy    User?                @relation("poCreatedBy", fields:[createdById], references:[id])
+  updatedBy    User?                @relation("poUpdatedBy", fields:[updatedById], references:[id])
   items        PurchaseOrderItem[]
-  tenant       Tenant              @relation(fields: [tenantId], references: [id])
-  supplier     Supplier            @relation(fields: [supplierId], references: [id])
-  store        Store?              @relation(fields: [storeId], references: [id])
-  warehouse    Warehouse?          @relation(fields: [warehouseId], references: [id])
+  payments     Payment[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  B2BConnection B2BConnection[]
-
-  PurchaseOrderItem PurchaseOrderItem[] @relation("POItemPurchaseOrder")
-
+  @@index([tenantId])
   Payment Payment[] @relation("PaymentPurchaseOrder")
+  B2BConnection B2BConnection[]
 }
 
 model PurchaseOrderItem {
-  id              String        @id @default(cuid())
-  purchaseOrderId String
-  productId       String
-  quantity        Int
-  costPrice       Float
-  batchNumber     String?
-  expiryDate      DateTime?
-  purchaseOrder   PurchaseOrder @relation("POItemPurchaseOrder", fields: [purchaseOrderId], references: [id])
+  id                         String                @id @default(cuid())
+  purchaseOrderId            String
+  tenantProductId            String
+  tenantProductVariantId     String?
+  quantity                   Int
+  costPrice                  Float
+  batchNumber                String?
+  expiryDate                 DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
 
-  TenantProduct TenantProduct[]
+  purchaseOrder              PurchaseOrder         @relation(fields:[purchaseOrderId], references:[id])
+  tenantProduct              TenantProduct         @relation(fields:[tenantProductId], references:[id])
+  tenantVariant              TenantProductVariant? @relation(fields:[tenantProductVariantId], references:[id])
 
-  GlobalProduct GlobalProduct[]
-
+  @@index([purchaseOrderId])
   Stock Stock[]
-
-  PurchaseOrder PurchaseOrder[]
+  GlobalProduct GlobalProduct[]
 }
 
 model StockTransfer {

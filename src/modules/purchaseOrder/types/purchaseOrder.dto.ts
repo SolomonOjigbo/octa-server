@@ -2,51 +2,58 @@
 
 export type PurchaseOrderStatus = 'pending' | 'approved' | 'received' | 'cancelled';
 
+
 export interface PurchaseOrderItemDto {
-  productId: string;
+  tenantProductId: string;
+  tenantProductVariantId?: string;
   quantity: number;
   costPrice: number;
   batchNumber?: string;
   expiryDate?: Date;
-  isControlled?: boolean;
 }
 
+export interface CreatePurchaseOrderDto {
+  supplierId: string;
+  storeId?: string;
+  warehouseId?: string;
+  orderDate: Date | string;
+  receivedDate?: Date;
+  totalAmount: number;
+  notes?: string;
+  items: PurchaseOrderItemDto[];
+}
 
 export interface UpdatePurchaseOrderDto {
   status?: PurchaseOrderStatus;
-  notes?: string;
   receivedDate?: Date;
-  updatedBy: string;
+  notes?: string;
 }
 
 export interface CancelPurchaseOrderDto {
   reason?: string;
-  cancelledBy: string;
 }
 
 export interface LinkPaymentDto {
   paymentId: string;
   amount: number;
-  linkedBy: string;
 }
 
-export interface CreatePurchaseOrderDto {
+export interface PurchaseOrderResponseDto {
+  id: string;
   tenantId: string;
   supplierId: string;
   storeId?: string;
   warehouseId?: string;
-  orderDate: Date | string;
+  status: PurchaseOrderStatus;
+  orderDate: Date;
+  receivedDate?: Date;
   totalAmount: number;
   notes?: string;
-  requestedBy: string;
-  items: {
-    productId: string;
-    quantity: number;
-    costPrice: number;
-    batchNumber?: string;
-    expiryDate?: Date | string;
-    isControlled?: boolean;
-  }[];
+  createdById?: string;
+  updatedById?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  items: Array<PurchaseOrderItemDto & { id: string; purchaseOrderId: string }>;
 }
 
 export interface UpdatePurchaseOrderDto {
@@ -103,29 +110,6 @@ export interface ListPendingOrdersDto {
   requestedBy?: string;
   limit?: number;
   page?: number;
-}
-
-export interface PurchaseOrderResponseDto {
-  id: string;
-  tenantId: string;
-  supplierId: string;
-  storeId?: string;
-  warehouseId?: string;
-  orderDate: Date;
-  totalAmount: number;
-  paidAmount?: number;
-  balance?: number;
-  paymentStatus?: 'pending' | 'paid' | 'partially_paid';
-  approvedBy?: string;
-  notes?: string;
-  requestedBy: string;
-  status: PurchaseOrderStatus;
-  items: PurchaseOrderItemDto[];
-  createdAt: Date;
-  updatedAt: Date;
-  receivedDate?: Date;
-  cancelledBy?: string;
-  cancelledAt?: Date;
 }
 
 export interface PurchaseOrderItemResponseDto {

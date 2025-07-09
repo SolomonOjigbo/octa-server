@@ -59,7 +59,18 @@ export const EVENTS = {
   STOCK_TRANSFER_UPDATED: "stockTransfer.updated",
   STOCK_TRANSFER_COMPLETED: "stockTransfer.completed",
   STOCK_TRANSFER_CANCELED: "stockTransfer.canceled",
-
+  PURCHASE_ORDER_PAYMENT_LINKED: "purchaseOrder.paymentLinked",
+  POS_SESSION_OPENED: "posSession.opened",
+  POS_SESSION_CLOSED: "posSession.closed",
+  POS_SESSION_UPDATED: "posSession.updated",
+  POS_ITEM_ADDED: "posItem.added",
+  POS_ITEM_UPDATED: "posItem.updated",
+  POS_ITEM_REMOVED: "posItem.removed",
+  POS_CASH_DROP_CREATED: "posCashDrop.created",
+  POS_SALES_RETURN_CREATED: "posSalesReturn.created",
+  POS_TRANSACTION_CREATED: "posTransaction.created",
+  POS_PAYMENT_CREATED: "posPayment.created",
+  POS_RECONCILIATION_CREATED: "posReconciliation.created",
 
 
 

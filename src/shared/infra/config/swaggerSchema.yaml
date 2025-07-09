@@ -1351,6 +1351,86 @@ paths:
       $ref: '#/paths/~1b2b-connections~1{id}~1revoke/patch'
 
 
+
+CreatePurchaseOrderDto:
+  type: object
+  required:
+    - supplierId
+    - orderDate
+    - totalAmount
+    - items
+  properties:
+    supplierId: { type: string }
+    storeId:     { type: string }
+    warehouseId: { type: string }
+    orderDate:   { type: string, format: date }
+    receivedDate:{ type: string, format: date }
+    totalAmount: { type: number }
+    notes:       { type: string }
+    items:
+      type: array
+      items:
+        $ref: '#/components/schemas/PurchaseOrderItemDto'
+
+PurchaseOrderItemDto:
+  type: object
+  required:
+    - tenantProductId
+    - quantity
+    - costPrice
+  properties:
+    tenantProductId:        { type: string }
+    tenantProductVariantId: { type: string }
+    quantity:               { type: integer }
+    costPrice:              { type: number }
+    batchNumber:            { type: string }
+    expiryDate:             { type: string, format: date-time }
+
+UpdatePurchaseOrderDto:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [pending, approved, received, cancelled]
+    receivedDate: { type: string, format: date-time }
+    notes:        { type: string }
+
+CancelPurchaseOrderDto:
+  type: object
+  properties:
+    reason: { type: string }
+
+LinkPaymentDto:
+  type: object
+  required:
+    - paymentId
+    - amount
+  properties:
+    paymentId: { type: string }
+    amount:    { type: number }
+
+PurchaseOrderResponseDto:
+  allOf:
+    - $ref: '#/components/schemas/CreatePurchaseOrderDto'
+    - type: object
+      properties:
+        id:           { type: string }
+        tenantId:     { type: string }
+        status:       { type: string, enum:[pending,approved,received,cancelled] }
+        createdById:  { type: string }
+        updatedById:  { type: string }
+        createdAt:    { type: string, format: date-time }
+        updatedAt:    { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/PurchaseOrderItemDto'
+              - type: object
+                properties:
+                  id: { type: string }
+                  purchaseOrderId: { type: string }
+
 # --- Purchase Order Paths ---
 /purchase-orders:
   post:
