@@ -33,7 +33,6 @@ export type TransactionPaymentStatus =
   | 'refunded';
 
 export interface CreateTransactionDto {
-  customerId?: string;
   referenceType:    TransactionReferenceType;
   referenceId?:     string;
   amount:           number;

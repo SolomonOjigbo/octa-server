@@ -101,7 +101,7 @@ router.get(
 router.post(
   '/',
   requirePermission('transaction:create'),
-  transactionController.
+  transactionController.create
 );
 
 /**
@@ -155,6 +155,5 @@ router.delete(
   requirePermission('transaction:delete'),
   transactionController.delete
 );
-router.put("/:id/status", transactionController.updateTransactionStatus.bind(transactionController));
 
 export default router;
