@@ -12,7 +12,6 @@ export const EVENTS = {
   PAYMENT_REVERSED: "payment.reversed",
   PAYMENT_REFUNDED: "payment.refunded",
   PAYMENT_DELETED: "payment.deleted",
-  
   STOCK_MOVEMENT_CREATED: "stockMovement.created",
   STOCK_MOVEMENT_UPDATED: "stockMovement.updated",
   STOCK_MOVEMENT_REMOVED: "stockMovement.removed",
@@ -77,6 +76,7 @@ export const EVENTS = {
   POS_TRANSACTION_CREATED: "posTransaction.created",
   POS_PAYMENT_CREATED: "posPayment.created",
   POS_RECONCILIATION_CREATED: "posReconciliation.created",
+  REPORT_GENERATED: "report.generated",
 
 
 
