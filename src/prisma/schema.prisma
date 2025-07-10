@@ -348,16 +348,18 @@ model Transaction {
   warehouseId     String?
   userId          String?
   customerId      String?
-  totalAmount     Float
+  amount          Float
   discount        Float?
   taxAmount       Float?
+  referenceType   String    // e.g. "purchaseOrder", "posTransaction", "stockTransfer", "b2bConnection"
+  referenceId     String? 
   shippingFee     Float?
   shippingType    String?
   shippingAddress String?
+  metadata        Json?
   paymentMethod   String // Last payment method used
   paymentStatus   String // e.g. "paid", "pending", "refunded"
   status          String // e.g. "completed", "cancelled", "returned"
-  reference       String?
   posSessionId    String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -368,6 +370,7 @@ model Transaction {
   customer        Customer?   @relation(fields: [customerId], references: [id])
   posSession      POSSession? @relation(fields: [posSessionId], references: [id])
   payments        Payment[]
+
 
   TransactionItem TransactionItem[] @relation("TransactionItemTransaction")
 

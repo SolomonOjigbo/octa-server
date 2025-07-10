@@ -1,3 +1,4 @@
+// src/modules/transactions/validations.ts
 import { z } from "zod";
 
 export const getTransactionFiltersSchema = z.object({
@@ -10,17 +11,25 @@ export const getTransactionFiltersSchema = z.object({
   dateTo: z.string().datetime().optional(),
 });
 
-export const updateTransactionStatusSchema = z.object({
-  status: z.string(),
+
+
+const ReferenceTypeEnum = z.enum([
+  'purchaseOrder', 'posTransaction', 'stockTransfer', 'b2bConnection'
+]);
+
+const StatusEnum = z.enum(['pending','posted','failed','voided']);
+const PaymentStatusEnum = z.enum([
+  'unpaid','paid','partiallyPaid','refunded'
+]);
+
+export const CreateTransactionSchema = z.object({
+  referenceType:  ReferenceTypeEnum,
+  referenceId:    z.string().cuid().optional(),
+  amount:         z.number().min(0),
+  date:           z.coerce.date().default(() => new Date()),
+  status:         StatusEnum.default('pending'),
+  paymentStatus:  PaymentStatusEnum.default('unpaid'),
+  metadata:       z.record(z.any()).optional(),
 });
-export const createTransactionSchema = z.object({
-  tenantId: z.string().cuid(),
-  storeId: z.string().cuid(),
-  customerId: z.string().cuid().optional(),
-  sessionId: z.string().cuid().optional(),
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  status: z.string().optional(),
-  reference: z.string().optional(),
-  date: z.string().datetime().optional(),
-});
+
+export const UpdateTransactionSchema = CreateTransactionSchema.partial();

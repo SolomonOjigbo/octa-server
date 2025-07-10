@@ -1820,40 +1820,243 @@ AuditLogList:
     pagination:
       $ref: '#/components/schemas/Pagination'
 
-  POSSessionSummary:
-    type: object
-    properties:
-      sessionId:
-        type: string
-      openedBy:
-        type: string
-      openedAt:
-        type: string
-        format: date-time
-      closedAt:
-        type: string
-        format: date-time
-        nullable: true
-      totalSales:
-        type: number
-        format: float
-      totalPayments:
-        type: number
-        format: float
-      totalReturns:
-        type: number
-        format: float
-      totalCashDrops:
-        type: number
-        format: float
-      totalReconciled:
-        type: number
-        format: float
-  paths:
-    /pos/sessions/{sessionId}/summary:
+# -----------------
+# POS Components
+# -----------------
+components:
+  schemas:
+    POSSession:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        openedBy:
+          type: string
+        openedAt:
+          type: string
+          format: date-time
+        closedBy:
+          type: string
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closingCash:
+          type: number
+          format: float
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    CloseSessionDto:
+      type: object
+      required:
+        - closingCash
+      properties:
+        closingCash:
+          type: number
+          format: float
+        notes:
+          type: string
+
+    SaleItemDto:
+      type: object
+      required:
+        - tenantProductId
+        - quantity
+        - unitPrice
+      properties:
+        tenantProductId:
+          type: string
+        tenantProductVariantId:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: float
+        discount:
+          type: number
+          format: float
+        tax:
+          type: number
+          format: float
+
+    CreateTransactionDto:
+      type: object
+      required:
+        - sessionId
+        - items
+        - paymentMethod
+      properties:
+        sessionId:
+          type: string
+        customerId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaleItemDto'
+        paymentMethod:
+          type: string
+        cashReceived:
+          type: number
+          format: float
+
+    CreatePaymentDto:
+      type: object
+      required:
+        - transactionId
+        - amount
+        - method
+      properties:
+        transactionId:
+          type: string
+        amount:
+          type: number
+          format: float
+        method:
+          type: string
+        reference:
+          type: string
+
+    CreateSalesReturnDto:
+      type: object
+      required:
+        - transactionId
+        - items
+      properties:
+        transactionId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - tenantProductId
+              - quantity
+            properties:
+              tenantProductId:
+                type: string
+              tenantProductVariantId:
+                type: string
+              quantity:
+                type: integer
+              reason:
+                type: string
+
+    CreateCashDropDto:
+      type: object
+      required:
+        - sessionId
+        - amount
+      properties:
+        sessionId:
+          type: string
+        amount:
+          type: number
+          format: float
+        reason:
+          type: string
+
+    ReconcileCashDto:
+      type: object
+      required:
+        - sessionId
+        - countedCashAmount
+      properties:
+        sessionId:
+          type: string
+        countedCashAmount:
+          type: number
+          format: float
+        varianceReason:
+          type: string
+
+    POSSessionSummary:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        openedBy:
+          type: string
+        openedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        totalSales:
+          type: number
+          format: float
+        totalPayments:
+          type: number
+          format: float
+        totalReturns:
+          type: number
+          format: float
+        totalCashDrops:
+          type: number
+          format: float
+        totalReconciled:
+          type: number
+          format: float
+
+# --------------
+# POS Paths
+# --------------
+paths:
+  /pos/sessions:
+    post:
+      tags: [POS]
+      summary: Open a new POS session
+      security:
+        - bearerAuth: []
+      responses:
+        201:
+          description: POS session opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POSSession'
+
+  /pos/sessions/{id}/close:
+    patch:
+      tags: [POS]
+      summary: Close an open POS session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseSessionDto'
+      responses:
+        200:
+          description: POS session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POSSession'
+
+  /pos/sessions/{sessionId}/summary:
     get:
       tags: [POS]
-      summary: Get daily POS session summary (sales, returns, cash)
+      summary: Get POS session summary
+      security:
+        - bearerAuth: []
       parameters:
         - name: sessionId
           in: path
@@ -1862,7 +2065,27 @@ AuditLogList:
             type: string
       responses:
         200:
-          description: Summary data for session
+          description: Session summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POSSessionSummary'
+
+  /pos/transactions:
+    post:
+      tags: [POS]
+      summary: Create a new sale transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionDto'
+      responses:
+        201:
+          description: Transaction created
           content:
             application/json:
               schema:
@@ -1870,12 +2093,111 @@ AuditLogList:
                 properties:
                   success:
                     type: boolean
-                    example: true
                   data:
-                    $ref: '#/components/schemas/POSSessionSummary'
-        404:
-          description: POS session not Found
-          
+                    $ref: '#/components/schemas/CreateTransactionDto'
+
+  /pos/payments:
+    post:
+      tags: [POS]
+      summary: Record a payment for a transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentDto'
+      responses:
+        201:
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreatePaymentDto'
+
+  /pos/sales-returns:
+    post:
+      tags: [POS]
+      summary: Record a sales return
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalesReturnDto'
+      responses:
+        201:
+          description: Sales return recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreateSalesReturnDto'
+
+  /pos/cash-drops:
+    post:
+      tags: [POS]
+      summary: Create a cash drop
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCashDropDto'
+      responses:
+        201:
+          description: Cash drop recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CreateCashDropDto'
+
+  /pos/reconcile-cash:
+    post:
+      tags: [POS]
+      summary: Reconcile cash at session end
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileCashDto'
+      responses:
+        201:
+          description: Cash reconciliation recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ReconcileCashDto'
+
+
+
 # ---- Tenant Schemas ---
   Tenant:
       type: object
@@ -2555,3 +2877,126 @@ paths:
       $ref: '#/supplier/products/link/{id}/patch'
     delete:
       $ref: '#/supplier/products/link/{id}/delete'
+
+
+# --------------------------
+# Payment Components & Paths
+# --------------------------
+components:
+  schemas:
+    CreatePaymentDto:
+      type: object
+      required:
+        - amount
+        - method
+      properties:
+        purchaseOrderId:
+          type: string
+        transactionId:
+          type: string
+        amount:
+          type: number
+        method:
+          type: string
+        reference:
+          type: string
+        paymentDate:
+          type: string
+          format: date-time
+
+    UpdatePaymentDto:
+      type: object
+      properties:
+        amount:
+          type: number
+        method:
+          type: string
+        reference:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, failed, cancelled]
+
+    PaymentResponseDto:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentDto'
+        - type: object
+          properties:
+            id:
+              type: string
+            tenantId:
+              type: string
+            status:
+              type: string
+              enum: [pending, completed, failed, cancelled]
+            createdById:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    RefundPaymentDto:
+      type: object
+      properties:
+        amount:
+          type: number
+        reason:
+          type: string
+
+    ReversePaymentDto:
+      type: object
+      properties:
+        reason:
+          type: string    
+
+
+
+paths:
+  /payments/{id}/refund:
+    patch:
+      tags: [Payments]
+      summary: Refund a completed payment (partial or full)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundPaymentDto'
+      responses:
+        200:
+          description: Refund record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponseDto'
+
+  /payments/{id}/reverse:
+    patch:
+      tags: [Payments]
+      summary: Reverse (cancel) a pending payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversePaymentDto'
+      responses:
+        200:
+          description: Payment reversed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponseDto'
+  /payments:
+    get:
+      $ref: '#/paths/~1payments/get'
+    post:
+      $ref: '#/paths/~1payments/post'
+  /payments/{id}:
+    get:
+      $ref: '#/paths/~1payments~1{id}/get'
+    patch:
+      $ref: '#/paths/~1payments~1{id}/patch'
+    delete:
+      $ref: '#/paths/~1payments~1{id}/delete'

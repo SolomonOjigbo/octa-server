@@ -1,27 +1,38 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-// Aligned with CreatePaymentDto
+// in validations.ts
+export const RefundPaymentSchema = z.object({
+  amount: z.number().min(0).optional(),    // if partial refund
+  reason: z.string().optional(),
+});
+
+export const ReversePaymentSchema = z.object({
+  reason: z.string().optional(),
+});
+
+
 export const createPaymentSchema = z.object({
-  tenantId: z.string().cuid(),
-  amount: z.number().positive("Amount must be a positive number."),
-  method: z.string().min(2, "Payment method is required."),
-  reference: z.string().optional(),
-  status: z.string().optional().default("completed"),
-  transactionId: z.string().cuid().optional(),
+  tenantId:       z.string().cuid(),
+  customerId:      z.string().cuid().optional(),             // �� add
   purchaseOrderId: z.string().cuid().optional(),
-  sessionId: z.string().cuid().optional(),
-  userId: z.string().cuid(), // User performing the payment is required
-  paidAt: z.string().datetime().optional(),
-}).refine(data => data.transactionId || data.purchaseOrderId, {
-  message: "A payment must be linked to either a transaction or a purchase order.",
-  path: ["transactionId"],
+  transactionId:   z.string().cuid().optional(),
+  sessionId:       z.string().cuid().optional(),             // ← add
+  amount:          z.number().min(0),
+  method:          z.string().min(1),
+  reference:       z.string().optional(),
+  status:          z.enum(['pending','completed','failed','refunded','cancelled']).default('pending'),
+  paidAt:          z.coerce.date().optional(),               // ← add
+  userId:          z.string().cuid().optional(),             // rarely user‐supplied, but reflect Prisma
 });
 
-// Aligned with UpdatePaymentDto
 export const updatePaymentSchema = z.object({
-  status: z.string().optional(),
+  amount:    z.number().min(0).optional(),
+  method:    z.string().min(1).optional(),
   reference: z.string().optional(),
+  status:    z.enum(['pending','completed','failed','refunded','cancelled']).optional(),
+  paidAt:    z.coerce.date().optional(),                     // ← add
 });
+
 
 // Aligned with CreateRefundDto
 export const createRefundSchema = z.object({

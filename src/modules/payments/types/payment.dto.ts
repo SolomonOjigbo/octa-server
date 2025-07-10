@@ -1,22 +1,24 @@
-export interface CreatePaymentDto {
-  tenantId: string;
-  amount: number;
-  method: string;
-  reference?: string;
-  status?: string;
-  transactionId?: string;      // For POS sales
-  purchaseOrderId?: string;    // For supplier purchases
-  sessionId?: string;
-  userId?: string;
-  paidAt?: string | Date;
+export type PaymentStatus = 'pending'|'completed'|'failed'|'refunded'|'cancelled';
 
+export interface CreatePaymentDto {
+  purchaseOrderId?: string;
+  transactionId?:   string;
+  sessionId?:       string;     // ← add
+  amount:           number;
+  method:           string;
+  reference?:       string;
+  status?:          'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
+  paidAt?:          Date;
 }
 
 export interface UpdatePaymentDto {
-  status?: string;
-  paidAt?: string | Date;
+  amount?:    number;
+  method?:    string;
   reference?: string;
+  status?:    PaymentStatus;
+  paidAt?:    Date;              // ← add
 }
+
 
 export interface CreateRefundDto {
   tenantId: string;
@@ -30,4 +32,27 @@ export interface CreateRefundDto {
   sessionId?: string;
 }
 
+export interface PaymentResponseDto {
+  id:               string;
+  tenantId:         string;
+  userId:           string;
+  purchaseOrderId?: string;
+  transactionId?:   string;
+  amount:           number;
+  method:           string;
+  reference?:       string;
+  status:           PaymentStatus;
+  paymentDate:      Date;
+  createdById?:     string;
+  createdAt:        Date;
+  updatedAt:        Date;
+}
+
+export interface RefundPaymentDto {
+  amount?: number;       // default full
+  reason?: string;
+}
+export interface ReversePaymentDto {
+  reason?: string;
+}
 

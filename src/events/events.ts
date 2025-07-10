@@ -2,11 +2,17 @@
 export const EVENTS = {
   USER_CREATED: "user.created",
   TRANSACTION_COMPLETED: "transaction.completed",
+  TRANSACTION_CREATED: "transaction.created",
   TRANSACTION_FAILED: "transaction.failed",
+  TRANSACTION_DELETED: "transaction.deleted",
+  TRANSACTION_UPDATED: "transaction.updated",
   PAYMENT_FAILED: "payment.failed",
   PAYMENT_UPDATED: "payment.updated",
+  PAYMENT_CREATED: "payment.created",
   PAYMENT_REVERSED: "payment.reversed",
   PAYMENT_REFUNDED: "payment.refunded",
+  PAYMENT_DELETED: "payment.deleted",
+  
   STOCK_MOVEMENT_CREATED: "stockMovement.created",
   STOCK_MOVEMENT_UPDATED: "stockMovement.updated",
   STOCK_MOVEMENT_REMOVED: "stockMovement.removed",
