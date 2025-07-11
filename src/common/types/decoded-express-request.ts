@@ -10,10 +10,6 @@ export const DecodedExpressRequest = {
         id: '',
         tenantId: ''
     },
-    site: {
-        id: '',
-        tenantId: ''
-    },
     tenant: {
         id: '',
         name: '',

@@ -77,6 +77,15 @@ export const EVENTS = {
   POS_PAYMENT_CREATED: "posPayment.created",
   POS_RECONCILIATION_CREATED: "posReconciliation.created",
   REPORT_GENERATED: "report.generated",
+  INVOICE_CREATED: "invoice.created",
+  INVOICE_UPDATED: "invoice.updated",
+  INVOICE_PAID: "invoice.paid",
+  INVOICE_VOIDED: "invoice.voided",
+  INVOICE_REFUNDED: "invoice.refunded",
+  INVOICE_DELETED: "invoice.deleted",
+  INVOICE_ISSUED: "invoice.issued",
+  INVOICE_PAYMENT_APPLIED: "invoice.paymentApplied",
+  INVOICE_PDF_GENERATED: "invoice.pdfGenerated",
 
 
 

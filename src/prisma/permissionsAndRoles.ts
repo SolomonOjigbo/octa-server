@@ -1,3 +1,147 @@
+// All permissions used across Octa
+export const PERMISSIONS = [
+  // GlobalCatalog
+  'globalCategory:read',
+  'globalCategory:create',
+  'globalCategory:update',
+  'globalCategory:delete',
+  'globalCategory:view',
+  'globalProduct:read',
+  'globalProduct:create',
+  'globalProduct:update',
+  'globalProduct:delete',
+  'globalProduct:view',
+
+  // TenantCatalog
+  'tenantCategory:read',
+  'tenantCategory:create',
+  'tenantCategory:update',
+  'tenantCategory:delete',
+  'tenantCategory:view',
+  'tenantProduct:read',
+  'tenantProduct:create',
+  'tenantProduct:update',
+  'tenantProduct:delete',
+  'tenantProduct:view',
+  'tenantProductVariant:read',
+  'tenantProductVariant:create',
+  'tenantProductVariant:update',
+  'tenantProductVariant:delete',
+  'tenantProductVariant:view',
+
+  // Stock
+  'stock:read',
+  'stock:adjust',
+  'stock:update',
+  'stock:delete',
+  'stock:view',
+
+  // Inventory
+  'inventory:read',
+  'inventory:create',
+  'inventory:update',
+  'inventory:delete',
+  'inventory:view',
+
+  // StockTransfer
+  'stockTransfer:read',
+  'stockTransfer:create',
+  'stockTransfer:update',
+  'stockTransfer:view',
+
+  // B2B Connection
+  'b2b:read',
+  'b2b:create',
+  'b2b:update',
+  'b2b:view',
+
+  // PurchaseOrder
+  'purchaseOrder:read',
+  'purchaseOrder:create',
+  'purchaseOrder:update',
+  'purchaseOrder:cancel',
+  'purchaseOrder:linkPayment',
+  'purchaseOrder:view',
+
+  // POS
+  'pos:session:create',
+  'pos:session:update',
+  'pos:session:read',
+  'pos:session:view',
+  'pos:transaction:create',
+  'pos:payment:create',
+  'pos:return:create',
+  'pos:cashdrop:create',
+  'pos:reconcile:create',
+
+  // Payments
+  'payment:read',
+  'payment:create',
+  'payment:update',
+  'payment:delete',
+  'payment:refund',
+  'payment:reverse',
+  'payment:view',
+
+  // Transactions
+  'transaction:read',
+  'transaction:create',
+  'transaction:update',
+  'transaction:delete',
+  'transaction:view',
+
+  // Reporting
+  'reporting:sales',
+  'reporting:inventory',
+  'reporting:purchaseOrders',
+  'reporting:transactions',
+  'reporting:payments',
+  'reporting:b2bConnections',
+];
+
+// Role definitions
+export const ROLES = {
+  superAdmin: {
+    permissions: [...PERMISSIONS],
+  },
+
+  tenantAdmin: {
+    permissions: PERMISSIONS.filter(p => !p.startsWith('globalCategory') && !p.startsWith('globalProduct')),
+  },
+
+  manager: {
+    permissions: [
+      // read/view for all tenant domains
+      'tenantCategory:read', 'tenantCategory:view',
+      'tenantProduct:read', 'tenantProduct:view',
+      'tenantProductVariant:read', 'tenantProductVariant:view',
+      'stock:read', 'stock:view',
+      'inventory:read', 'inventory:view',
+      'purchaseOrder:read', 'purchaseOrder:create', 'purchaseOrder:update', 'purchaseOrder:linkPayment', 'purchaseOrder:view',
+      'pos:session:read', 'pos:session:view', 'pos:transaction:create', 'pos:return:create',
+      'stockTransfer:read', 'stockTransfer:create', 'stockTransfer:update', 'stockTransfer:view',
+      'payment:create', 'payment:read', 'payment:view',
+      'transaction:create', 'transaction:read', 'transaction:view',
+      'reporting:sales','reporting:inventory','reporting:purchaseOrders','reporting:transactions','reporting:payments','reporting:b2bConnections',
+      'b2b:read','b2b:create','b2b:update','b2b:view',
+    ],
+  },
+
+  staff: {
+    permissions: [
+      // mostly POS & read-only
+      'pos:transaction:create',
+      'pos:payment:create',
+      'pos:return:create',
+      'pos:cashdrop:create',
+      'pos:reconcile:create',
+      'stock:read',
+      'inventory:read',
+    ],
+  },
+};
+
+
 export const permissionGroups = {
   USER_MANAGEMENT: 'User Management',
   TENANT_MANAGEMENT: 'Tenant Management',
@@ -236,3 +380,6 @@ export const defaultRoles = [
     context: "tenant"
   }
 ];
+
+
+

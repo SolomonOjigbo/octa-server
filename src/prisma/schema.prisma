@@ -55,6 +55,8 @@ model Tenant {
   StockTransferDestination StockTransfer[] @relation("TransferDestTenant")
 
   StockTransferSource StockTransfer[] @relation("TransferSourceTenant")
+
+  Invoice Invoice[]
 }
 
 model BusinessEntity {
@@ -388,7 +390,7 @@ model Payment {
   purchaseOrderId String? // Purchase order payment
   sessionId       String? // POSSession if relevant
   userId          String?
-  paidAt          DateTime? // When payment was confirmed/received
+  paymentDate     DateTime? // When payment was confirmed/received
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   tenant          Tenant         @relation(fields: [tenantId], references: [id])
@@ -404,6 +406,8 @@ model Payment {
   Transaction Transaction[]
 
   PurchaseOrder PurchaseOrder[]
+
+  Invoice Invoice[] @relation("InvoicePayments")
 }
 
 model POSSession {
@@ -440,6 +444,8 @@ model Customer {
   transactions      Transaction[]
   payments          Payment[]          @relation("CustomerPayments")
   communicationLogs CommunicationLog[]
+
+  Invoice Invoice[]
 }
 
 model Supplier {
@@ -528,6 +534,10 @@ model User {
   PurchaseOrder PurchaseOrder[]     @relation("poCreatedBy")
 
   PurchaseOrderUpdate PurchaseOrder[]     @relation("poUpdatedBy")
+
+  InvoiceCreatedBy Invoice[] @relation("invoiceCreatedBy")
+
+  InvoiceUpdatedBy Invoice[] @relation("invoiceUpdatedBy")
 }
 
 model RefreshToken {
@@ -733,6 +743,48 @@ model TransactionItem {
 
   transaction Transaction @relation("TransactionItemTransaction", fields: [transactionId], references: [id])
 }
+
+model Invoice {
+  id            String      @id @default(cuid())
+  tenantId      String
+  customerId    String?     // links to CRM.Customer
+  referenceType String      // e.g. "purchaseOrder", "posTransaction", "stockTransfer"
+  referenceId   String?     // id of that document
+  invoiceNo     String      @unique
+  issueDate     DateTime    @default(now())
+  dueDate       DateTime?
+  status        String      // draft, issued, paid, partiallyPaid, overdue, cancelled
+  subTotal      Float
+  taxTotal      Float
+  totalAmount   Float
+  metadata      Json?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tenant        Tenant      @relation(fields: [tenantId],     references: [id])
+  customer      Customer?   @relation(fields: [customerId],   references: [id])
+  createdBy     User?       @relation("invoiceCreatedBy",    fields: [createdById], references: [id])
+  updatedBy     User?       @relation("invoiceUpdatedBy",    fields: [updatedById], references: [id])
+  items         InvoiceItem[]
+  payments      Payment[]   @relation("InvoicePayments")
+}
+
+model InvoiceItem {
+  id          String    @id @default(cuid())
+  invoiceId   String
+  productId   String    // TenantProduct
+  variantId   String?   // TenantProductVariant
+  description String
+  quantity    Int
+  unitPrice   Float
+  taxAmount   Float
+  lineTotal   Float
+
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id])
+}
+
 
 model AuditLog {
   id         String   @id @default(cuid())

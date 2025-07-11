@@ -40,7 +40,7 @@ export class PaymentService {
         amount:      dto.amount,
         method:      dto.method,
         reference:   dto.reference,
-        paidAt: dto.paidAt,
+        paymentDate: dto.paymentDate,
         createdBy:   { connect: { id: userId } },
       },
     });
@@ -210,7 +210,7 @@ async reverse(
       const payment = await tx.payment.create({
         data: {
           ...dto,
-          paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date()
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date()
         }
       });
 

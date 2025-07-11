@@ -8,7 +8,7 @@ export interface CreatePaymentDto {
   method:           string;
   reference?:       string;
   status?:          'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
-  paidAt?:          Date;
+  paymentDate?:          Date;
 }
 
 export interface UpdatePaymentDto {

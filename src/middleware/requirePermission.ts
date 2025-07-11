@@ -6,20 +6,7 @@ import { auditService } from "../modules/audit/services/audit.service";
 import { UserActivity } from "../modules/audit/types/audit.dto";
 import { ForbiddenError } from "./errors";
 
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: {
-      isAdmin: any;
-      roles: string[];
-      isActive: boolean;
-      isSuperAdmin?: boolean;
-      id: string;
-      tenantId: string;
-      storeId?: string;
-      warehouseId?: string;
-    };
-  }
-}
+
 
 export function requirePermission(permission: string) {
   return async function (req: Request, res: Response, next: NextFunction) {
@@ -29,6 +16,7 @@ export function requirePermission(permission: string) {
       }
 
       const { id: userId, tenantId, storeId, warehouseId } = req.user;
+
 
       // Cache key for user permissions
       const cacheKey = `user:${userId}:permissions:${tenantId}:${storeId || ''}:${warehouseId || ''}`;
@@ -40,14 +28,8 @@ export function requirePermission(permission: string) {
       if (cachedPermissions) {
         permissions = JSON.parse(cachedPermissions);
       } else {
-        // Get from database if not in cache
-        permissions = await roleService.getRoles(
-         {
-          tenantId,
-          storeId,
-          warehouseId
-        }
-        );
+
+       permissions = req.user?.permissions;
         
         // Cache permissions for 5 minutes
         await redisClient.set(
@@ -63,7 +45,7 @@ export function requirePermission(permission: string) {
           tenantId,
           action: UserActivity.PERMISSION_DENIED,
           entityId: '',
-          module: "user"
+          module: "User"
         });
 
         throw new ForbiddenError(

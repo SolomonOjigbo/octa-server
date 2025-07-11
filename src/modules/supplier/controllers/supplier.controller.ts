@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { supplierService } from '../services/supplier.service';
 import { createSupplierSchema, updateSupplierSchema } from '../validations';
-import { auditService } from '@modules/audit/types/audit.service';
+import { auditService } from '@modules/audit/services/audit.service';
 import { eventEmitter } from '@events/event.emitter';
 import { CreateSupplierDto } from '../types/supplier.dto';
 
@@ -15,7 +15,7 @@ export class SupplierController {
     const dto = { ...createSupplierSchema.parse(req.body), tenantId } as CreateSupplierDto;
     const supplier = await supplierService.createSupplier(dto);
 
-    await auditService.log({ tenantId, userId, action:'SUPPLIER_CREATED', entityType:'Supplier', entityId:supplier.id, metadata:dto });
+    await auditService.log({ tenantId, userId, action:'SUPPLIER_CREATED', module:'Supplier', entityId:supplier.id, metadata:dto });
     eventEmitter.emit('supplier:created', supplier);
 
     res.status(201).json(supplier);
@@ -30,7 +30,7 @@ export class SupplierController {
     const dto = updateSupplierSchema.parse(req.body);
     const supplier = await supplierService.updateSupplier(req.params.id, dto);
 
-    await auditService.log({ tenantId: supplier.tenantId, userId, action:'SUPPLIER_UPDATED', entityType:'Supplier', entityId:supplier.id, metadata:dto });
+    await auditService.log({ tenantId: supplier.tenantId, userId, action:'SUPPLIER_UPDATED', module:'Supplier', entityId:supplier.id, metadata:dto });
     eventEmitter.emit('supplier:updated', supplier);
 
     res.json(supplier);
@@ -38,7 +38,7 @@ export class SupplierController {
 
   deleteSupplier = asyncHandler(async (req, res) => {
     const deleted = await supplierService.deleteSupplier(req.params.id);
-    await auditService.log({ tenantId: deleted.tenantId, userId:req.user!.id, action:'SUPPLIER_DELETED', entityType:'Supplier', entityId:deleted.id });
+    await auditService.log({ tenantId: deleted.tenantId, userId:req.user!.id, action:'SUPPLIER_DELETED', module:'Supplier', entityId:deleted.id });
     eventEmitter.emit('supplier:deleted', deleted);
     res.status(204).send();
   });

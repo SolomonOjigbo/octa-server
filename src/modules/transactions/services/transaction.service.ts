@@ -94,7 +94,7 @@ export class TransactionService {
         amount: rec.amount,
         method: 'internal',       // or info from metadata
         status: 'completed',
-        paidAt: new Date()
+        paymentDate: new Date()
       }
     );
   }

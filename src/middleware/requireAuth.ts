@@ -4,23 +4,38 @@ import { ForbiddenError, UnauthorizedError } from "./errors";
 import { auditService } from "../modules/audit/services/audit.service";
 import { AuditAction } from "../modules/audit/types/audit.dto";
 import { PrismaClient } from "@prisma/client";
+import { defaultPermissions, permissions } from "@prisma/permissionsAndRoles";
 
 const prisma = new PrismaClient();
 
 declare module "express-serve-static-core" {
   interface Request {
     user?: {
-      roles: string[];
+      id: string;
+      tenantId: string;
       isActive: boolean;
       isSuperAdmin?: boolean;
       isAdmin: any;
-      id: string;
-      tenantId: string;
       storeId?: string;
+      roles: string[];
+      permissions: string[];
       warehouseId?: string;
     };
   }
 }
+
+// export interface AuthenticatedRequest extends Request {
+//   user?: {
+//     id: string;
+//     tenantId: string;
+//     storeId?: string;
+//     roles: string[];
+//     permissions: string[];
+//     isActive: boolean;        // user account enabled/disabled
+//     isSuperAdmin: boolean;    // system-wide root
+//     isAdmin: boolean;         // tenant-scoped admin
+//   };
+// }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -29,15 +44,25 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return next(new UnauthorizedError("Missing Authorization header"));
   }
 
-  const token = authHeader.replace("Bearer ", "");
+   if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  // const token = authHeader.replace("Bearer ", "");
+  
+const token = authHeader.split(' ')[1];
   
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      userId: string;
-      tenantId: string;
-      storeId?: string;
-      warehouseId?: string;
-    };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    //  {
+    //   userId: string;
+    //   tenantId: string;
+    //   storeId?: string;
+    //   isSuperAdmin?: boolean;
+    //   isAdmin: boolean;
+    //   roles: string[];
+    //   permissions: string[];
+    // };
 
     // Verify user exists and is active
     const user = await prisma.user.findUnique({
@@ -45,8 +70,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       select: {
         id: true,
         tenantId: true,
-        storeId: true,
-        warehouseId: true,
         isActive: true
       }
     });
@@ -73,11 +96,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       id: user.id,
       tenantId: user.tenantId,
       storeId: user.storeId || undefined,
-      warehouseId: user.warehouseId || undefined,
       isActive: user.isActive,
-      isAdmin: user.isActive, // Assuming isAdmin is determined by isActive for simplicity
-      roles: user.roles // Default role, can be extended based on your logic
-
+      isAdmin: user.isAdmin, // Assuming isAdmin is determined by isActive for simplicity
+      roles: user.roles, // Default role, can be extended based on your logic
+      isSuperAdmin: user.isSuperAdmin,
+      permissions: user.permissions || defaultPermissions, // Default permissions, can be extended based on your logic
+      warehouseId: user.warehouseId // Default warehouse, can be extended based on your logic
     };
 
     next();

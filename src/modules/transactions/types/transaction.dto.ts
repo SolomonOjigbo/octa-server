@@ -18,7 +18,8 @@ export type TransactionReferenceType =
   | 'purchaseOrder'
   | 'posTransaction'
   | 'stockTransfer'
-  | 'b2bConnection';
+  | 'b2bConnection'
+  | 'invoice'; 
 
 export type TransactionStatus =
   | 'pending'
