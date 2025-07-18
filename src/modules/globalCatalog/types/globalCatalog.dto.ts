@@ -1,37 +1,44 @@
-// Categories
+// src/modules/globalCatalog/types/globalCatalog.dto.ts
+
 export interface CreateGlobalCategoryDto {
   name: string;
+  imageUrl?: string;
   parentId?: string;
   description?: string;
-  imageUrl?: string;
 }
-export interface UpdateGlobalCategoryDto extends Partial<CreateGlobalCategoryDto> {}
+export interface UpdateGlobalCategoryDto extends Partial<CreateGlobalCategoryDto> {
+  id: string;
+}
 
-// Products
 export interface CreateGlobalProductDto {
   globalCategoryId: string;
   sku: string;
   name: string;
-  imageUrl?: string;
   barcode?: string;
+  imageUrl?: string;
+  brand?: string;
   dosageForm?: string;
   strength?: string;
-  isPrescription?: boolean;
+  sellingType?: string;
   description?: string;
-  brand?: string;
-  isActive?: boolean;           
-  deletedAt?: Date; 
+  isPrescription?: boolean;
+  isActive?: boolean;
 }
-export interface UpdateGlobalProductDto extends Partial<CreateGlobalProductDto> {}
+export interface UpdateGlobalProductDto extends Partial<CreateGlobalProductDto> {
+  id: string;
+}
 
-// Variants
 export interface CreateGlobalProductVariantDto {
   globalProductId: string;
+  variantAttributeIds: string[];
   name: string;
-  imageUrl?: string;
   sku: string;
+  imageUrl?: string;
   costPrice: number;
   sellingPrice: number;
   stock?: number;
 }
-export interface UpdateGlobalProductVariantDto extends Partial<CreateGlobalProductVariantDto> {}
+export interface UpdateGlobalProductVariantDto
+  extends Partial<Omit<CreateGlobalProductVariantDto, "globalProductId">> {
+  id: string;
+}

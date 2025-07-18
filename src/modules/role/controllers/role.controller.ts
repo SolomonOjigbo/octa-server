@@ -24,6 +24,17 @@ export class RoleController {
     res.json(roles);
   }
 
+  async getRolesByName(req: Request, res: Response) {
+    const name = req.query.name as string;
+    const context = {
+      tenantId: req.query.tenantId as string | undefined,
+      storeId: req.query.storeId as string | undefined,
+      warehouseId: req.query.warehouseId as string | undefined,
+    };
+    const roles = await roleService.getRoleByName(name, context);
+    res.json(roles);
+  }
+
   async getRoleById(req: Request, res: Response) {
     const { id } = req.params;
     const role = await roleService.getRoleById(id);

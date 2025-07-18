@@ -11,17 +11,17 @@ export interface UpdateTenantCategoryDto extends Partial<CreateTenantCategoryDto
 // Tenant products
 export interface CreateTenantProductDto {
   tenantId: string;
-  globalProductId?: string;
   tenantCategoryId?: string;
   sku?: string;
   name?: string;
+  category?: CreateTenantCategoryDto;
   isTransferable?: boolean;
   description?: string;
   barcode?: string;
   brand?: string;
   imageUrl?: string;
   isActive?: boolean;           // ← add
-  deletedAt?: Date; 
+  createdAt?: Date; 
 }
 export interface UpdateTenantProductDto extends Partial<CreateTenantProductDto> {}
 

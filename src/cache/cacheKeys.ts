@@ -1,19 +1,26 @@
 export const CacheKeys = {
-  productList: (tenantId: string) => `products:list:${tenantId}`,
-  productDetail: (tenantId: string, productId: string) => `products:detail:${tenantId}:${productId}`,
-  productVariants: (tenantId: string, productId: string) => `products:variants:${tenantId}:${productId}`,
-  categoryList: (tenantId: string) => `categories:list:${tenantId}`,
-  categoryDetail: (tenantId: string, categoryId: string) => `categories:detail:${tenantId}:${categoryId}`,
-  variantList: (productId: string) => `variants:list:${productId}`,
-  variantDetail: (productId: string, variantId: string) => `variants:detail:${productId}:${variantId}`,
-  
+  globalProductList: (tenantId: string) => `global_products:list:${tenantId}`,
+  globalProductDetail: (tenantId: string, globalProductId: string) => `global_products:detail:${tenantId}:${globalProductId}`,
+  globalProductVariants: (tenantId: string, globalProductId: string) => `global_products:variants:${tenantId}:${globalProductId}`,
+  globalCategoryList: () => `global_categories:list:global`,
+  globalCategoryDetail: (categoryId: string) => `global_categories:detail:${categoryId}`,
+  globalVariantList: (globalProductId: string) => `global_variants:list:${globalProductId}`,
+  globalVariantDetail: (globalProductId: string, variantId: string) => `global_variants:detail:${globalProductId}:${variantId}`,
+  tenantProductList: (tenantId: string) => `tenant_products:list:${tenantId}`,
+  tenantProductDetail: (tenantId: string, tenantProductId: string) => `tenant_products:detail:${tenantId}:${tenantProductId}`,
+  tenantProductVariants: (tenantId: string, tenantProductId: string) => `tenant_products:variants:${tenantId}:${tenantProductId}`,
+  tenantCategoryList: (tenantId: string) => `tenant_categories:list:${tenantId}`,
+  tenantCategoryDetail: (tenantId: string, tenantCategoryId: string) => `tenant_categories:detail:${tenantId}:${tenantCategoryId}`,
+  tenantVariantList: (tenantId: string, tenantProductId: string) => `tenant_variants:list:${tenantId}:${tenantProductId}`,
+  tenantVariantDetail: (tenantProductId: string, variantId: string) => `tenant_variants:detail:${tenantProductId}:${variantId}`,
+
   stock: (
     tenantId: string,
-    productId?: string,
+    tenantProductId?: string,
     variantId?: string,
     storeId?: string,
     warehouseId?: string
-    ) => `stock:${tenantId}:${productId}:${variantId}:${storeId}:${warehouseId}`,
+    ) => `stock:${tenantId}:${tenantProductId}:${variantId}:${storeId}:${warehouseId}`,
     productCategories: (tenantId: string) => `products:categories:${tenantId}`,
   search: (searchQuery: string) => `search:${searchQuery}`,
 };

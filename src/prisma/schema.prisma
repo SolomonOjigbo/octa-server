@@ -99,15 +99,15 @@ model GlobalProduct {
   brand            String? // manufacturer/brand
   dosageForm       String?
   strength         String?
+  sellingType      String? // online, store(POS), etc.
   description      String?
   isPrescription   Boolean   @default(false)
   isActive         Boolean   @default(true)
   deletedAt        DateTime? // soft‐delete
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-
   category        GlobalCategory         @relation(fields: [globalCategoryId], references: [id])
-  variants        GlobalProductVariant[]
+  variants        GlobalVariant[]    
   tenantOverrides TenantProduct[] // tenant‐scoped overrides
 
   // cross‐module relations
@@ -120,9 +120,21 @@ model GlobalProduct {
   @@unique([sku], map: "GlobalProduct_sku_unique")
 }
 
-model GlobalProductVariant {
+model VariantAttributes {
+  id              String   @id @default(cuid())
+  name            String
+  options          String[]
+  isActive        Boolean?  @default(true)
+
+  GlobalVariant GlobalVariant[]
+
+  TenantVariant TenantVariant[]
+}
+
+model GlobalVariant {
   id              String   @id @default(cuid())
   globalProductId String
+  variantAttributes VariantAttributes[]
   name            String
   sku             String
   imageUrl        String?
@@ -156,7 +168,7 @@ model TenantProduct {
 
   category      TenantCategory?        @relation(fields: [tenantCategoryId], references: [id])
   globalProduct GlobalProduct?         @relation(fields: [globalProductId], references: [id])
-  variants      TenantProductVariant[]
+  variants      TenantVariant[]
 
   // cross‐module relations
   ProductSupplier      ProductSupplier[] // supplier links for this tenant product
@@ -188,9 +200,10 @@ model TenantCategory {
   @@unique([tenantId, name])
 }
 
-model TenantProductVariant {
+model TenantVariant {
   id              String   @id @default(cuid())
   tenantProductId String
+  variantAttributes VariantAttributes[]
   name            String
   sku             String
   imageUrl        String?
@@ -296,7 +309,7 @@ model Inventory {
 
   tenant        Tenant                @relation(fields: [tenantId], references: [id])
   tenantProduct TenantProduct         @relation(fields: [tenantProductId], references: [id])
-  tenantVariant TenantProductVariant? @relation(fields: [tenantProductVariantId], references: [id])
+  tenantVariant TenantVariant? @relation(fields: [tenantProductVariantId], references: [id])
   store         Store?                @relation(fields: [storeId], references: [id])
   warehouse     Warehouse?            @relation(fields: [warehouseId], references: [id])
   createdBy     User?                 @relation("InventoryCreatedBy", fields: [createdById], references: [id])
@@ -332,7 +345,7 @@ model Stock {
 
   tenant        Tenant                @relation(fields: [tenantId], references: [id])
   tenantProduct TenantProduct         @relation(fields: [tenantProductId], references: [id])
-  tenantVariant TenantProductVariant? @relation(fields: [tenantProductVariantId], references: [id])
+  tenantVariant TenantVariant? @relation(fields: [tenantProductVariantId], references: [id])
   store         Store?                @relation(fields: [storeId], references: [id])
   warehouse     Warehouse?            @relation(fields: [warehouseId], references: [id])
 
@@ -673,7 +686,7 @@ model PurchaseOrderItem {
 
   purchaseOrder              PurchaseOrder         @relation(fields:[purchaseOrderId], references:[id])
   tenantProduct              TenantProduct         @relation(fields:[tenantProductId], references:[id])
-  tenantVariant              TenantProductVariant? @relation(fields:[tenantProductVariantId], references:[id])
+  tenantVariant              TenantVariant? @relation(fields:[tenantProductVariantId], references:[id])
 
   @@index([purchaseOrderId])
   Stock Stock[]
@@ -703,12 +716,12 @@ model StockTransfer {
   updatedAt                    DateTime  @updatedAt
 
   sourceProduct           TenantProduct         @relation("TransferSourceProduct", fields: [sourceTenantProductId], references: [id])
-  sourceVariant           TenantProductVariant? @relation("TransferSourceVariant", fields: [sourceTenantProductVariantId], references: [id])
+  sourceVariant           TenantVariant? @relation("TransferSourceVariant", fields: [sourceTenantProductVariantId], references: [id])
   fromStore               Store?                @relation("TransferFromStore", fields: [fromStoreId], references: [id])
   fromWarehouse           Warehouse?            @relation("TransferFromWarehouse", fields: [fromWarehouseId], references: [id])
   destTenant              Tenant                @relation("TransferDestTenant", fields: [destTenantId], references: [id])
   destProduct             TenantProduct         @relation("TransferDestProduct", fields: [destTenantProductId], references: [id])
-  destVariant             TenantProductVariant? @relation("TransferDestVariant", fields: [destTenantProductVariantId], references: [id])
+  destVariant             TenantVariant? @relation("TransferDestVariant", fields: [destTenantProductVariantId], references: [id])
   toStore                 Store?                @relation("TransferToStore", fields: [toStoreId], references: [id])
   toWarehouse             Warehouse?            @relation("TransferToWarehouse", fields: [toWarehouseId], references: [id])
   createdBy               User?                 @relation("TransferCreatedBy", fields: [createdById], references: [id])

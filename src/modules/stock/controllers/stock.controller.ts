@@ -7,9 +7,14 @@ import { StockLevelDto } from '../types/stock.dto';
 
 export const stockController = {
   getStockLevels: asyncHandler(async (req: Request, res: Response) => {
-    const tenantId = req.user!.tenantId;
-    const data = await stockService.getStockLevels(tenantId);
-    res.json(data);
+    try {
+      const tenantId = req.user!.tenantId;
+      const data = await stockService.getStockLevels(tenantId);
+      res.json(data);
+      
+    } catch (error) {
+      res.status(400).json({message: error.message})
+    }
   }),
 
   adjustStock: asyncHandler(async (req: Request, res: Response) => {

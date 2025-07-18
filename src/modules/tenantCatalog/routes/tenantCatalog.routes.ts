@@ -16,7 +16,7 @@ router.patch('/tenant-categories/:id', requirePermission('tenantCatalog:update')
 router.delete('/tenant-categories/:id', requirePermission('tenantCatalog:delete'), tenantCategoryController.delete);
 
 router.post('/tenant-products', requirePermission('tenantCatalog:create'), tenantProductController.create);
-router.get('/tenant-products', requirePermission('tenantCatalog:read'), tenantProductController.listByCategory);
+router.get('/tenant-products', requirePermission('tenantCatalog:read'), tenantProductController.getProducts);
 router.get('/tenant-products/:id', requirePermission('tenantCatalog:read'), tenantProductController.getById);
 router.patch('/tenant-products/:id', requirePermission('tenantCatalog:update'), tenantProductController.update);
 router.delete('/tenant-products/:id', requirePermission('tenantCatalog:delete'), tenantProductController.delete);

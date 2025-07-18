@@ -12,6 +12,7 @@ import {
   ErrorResponse
 } from "./errors";
 import { isProduction } from "../shared/infra/config";
+import { logger } from "@logging/logger";
 
 // Augment Express types to include our custom error handling
 declare global {
@@ -99,7 +100,7 @@ function logError(error: Error, req: Request) {
 
   // Use proper logging service in production
   if (process.env.NODE_ENV === 'production') {
-    console.error(JSON.stringify(logEntry));
+    logger.error(JSON.stringify(logEntry));
   } else {
     console.error(logEntry);
   }

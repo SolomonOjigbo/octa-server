@@ -5,9 +5,7 @@ import { templates } from '../templates';
 import { SendEmailDto, SendEmailOptions } from '../types/notification.dto';
 import { auditService } from '@modules/audit/services/audit.service';
 import { smtpClient } from '@shared/infra/notifications/smtp.client';
-import nodemailer from 'nodemailer';
 
-import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 export class NotificationService {
   private from = process.env.EMAIL_FROM!;
@@ -26,6 +24,14 @@ export class NotificationService {
     } as SendEmailOptions;
 
     await smtpClient.sendEmail(msg);
+    await auditService.log({
+        tenantId: null,
+        userId: null,
+        module: 'notification',
+        action:'sendEmail',
+        entityId: null,
+        details: dto,
+    });
     
   }
 }

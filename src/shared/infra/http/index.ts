@@ -11,6 +11,9 @@ import { v1Router } from './api/v1';
 import { errorHandler } from '../../../middleware/errorHandler';
 import logger from '../config/logger';
 import { swaggerUiHandler, swaggerUiSetup } from "../config/swagger";
+import "@modules/tenantCatalog/tenantCatalog.subscriber";
+import "@modules/globalCatalog/globalCatalog.subscriber";
+
 
 
 // Now visit http://localhost:3000/api/docs

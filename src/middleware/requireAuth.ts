@@ -15,7 +15,7 @@ declare module "express-serve-static-core" {
       tenantId: string;
       isActive: boolean;
       isSuperAdmin?: boolean;
-      isAdmin: any;
+      isAdmin: boolean;
       storeId?: string;
       roles: string[];
       permissions: string[];

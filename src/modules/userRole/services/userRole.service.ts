@@ -55,6 +55,63 @@ export class UserRoleService {
       include: { user: true },
     });
   }
+
+  /**
+   * Get all user emails for a given role name within a tenant.
+   */
+  async getUserEmailsByRoleName(
+    roleName: string,
+    tenantId: string
+  ): Promise<string[]> {
+    // 1. Find the Role record
+    const role = await prisma.role.findFirst({
+      where: { name: roleName, tenantId },
+      select: { id: true },
+    });
+    if (!role) return [];
+
+    // 2. Find all UserRole assignments for that role
+    const assignments = await prisma.userRole.findMany({
+      where: { roleId: role.id },
+      include: { user: { select: { email: true } } },
+    });
+
+    // 3. Extract and dedupe emails
+    const emails = assignments
+      .map(a => a.user.email)
+      .filter((e): e is string => !!e);
+    return Array.from(new Set(emails));
+  }
+
+  /**
+   * Get all user emails for multiple role names within a tenant.
+   */
+  async getUserEmailsByRoleNames(
+    roleNames: string[],
+    tenantId: string
+  ): Promise<string[]> {
+    // 1. Find all matching Roles
+    const roles = await prisma.role.findMany({
+      where: { name: { in: roleNames }, tenantId },
+      select: { id: true },
+    });
+    if (roles.length === 0) return [];
+
+    const roleIds = roles.map(r => r.id);
+
+    // 2. Fetch assignments
+    const assignments = await prisma.userRole.findMany({
+      where: { roleId: { in: roleIds } },
+      include: { user: { select: { email: true } } },
+    });
+
+    // 3. Extract and dedupe
+    const emails = assignments
+      .map(a => a.user.email)
+      .filter((e): e is string => !!e);
+    return Array.from(new Set(emails));
+  }
+
 }
 
 export const userRoleService = new UserRoleService();

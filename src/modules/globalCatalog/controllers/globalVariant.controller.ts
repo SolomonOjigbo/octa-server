@@ -10,24 +10,50 @@ import { CreateGlobalProductVariantDto, UpdateGlobalProductVariantDto } from '..
  */
 export class GlobalVariantController {
   /** @swagger /global-variants post */
-  create = asyncHandler(async (req,res) => {
-    const dto = GlobalProductVariantSchema.parse(req.body) as CreateGlobalProductVariantDto;
-    const v = await globalVariantService.create(dto);
-    res.status(201).json(v);
+  create = asyncHandler(async (req: Request,res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const tenantId = req.user!.tenantId;
+      const dto = GlobalProductVariantSchema.parse(req.body) as CreateGlobalProductVariantDto;
+      const v = await globalVariantService.createGlobalProductVariant(tenantId, userId, dto);
+      res.status(201).json(v);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   });
   /** @swagger /global-variants/product/{globalProductId} get */
-  listByProduct = asyncHandler(async (req,res) => {
-    res.json(await globalVariantService.listByProduct(req.params.globalProductId));
+  listByProduct = asyncHandler(async (req:Request, res: Response) => {
+    try {
+      
+      const globalProductId = req.params.globalProductId;
+      const tenantId = req.user!.tenantId;
+      res.json(await globalVariantService.getGlobalVariants(tenantId, globalProductId));
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   });
   /** @swagger /global-variants/{id} patch */
-  update = asyncHandler(async (req,res) => {
-    const dto = GlobalProductVariantSchema.partial().parse(req.body) as UpdateGlobalProductVariantDto;
-    res.json(await globalVariantService.update(req.params.id, dto));
+  update = asyncHandler(async (req: Request,res:Response) => {
+    try {
+      const dto = GlobalProductVariantSchema.partial().parse(req.body) as UpdateGlobalProductVariantDto;
+      const id = req.params.id;
+      const userId = req.user!.id;
+      res.json(await globalVariantService.updateGlobalProductVariant(id, dto, userId));
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   });
   /** @swagger /global-variants/{id} delete */
-  delete = asyncHandler(async (req,res) => {
-    await globalVariantService.delete(req.params.id);
-    res.sendStatus(204);
+  delete = asyncHandler(async (req: Request,res: Response) => {
+    try {
+      const id = req.params.id;
+      const userId = req.user!.id;
+      await globalVariantService.deleteGlobalVariant(id, userId);
+      res.sendStatus(204);
+      
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
   });
 }
 export const globalVariantController = new GlobalVariantController();
