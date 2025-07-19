@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>POS Receipt</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f6f6;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      max-width: 600px;
+      margin: auto;
+      padding: 24px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .header {
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #2c3e50;
+    }
+    .meta {
+      font-size: 14px;
+      color: #666;
+    }
+    .section {
+      margin-bottom: 16px;
+    }
+    .totals {
+      background: #f3f3f3;
+      padding: 12px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .footer {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{store.name}} – POS Receipt</h1>
+      <div class="meta">
+        <div>Transaction ID: {{transactionId}}</div>
+        <div>Date: {{date}}</div>
+        <div>Cashier: {{cashier.name}}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Items Purchased:</h3>
+      <ul>
+        {{#each items}}
+          <li>{{quantity}} × {{product}} @ ₦{{price}} = ₦{{multiply price quantity}}</li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <div class="section totals">
+      Total Paid: ₦{{totals.total}}<br />
+      Payment Method: {{totals.paymentMethod}}
+    </div>
+
+    {{#if customer}}
+      <div class="section">
+        <h3>Customer:</h3>
+        <p>{{customer.name}}<br />{{customer.email}}</p>
+      </div>
+    {{/if}}
+
+    <div class="footer">
+      Thank you for shopping at {{store.name}}!
+    </div>
+  </div>
+</body>
+</html>

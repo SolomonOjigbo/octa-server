@@ -9,6 +9,7 @@ import {
   POSSessionSummary,
   POSReceipt,
   CloseSessionDto,
+  OpenSessionDto,
 } from '../types/pos.dto';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
@@ -17,32 +18,96 @@ import { EVENTS } from '@events/events';
 import { stockService } from '@modules/stock/services/stock.service';
 import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
+import { inventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
+import { v4 as uuid } from 'uuid';
 
 export class POSService {
   private sessionKey(tenantId: string) {
     return `pos_sessions:${tenantId}`;
   }
 
-  async openSession(tenantId: string, userId: string) {
-    const session = await prisma.posSession.create({
-      data: { tenantId, openedBy: userId },
-    });
-    await cacheService.del(this.sessionKey(tenantId));
-    await auditService.log({ tenantId, userId, module:'POS', action:'openSession', entityId:session.id, details:{} });
-    eventBus.emit(EVENTS.POS_SESSION_OPENED, session);
-    return session;
+  async createPOSSession(
+  tenantId: string,
+  userId: string,
+  dto: OpenSessionDto
+) {
+  const session = await prisma.pOSSession.create({
+    data: {
+      tenantId,
+      storeId: dto.storeId,
+      userId,
+      openedBy: userId,
+      openingBalance: dto.openingBalance,
+      notes: dto.notes ?? null,
+    },
+  });
+
+  await auditService.log({
+    tenantId,
+    userId,
+    module: 'POS',
+    action: 'open-session',
+    entityId: session.id,
+    details: {
+      storeId: dto.storeId,
+      openingBalance: dto.openingBalance,
+      notes: dto.notes,
+    },
+  });
+
+  eventBus.emit(EVENTS.POS_SESSION_OPENED, {
+    tenantId,
+    sessionId: session.id,
+    userId,
+  });
+
+  return session;
+}
+
+  async closePOSSession(
+  tenantId: string,
+  dto: CloseSessionDto
+) {
+  const session = await prisma.pOSSession.findFirst({
+    where: { id: dto.sessionId, tenantId, isOpen: true },
+  });
+
+  if (!session) {
+    throw new Error("No active session found.");
   }
 
-  async closeSession(tenantId: string, userId: string, sessionId: string, dto: CloseSessionDto) {
-    const session = await prisma.posSession.update({
-      where: { id: sessionId },
-      data: { closingCash: dto.closingCash, notes: dto.notes, closedBy: userId, closedAt: new Date() },
-    });
-    await cacheService.del(this.sessionKey(tenantId));
-    await auditService.log({ tenantId, userId, module:'POS', action:'closeSession', entityId:sessionId, details: dto });
-    eventBus.emit(EVENTS.POS_SESSION_CLOSED, session);
-    return session;
-  }
+  const closed = await prisma.pOSSession.update({
+    where: { id: session.id },
+    data: {
+      closingBalance: dto.closingBalance,
+      closedAt: new Date(),
+      closedBy: dto.closedBy,
+      isOpen: false,
+      notes: dto.notes ?? session.notes,
+    },
+  });
+
+  await auditService.log({
+    tenantId,
+    userId: dto.closedBy,
+    module: 'pos',
+    action: 'close-session',
+    entityId: session.id,
+    details: {
+      closingBalance: dto.closingBalance,
+      notes: dto.notes,
+    },
+  });
+
+  eventBus.emit(EVENTS.POS_SESSION_CLOSED, {
+    tenantId,
+    sessionId: session.id,
+    userId: dto?.closedBy,
+  });
+
+  return closed;
+}
+
 
   async getSessionSummary(tenantId: string, sessionId: string): Promise<POSSessionSummary> {
     const session = await prisma.posSession.findFirst({
@@ -66,41 +131,65 @@ export class POSService {
     };
   }
 
-  async createTransaction(tenantId: string, userId: string, dto: CreateTransactionDto) {
-    const tx = await prisma.posTransaction.create({
+ async createTransaction(
+  tenantId: string,
+  userId: string,
+  dto: CreateTransactionDto
+) {
+  return prisma.$transaction(async (tx) => {
+    // 1. Create transaction record
+    const transaction = await tx.transaction.create({
       data: {
         tenantId,
-        sessionId: dto.sessionId,
         customerId: dto.customerId,
-        createdBy: { connect: { id: userId } },
+        total: dto.total,
+        paymentMethod: dto.paymentMethod,
+        reference: dto.reference || uuid(),
+        posSessionId: dto.sessionId,
+        createdById: userId,
         items: {
-          create: dto.items.map(i=>({
-            tenantProductId:           i.tenantProductId,
-            tenantProductVariantId:    i.tenantProductVariantId,
-            quantity:                  i.quantity,
-            unitPrice:                 i.unitPrice,
-            discount:                  i.discount,
-            tax:                       i.tax,
+          create: dto.items.map((item) => ({
+            tenantProductId: item.tenantProductId,
+            tenantProductVariantId: item.tenantProductVariantId,
+            quantity: item.quantity,
+            price: item.unitPrice,
+            discount: item.discount,
+            tax: item.tax,
           })),
         },
-        totalAmount: dto.items.reduce((sum,i)=> sum + (i.unitPrice * i.quantity) - (i.discount||0) + (i.tax||0), 0)
       },
-      include: { items:true }
     });
 
-    // adjust inventory
-    for (const item of dto.items) {
-      await stockService.incrementStock(tenantId, userId, {
-        tenantProductId:        item.tenantProductId,
+    // 2. Inventory + stock adjustment
+    await inventoryFlowService.processPOSale(
+      tenantId,
+      userId,
+      dto.items.map((item) => ({
+        tenantProductId: item.tenantProductId,
         tenantProductVariantId: item.tenantProductVariantId,
-        quantity:               -item.quantity,
-      });
-    }
-
+        quantity: item.quantity,
+        storeId: item.storeId,
+        reference: transaction.id,
+        metadata: {
+          paymentMethod: dto.paymentMethod,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          tax: item.tax,
+          sessionId: dto.sessionId,
+        },
+      }))
+    );
     await auditService.log({ tenantId, userId, module:'POS', action:'createTransaction', entityId:tx.id, details: dto });
-    eventBus.emit(EVENTS.POS_TRANSACTION_CREATED, tx);
-    return tx;
-  }
+
+    // 3. Emit event
+    eventBus.emit(EVENTS.POS_ORDER_CREATED, {
+      tenantId,
+      orderId: transaction.id,
+    });
+    eventBus.emit(EVENTS.POS_TRANSACTION_CREATED, transaction);
+    return transaction;
+  });
+}
 
   async createPayment(tenantId: string, userId: string, dto: CreatePaymentDto) {
     const payment = await prisma.posPayment.create({
@@ -118,35 +207,89 @@ export class POSService {
     return payment;
   }
 
-  async createSalesReturn(tenantId: string, userId: string, dto: CreateSalesReturnDto) {
-    const ret = await prisma.posSalesReturn.create({
+  // async createSalesReturn(tenantId: string, userId: string, dto: CreateTransactionDto) {
+  //   const ret = await prisma.posSalesReturn.create({
+  //     data: {
+  //       tenantId,
+  //       transaction: { connect:{ id:dto.transactionId } },
+  //       createdBy: { connect:{ id:userId } },
+  //       items: {
+  //         create: dto.items.map(i=>({
+  //           tenantProductId:         i.tenantProductId,
+  //           tenantProductVariantId:  i.tenantProductVariantId,
+  //           quantity:                i.quantity,
+  //           reason:                  i.reason
+  //         })),
+  //       }
+  //     },
+  //     include:{ items:true }
+  //   });
+  //   // restock inventory
+  //   for (const item of dto.items) {
+  //     await stockService.incrementStock(tenantId, userId, {
+  //       tenantProductId:        item.tenantProductId,
+  //       tenantProductVariantId: item.tenantProductVariantId,
+  //       quantity:               item.quantity,
+  //     });
+  //   }
+  //   eventBus.emit(EVENTS.POS_SALES_RETURN_CREATED, ret);
+  //   return ret;
+  // }
+  async createSalesReturn(
+  tenantId: string,
+  userId: string,
+  dto: CreateTransactionDto
+) {
+  return prisma.$transaction(async (tx) => {
+    const returnTxn = await tx.transaction.create({
       data: {
         tenantId,
-        transaction: { connect:{ id:dto.transactionId } },
-        createdBy: { connect:{ id:userId } },
+        customerId: dto.customerId,
+        total: dto.total,
+        paymentMethod: dto.paymentMethod,
+        reference: `RETURN-${dto.reference ?? Date.now()}`,
+        posSessionId: dto.sessionId,
+        createdById: userId,
+        isReturn: true,
         items: {
-          create: dto.items.map(i=>({
-            tenantProductId:         i.tenantProductId,
-            tenantProductVariantId:  i.tenantProductVariantId,
-            quantity:                i.quantity,
-            reason:                  i.reason
+          create: dto.items.map((item) => ({
+            tenantProductId: item.tenantProductId,
+            tenantProductVariantId: item.tenantProductVariantId,
+            quantity: item.quantity,
+            price: item.unitPrice,
+            discount: item.discount,
+            tax: item.tax,
           })),
-        }
+        },
       },
-      include:{ items:true }
     });
-    // restock inventory
-    for (const item of dto.items) {
-      await stockService.incrementStock(tenantId, userId, {
-        tenantProductId:        item.tenantProductId,
+
+    await inventoryFlowService.processPOSReturn(
+      tenantId,
+      userId,
+      dto.items.map((item) => ({
+        tenantProductId: item.tenantProductId,
         tenantProductVariantId: item.tenantProductVariantId,
-        quantity:               item.quantity,
-      });
-    }
-    await auditService.log({ tenantId, userId, module:'POS', action:'createSalesReturn', entityId:ret.id, details: dto });
-    eventBus.emit(EVENTS.POS_SALES_RETURN_CREATED, ret);
-    return ret;
-  }
+        quantity: item.quantity,
+        storeId: item.storeId,
+        reference: returnTxn.id,
+        metadata: {
+          returnFrom: dto.reference,
+          sessionId: dto.sessionId,
+          unitPrice: item.unitPrice,
+        },
+      }))
+    );
+    await auditService.log({ tenantId, userId, module:'POS', action:'createSalesReturn', entityId: returnTxn.id, details: dto });
+    eventBus.emit(EVENTS.POS_RETURN_CREATED, {
+      tenantId,
+      orderId: returnTxn.id,
+    });
+
+    return returnTxn;
+  });
+}
+
 
   async createCashDrop(tenantId: string, userId: string, dto: CreateCashDropDto) {
     const drop = await prisma.posCashDrop.create({

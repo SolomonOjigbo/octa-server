@@ -1,11 +1,18 @@
 // src/modules/pos/types/pos.dto.ts
 
-export interface OpenSessionDto {}
-
-export interface CloseSessionDto {
-  closingCash: number;
+export type OpenSessionDto = {
+  storeId: string;
+  openingBalance: number;
   notes?: string;
-}
+};
+
+export type CloseSessionDto = {
+  sessionId: string;
+  closingBalance: number;
+  closedBy: string;         // ✅ explicitly set who closed it
+  notes?: string;
+};
+
 
 export interface SaleItemDto {
   tenantProductId: string;
@@ -14,6 +21,8 @@ export interface SaleItemDto {
   unitPrice: number;
   discount?: number;
   tax?: number;
+  storeId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface CreateTransactionDto {
@@ -21,7 +30,9 @@ export interface CreateTransactionDto {
   customerId?: string;
   items: SaleItemDto[];
   paymentMethod: string;
+  total: number;
   cashReceived?: number;
+  reference: string;
 }
 
 export interface CreatePaymentDto {

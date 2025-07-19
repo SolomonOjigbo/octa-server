@@ -12,18 +12,18 @@ import {
   ReconcileCashSchema,
 } from '../validations';
 import { posService } from '../services/pos.service';
-import { CloseSessionDto, CreateCashDropDto, CreatePaymentDto, CreateSalesReturnDto, CreateTransactionDto, ReconcileCashDto } from '../types/pos.dto';
+import { CloseSessionDto, CreateCashDropDto, CreatePaymentDto, CreateSalesReturnDto, CreateTransactionDto, OpenSessionDto, ReconcileCashDto } from '../types/pos.dto';
 
 export const posController = {
   openSession: asyncHandler(async (req: Request, res: Response) => {
-    const dto = OpenSessionSchema.parse(req.body);
-    const session = await posService.openSession(req.user!.tenantId, req.user!.id);
+    const dto = OpenSessionSchema.parse(req.body) as OpenSessionDto;
+    const session = await posService.createPOSSession(req.user!.tenantId, req.user!.id, dto);
     res.status(201).json(session);
   }),
 
   closeSession: asyncHandler(async (req: Request, res: Response) => {
     const dto = CloseSessionSchema.parse(req.body) as CloseSessionDto;
-    const session = await posService.closeSession(req.user!.tenantId, req.user!.id, req.params.id, dto);
+    const session = await posService.closePOSSession(req.user!.tenantId, dto);
     res.json(session);
   }),
 
@@ -45,7 +45,7 @@ export const posController = {
   }),
 
   createSalesReturn: asyncHandler(async (req, res) => {
-    const dto = CreateSalesReturnSchema.parse(req.body) as CreateSalesReturnDto;
+    const dto = CreateSalesReturnSchema.parse(req.body) as CreateTransactionDto;
     const ret = await posService.createSalesReturn(req.user!.tenantId, req.user!.id, dto);
     res.status(201).json(ret);
   }),
@@ -61,4 +61,46 @@ export const posController = {
     const rec = await posService.reconcileCash(req.user!.tenantId, req.user!.id, dto);
     res.status(201).json(rec);
   }),
+
+  /**
+   * @route POST /pos/sale
+   * @desc Create a new POS transaction (sale)
+   */
+  async createSale(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const tenantId = req.user.tenantId;
+
+    const dto = CreateTransactionSchema.parse(req.body) as CreateTransactionDto;
+
+    const transaction = await posService.createTransaction(
+      tenantId,
+      userId,
+      dto
+    );
+
+    return res.status(201).json(transaction);
+  },
+
+  /**
+   * @route POST /pos/return
+   * @desc Process a return for a past sale
+   */
+  async createReturn(req: Request, res: Response) {
+    const userId = req.user?.id;
+    const tenantId = req.user.tenantId;
+
+    const dto = CreateTransactionSchema.parse(req.body) as CreateTransactionDto;
+    // if (!parsed.success) {
+    //   return res.status(400).json({ error: parsed.error.errors });
+    // }
+
+    const transaction = await posService.createSalesReturn(
+      tenantId,
+      userId,
+      dto,
+    );
+
+    return res.status(201).json(transaction);
+  },
 };
+

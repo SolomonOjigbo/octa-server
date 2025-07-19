@@ -62,9 +62,9 @@ router.get(
  *               $ref: '#/components/schemas/Stock'
  */
 router.post(
-  '/adjust',
+  '/adjust-product:id',
   requirePermission('stock:adjust'),
-  stockController.adjustStock
+  stockController.adjustProductStock
 );
 
 /**
@@ -90,9 +90,9 @@ router.post(
  *               $ref: '#/components/schemas/Stock'
  */
 router.post(
-  '/increment',
-  requirePermission('stock:update'),
-  stockController.incrementStock
+  '/adjust-variant:id',
+  requirePermission('stock:adjust'),
+  stockController.adjustVariantStock
 );
 
 /**

@@ -1,11 +1,16 @@
 // src/modules/pos/validations.ts
 import { z } from 'zod';
 
-export const OpenSessionSchema = z.object({ /* no body */ });
+export const OpenSessionSchema = z.object({ 
+  storeId: z.string().cuid(),
+  openingBalance: z.number().min(0),
+  notes: z.string().optional(),
+});
 
 export const CloseSessionSchema = z.object({  
   closingCash: z.number().min(0),  
-  notes:       z.string().optional(),  
+  notes:       z.string().optional(), 
+  userId:     z.string().cuid().optional(),
 });
 
 export const SaleItemSchema = z.object({

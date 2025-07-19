@@ -1,80 +1,171 @@
 // src/modules/stock/services/stock.service.ts
 
-import { AdjustStockDto, StockLevelDto } from '../types/stock.dto';
+import { AdjustProductStockDto, AdjustVariantStockDto, StockLevelDto } from '../types/stock.dto';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
 import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import prisma from '@shared/infra/database/prisma';
+import { logger } from '@logging/logger';
+import { CacheKeys } from '@cache/cacheKeys';
+import { InventoryMovementDto } from '@modules/inventory/types/inventory.dto';
 
-export const stockService = {
+export class StockService {
+    /** 
+   * Atomically adjust stock and record an inventory movement 
+   */
+ async adjustStock(
+    tenantId: string,
+    userId: string,
+    dto: any
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const where = {
+        tenantId,
+        tenantProductId: dto.tenantProductId,
+        storeId: dto.storeId ?? null,
+        warehouseId: dto.warehouseId ?? null,
+        tenantProductVariantId: dto.tenantProductVariantId ?? null,
+        batchNumber: dto.batchNumber ?? null,
+      };
+
+      // Fetch current stock
+      const existing = await tx.stock.findUnique({ where });
+      const oldQty = existing?.quantity ?? 0;
+      const newQty = oldQty + dto.quantity;
+
+      if (newQty < 0) {
+        throw new Error("Cannot reduce stock below zero.");
+      }
+
+      // Upsert stock
+      const stock = await tx.stock.upsert({
+        where,
+        create: { ...where, quantity: newQty },
+        update: { quantity: newQty },
+      });
+
+      // Record inventory movement
+      await tx.inventory.create({
+        data: {
+          tenantId,
+          storeId: dto.storeId ?? null,
+          warehouseId: dto.warehouseId ?? null,
+          tenantProductId: dto.tenantProductId,
+          tenantProductVariantId: dto.tenantProductVariantId ?? null,
+          batchNumber: dto.batchNumber ?? null,
+          quantity: dto.quantity,
+          costPrice: dto.costPrice ?? existing?.costPrice ?? null,
+          expiryDate: dto.expiryDate,
+          movementType: dto.movementType,
+          reference: dto.reference,
+          metadata: dto.metadata ?? {},
+          createdById: userId,
+        },
+      });
+
+      // Audit
+      await auditService.log({
+        tenantId,
+        userId,
+        module: "stock",
+        action: dto.quantity > 0 ? "increase" : "decrease",
+        entityId: stock.id,
+        details: {
+          oldQty,
+          newQty,
+          movementType: dto.movementType,
+          reference: dto.reference,
+          batchNumber: dto.batchNumber,
+          expiryDate: dto.expiryDate,
+          metadata: dto.metadata,
+        },
+      });
+
+      // Emit event
+      eventBus.emit(EVENTS.STOCK_UPDATED, {
+        tenantId,
+        stockId: stock.id,
+        delta: dto.quantity,
+        userId,
+      });
+
+      // Invalidate cache
+      await cacheService.del(`stock:list:${tenantId}`);
+      await cacheService.del(`stock:detail:${stock.id}`);
+
+      logger.info(`Stock adjusted (${dto.quantity}) for ${stock.id}`);
+      return stock;
+    });
+  }
+
+  /**
+   * Convenience wrapper for product-level stock
+   */
+  async incrementProductStock(
+    tenantId: string,
+    userId: string,
+    dto: AdjustProductStockDto
+  ) {
+    // No variant → call the generic
+    return this.adjustStock(tenantId, userId, dto);
+  }
+
+  /**
+   * Convenience wrapper for variant-level stock
+   */
+  async incrementVariantStock(
+    tenantId: string,
+    userId: string,
+    dto: AdjustVariantStockDto
+  ) {
+    if (!dto.tenantProductVariantId) {
+      throw new Error("tenantProductVariantId is required for variant adjustments.");
+    }
+    // Validate variant belongs to product
+    const variant = await prisma.tenantVariant.findUnique({
+      where: { id: dto.tenantProductVariantId },
+    });
+    if (!variant || variant.tenantProductId !== dto.tenantProductId) {
+      throw new Error("Variant does not belong to the specified product.");
+    }
+    return this.adjustStock(tenantId, userId, dto);
+  }
+  /** 
+   * 1) Read & cache all stock levels for a tenant
+   */
   async getStockLevels(tenantId: string) {
-    const cacheKey = `stock_levels:${tenantId}`;
-    const cached = await cacheService.get<StockLevelDto[]>(cacheKey);
+    const key = CacheKeys.stock(tenantId);
+    const cached = await cacheService.get(key);
     if (cached) return cached;
 
-    const data = await prisma.stock.findMany({
+    const rows = await prisma.stock.findMany({
       where: { tenantId },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updatedAt: "desc" },
     });
-    await cacheService.set(cacheKey, data, 300);
-    return data;
-  },
+    await cacheService.set(key, rows, 300);
+    return rows;
+  }
 
-  async adjustStock(tenantId: string, userId: string, dto: AdjustStockDto) {
-    const record = await prisma.stock.create({
-      data: { tenantId, ...dto },
-    });
-    await cacheService.del(`stock_levels:${tenantId}`);
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'Stock',
-      action: 'adjust',
-      entityId: record.id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_ADJUSTED, record);
-    return record;
-  },
 
-  async incrementStock(tenantId: string, userId: string, dto: AdjustStockDto) {
-    const record = await prisma.stock.upsert({
-      where: {
-        tenantId_tenantProductId_storeId_warehouseId: {
-          tenantId,
-          tenantProductId: dto.tenantProductId,
-          storeId: dto.storeId,
-          warehouseId: dto.warehouseId,
-        },
-      },
-      update: { quantity: { increment: dto.quantity } },
-      create: { tenantId, ...dto },
-    });
-    await cacheService.del(`stock_levels:${tenantId}`);
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'Stock',
-      action: 'update',
-      entityId: record.id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_UPDATED, record);
-    return record;
-  },
-
+/**
+   * 3) Hard delete (admin use only)
+   */
   async deleteStock(tenantId: string, userId: string, id: string) {
     const record = await prisma.stock.delete({ where: { id } });
-    await cacheService.del(`stock_levels:${tenantId}`);
+    await cacheService.del(CacheKeys.stockLevels(tenantId));
     await auditService.log({
       tenantId,
       userId,
-      module: 'Stock',
-      action: 'delete',
+      module: "stock",
+      action: "delete",
       entityId: id,
       details: {},
     });
-    eventBus.emit(EVENTS.STOCK_DELETED, record);
-  },
+    eventBus.emit(EVENTS.STOCK_DELETED, { tenantId, stockId: id, userId });
+    logger.info(`Stock deleted: ${id}`);
+    return record;
+  }
 };
+
+export const stockService = new StockService();

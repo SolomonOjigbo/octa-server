@@ -13,6 +13,8 @@ import logger from '../config/logger';
 import { swaggerUiHandler, swaggerUiSetup } from "../config/swagger";
 import "@modules/tenantCatalog/tenantCatalog.subscriber";
 import "@modules/globalCatalog/globalCatalog.subscriber";
+import "@modules/pos/posSession.subscriber";
+
 
 
 

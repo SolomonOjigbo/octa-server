@@ -12,7 +12,8 @@ export enum StockMovementType {
   RECALL = 'RECALL',
   COMPOUNDING = 'COMPOUNDING',
   DONATION = 'DONATION',
-  SAMPLES = 'SAMPLES'
+  SAMPLES = 'SAMPLES',
+  RETURN_TO_SUPPLIER = 'RETURN_TO_SUPPLIER',
 }
 
 export interface StockMovementEvent {

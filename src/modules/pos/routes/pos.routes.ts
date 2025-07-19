@@ -4,6 +4,7 @@ import { Router } from "express";
 import { posController } from "../controllers/pos.controller";
 import { requirePermission } from "@middleware/requirePermission";
 import { requireAuth } from "@middleware/requireAuth";
+import { posReceiptController } from "../controllers/posReceipt.controller";
 
 
 const router = Router();
@@ -23,6 +24,11 @@ router.use(requireAuth);
  *     tags: [POS]
  *     summary: Open a new POS session
  *     security: [bearerAuth: []]
+ *      requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OpenSessionDto'
  *     responses:
  *       201:
  *         description: Session opened
@@ -183,6 +189,32 @@ router.post(
   '/reconcile-cash',
   requirePermission('pos:reconcile:create'),
   posController.reconcileCash
+);
+
+/**
+ * @swagger
+ * /pos/receipt/{transactionId}:
+ *   get:
+ *     tags: [POS]
+ *     summary: Retrieve a POS receipt
+ *     parameters:
+ *       - in: path
+ *         name: transactionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: POS receipt details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ */
+router.get(
+  "/receipt/:transactionId",
+  requirePermission("pos:read"),
+  posReceiptController.getReceipt
 );
 
 export default router;

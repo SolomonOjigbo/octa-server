@@ -84,7 +84,7 @@ export class GlobalProductService {
     });
     eventBus.emit(EVENTS.GLOBAL_PRODUCT_CREATED, {
       tenantId,
-      productId: product.id,
+      GlobalProductId: product.id,
       actorId,
     });
     await Promise.all([

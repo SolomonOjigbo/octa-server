@@ -1,21 +1,39 @@
-
-
 export interface AdjustStockDto {
   tenantProductId: string;
   tenantProductVariantId?: string;
   storeId?: string;
   warehouseId?: string;
   quantity: number;
-  reason?: string;
-  movementType?: string;
   reference?: string;
+  movementType?: string;
   batchNumber?: string;
   expiryDate?: Date;
-  minStockLevel?: number;   
-  maxStockLevel?: number;
   reorderPoint?: number;
-  isCritical?: boolean;
+}
 
+
+export interface AdjustProductStockDto {
+  tenantProductId: string;
+  storeId?: string;
+  warehouseId?: string;
+  quantity: number;
+  reference?: string;
+  movementType?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
+  reorderPoint?: number;
+}
+export interface AdjustVariantStockDto {
+  tenantProductId: string;
+  tenantProductVariantId: string;
+  storeId?: string;
+  warehouseId?: string;
+  quantity: number;
+  reference?: string;
+  movementType?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
+  reorderPoint?: number;
 }
 
 export interface StockLevelDto {
@@ -24,7 +42,7 @@ export interface StockLevelDto {
   tenantProductId: string;
   tenantProductVariantId?: string;
   storeId?: string;
-  warehouseId?: string;
+  warehouseId?: string
   quantity: number;
   minStockLevel?: number;
   maxStockLevel?: number;
@@ -33,36 +51,34 @@ export interface StockLevelDto {
 }
 
 
-export interface StockResponseDto extends StockLevelDto {
-  product: {
-    id: string;
-    name: string;
-    sku: string;
-    sellingPrice?: number;
-    isPrescription?: boolean;
-    controlledSubstance?: boolean;
-  };
-  variant?: {
-    id: string;
-    name: string;
-    sku: string;
-    sellingPrice?: number;
-  };
-  store?: {
-    id: string;
-    name: string;
-    type?: string;
-  };
-  warehouse?: {
-    id: string;
-    name: string;
-  };
-}
+// export interface StockResponseDto extends StockLevelDto {
+//   product: {
+//     id: string;
+//     name: string;
+//     sku: string;
+//     sellingPrice?: number;
+//   };
+//   variant?: {
+//     id: string;
+//     name: string;
+//     sku: string;
+//     sellingPrice?: number;
+//   };
+//   store?: {
+//     id: string;
+//     name: string;
+//     type?: string;
+//   };
+//   warehouse?: {
+//     id: string;
+//     name: string;
+//   };
+// }
 
 export interface IncrementStockDto {
   tenantId: string;
   productId: string;
   storeId?: string;
   warehouseId?: string;
-  delta: number; // Change in quantity (+/-)
+  delta: number;
 }

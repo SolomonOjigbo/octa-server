@@ -57,6 +57,7 @@ export const EVENTS = {
   STOCK_ADJUSTED: "stock.adjusted",
   INVENTORY_MOVEMENT_CREATED: "inventory_movement.created",
   INVENTORY_MOVEMENT_UPDATED: "inventory_movement.updated",
+  INVENTORY_MOVEMENT_VOIDED: "inventory_movement.voided",
   INVENTORY_MOVEMENT_DELETED: "inventory_movement.deleted",
   STOCK_TRANSFER_REQUESTED: "stockTransfer.requested",
   STOCK_TRANSFER_REJECTED: "stockTransfer.rejected",
@@ -67,6 +68,7 @@ export const EVENTS = {
   PURCHASE_ORDER_PAYMENT_LINKED: "purchaseOrder.paymentLinked",
   POS_SESSION_OPENED: "posSession.opened",
   POS_SESSION_CLOSED: "posSession.closed",
+  POS_ORDER_CREATED: "posOrder.created",
   POS_SESSION_UPDATED: "posSession.updated",
   POS_ITEM_ADDED: "posItem.added",
   POS_ITEM_UPDATED: "posItem.updated",
@@ -74,7 +76,11 @@ export const EVENTS = {
   POS_CASH_DROP_CREATED: "posCashDrop.created",
   POS_SALES_RETURN_CREATED: "posSalesReturn.created",
   POS_TRANSACTION_CREATED: "posTransaction.created",
+  POS_RETURN_CREATED: "posReturn.created",
+  POS_CASH_DROP: "posCashDrop.created",
+  POS_SALE_COMPLETED: "posSale.completed",
   POS_PAYMENT_CREATED: "posPayment.created",
+  POS_RECEIPT_READY: "posReceipt.ready",
   POS_RECONCILIATION_CREATED: "posReconciliation.created",
   REPORT_GENERATED: "report.generated",
   INVOICE_CREATED: "invoice.created",
@@ -114,6 +120,7 @@ export const EVENTS = {
   TENANT_VARIANT_UPDATED: "tenantVariant.updated",
   TENANT_VARIANT_DELETED: "tenantVariant.deleted",
   GLOBAL_VARIANT_DELETED: "globalVariant.deleted",
+  
 
 
 

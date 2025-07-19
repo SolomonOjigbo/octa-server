@@ -13,7 +13,8 @@ export const CacheKeys = {
   tenantCategoryDetail: (tenantId: string, tenantCategoryId: string) => `tenant_categories:detail:${tenantId}:${tenantCategoryId}`,
   tenantVariantList: (tenantId: string, tenantProductId: string) => `tenant_variants:list:${tenantId}:${tenantProductId}`,
   tenantVariantDetail: (tenantProductId: string, variantId: string) => `tenant_variants:detail:${tenantProductId}:${variantId}`,
-
+  stockLevels: (tenantId: string) => `stock_levels:${tenantId}`,
+  stockDetail: (stockId: string) => `stock_detail:${stockId}`,
   stock: (
     tenantId: string,
     tenantProductId?: string,
@@ -21,6 +22,5 @@ export const CacheKeys = {
     storeId?: string,
     warehouseId?: string
     ) => `stock:${tenantId}:${tenantProductId}:${variantId}:${storeId}:${warehouseId}`,
-    productCategories: (tenantId: string) => `products:categories:${tenantId}`,
   search: (searchQuery: string) => `search:${searchQuery}`,
 };

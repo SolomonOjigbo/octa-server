@@ -57,6 +57,12 @@ model Tenant {
   StockTransferSource StockTransfer[] @relation("TransferSourceTenant")
 
   Invoice Invoice[]
+
+  POSCashDrop POSCashDrop[]
+
+  POSReconciliation POSReconciliation[]
+
+  POSSalesReturn POSSalesReturn[]
 }
 
 model BusinessEntity {
@@ -298,6 +304,7 @@ model Inventory {
   reference              String?
   storeId                String?
   warehouseId            String?
+  reason                 String?
   temperature            Float?
   isControlled           Boolean   @default(false)
   requiresRefrigeration  Boolean   @default(false)
@@ -306,6 +313,7 @@ model Inventory {
   verifiedById           String?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
+  voided Boolean @default(false)
 
   tenant        Tenant                @relation(fields: [tenantId], references: [id])
   tenantProduct TenantProduct         @relation(fields: [tenantProductId], references: [id])
@@ -338,7 +346,9 @@ model Stock {
   minStockLevel          Int?
   maxStockLevel          Int?
   reorderPoint           Int?
-  isCritical             Boolean?
+  reference              String?
+  movementType           String
+  reason                 String?
   batchNumber            String?
   expiryDate             DateTime?
   updatedAt              DateTime  @updatedAt
@@ -390,6 +400,8 @@ model Transaction {
   TransactionItem TransactionItem[] @relation("TransactionItemTransaction")
 
   Payment Payment[] @relation("PaymentTransaction")
+
+  POSSalesReturn POSSalesReturn[]
 }
 
 model Payment {
@@ -424,22 +436,88 @@ model Payment {
 }
 
 model POSSession {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   tenantId       String
   storeId        String
-  userId         String
-  openingBalance Float
-  closingBalance Float?
-  isOpen         Boolean       @default(true)
-  openedAt       DateTime      @default(now())
+  userId         String         // who opened the session
+  openedBy       String         // alias for userId, clearer intent
+  closedBy       String?        // new
+  openingBalance Float          // cash float at start
+  closingBalance Float?         // final cash recorded
+  isOpen         Boolean        @default(true)
+  openedAt       DateTime       @default(now())
   closedAt       DateTime?
-  tenant         Tenant        @relation(fields: [tenantId], references: [id])
-  store          Store         @relation(fields: [storeId], references: [id])
-  user           User          @relation(fields: [userId], references: [id])
-  transactions   Transaction[]
+  notes          String?        // added field
 
-  Payment Payment[] @relation("PaymentSession")
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  store          Store          @relation(fields: [storeId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+
+  transactions   Transaction[]
+  salesReturns   POSSalesReturn[]
+  cashDrops      POSCashDrop[]
+  reconciliations POSReconciliation[]
+  payments       Payment[]      @relation("PaymentSession")
+
+  @@index([tenantId])
+  @@index([storeId])
+  @@index([userId])
+  @@index([isOpen])
 }
+
+model POSCashDrop {
+  id        String   @id @default(cuid())
+  tenantId  String
+  sessionId String
+  userId    String
+  amount    Float
+  reason    String
+  createdAt DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  session   POSSession @relation(fields: [sessionId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@index([sessionId])
+}
+
+model POSReconciliation {
+  id           String   @id @default(cuid())
+  tenantId     String
+  sessionId    String
+  userId       String
+  expectedCash Float
+  actualCash   Float
+  variance     Float
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  session   POSSession @relation(fields: [sessionId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@index([sessionId])
+}
+
+
+model POSSalesReturn {
+  id          String   @id @default(cuid())
+  tenantId    String
+  sessionId   String
+  userId      String
+  transactionId String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  session     POSSession @relation(fields: [sessionId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([sessionId])
+}
+
+
 
 model Customer {
   id            String   @id @default(cuid())
@@ -551,6 +629,12 @@ model User {
   InvoiceCreatedBy Invoice[] @relation("invoiceCreatedBy")
 
   InvoiceUpdatedBy Invoice[] @relation("invoiceUpdatedBy")
+
+  POSCashDrop POSCashDrop[]
+
+  POSReconciliation POSReconciliation[]
+
+  POSSalesReturn POSSalesReturn[]
 }
 
 model RefreshToken {

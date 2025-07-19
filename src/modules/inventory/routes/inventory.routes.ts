@@ -41,6 +41,34 @@ router.get(
 
 /**
  * @swagger
+ * /inventory/search:
+ *   post:
+ *     tags: [Inventory]
+ *     summary: Filter or search inventory movement records
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InventorySearchDto'
+ *     responses:
+ *       200:
+ *         description: Filtered inventory records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/InventoryResponseDto'
+ */
+router.post(
+  '/search',
+  requirePermission('inventory:read'),
+  inventoryController.searchMovements
+);
+
+/**
+ * @swagger
  * /inventory/{id}:
  *   get:
  *     tags: [Inventory]
@@ -97,7 +125,7 @@ router.post(
  * /inventory/{id}:
  *   patch:
  *     tags: [Inventory]
- *     summary: Update an inventory record
+ *     summary: Update an inventory record (only metadata, batch, expiry)
  *     parameters:
  *       - name: id
  *         in: path
@@ -108,7 +136,7 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/InventoryMovementDto'
+ *             $ref: '#/components/schemas/UpdateInventoryMovementDto'
  *     responses:
  *       200:
  *         description: Updated inventory record
@@ -125,10 +153,45 @@ router.patch(
 
 /**
  * @swagger
+ * /inventory/{id}/void:
+ *   post:
+ *     tags: [Inventory]
+ *     summary: Void an inventory record (admin only)
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 example: "Duplicate entry"
+ *     responses:
+ *       200:
+ *         description: Voided inventory record
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InventoryResponseDto'
+ */
+router.post(
+  '/:id/void',
+  requirePermission('inventory:delete'),
+  inventoryController.voidMovement
+);
+
+/**
+ * @swagger
  * /inventory/{id}:
  *   delete:
  *     tags: [Inventory]
- *     summary: Delete an inventory record
+ *     summary: Permanently delete an inventory record (super admin only)
  *     parameters:
  *       - name: id
  *         in: path
@@ -140,7 +203,7 @@ router.patch(
  */
 router.delete(
   '/:id',
-  requirePermission('inventory:delete'),
+  requirePermission('inventory:super:delete'),
   inventoryController.deleteMovement
 );
 
