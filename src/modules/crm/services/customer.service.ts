@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export class CustomerService {
   async createCustomer(dto: CreateCustomerDto) {
+
     return prisma.customer.create({ data: dto });
   }
   
@@ -28,6 +29,24 @@ export class CustomerService {
 async deleteCustomer(id: string) {
     return prisma.customer.delete({ where: { id } });
   }
+
+  // src/modules/crm/customer.service.ts
+async createFromB2BConnection(connection, partnerTenant) {
+  return prisma.customer.upsert({
+    where: {
+      email: `${partnerTenant.name}@b2b.local`,
+    },
+    update: {},
+    create: {
+      tenantId: connection.tenantAId,
+      name: partnerTenant.name,
+      email: `${partnerTenant.name}@b2b.local`,
+      segment: 'wholesale',
+      tags: ['B2B', partnerTenant.id],
+    },
+  });
+}
+
   
   // Loyalty, purchase history, segmentation logic can be added here
   

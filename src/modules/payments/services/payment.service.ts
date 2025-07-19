@@ -22,11 +22,11 @@ export class PaymentService {
 
 
   //V1 Services
-      async create(
-    tenantId: string,
-    userId: string,
-    dto: CreatePaymentDto
-  ): Promise<PaymentResponseDto> {
+    async create(
+      tenantId: string,
+      userId: string,
+      dto: CreatePaymentDto
+    ): Promise<PaymentResponseDto> {
 
     const rec = await prisma.payment.create({
       data: {

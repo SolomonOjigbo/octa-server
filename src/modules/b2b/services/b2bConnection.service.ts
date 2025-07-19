@@ -5,6 +5,7 @@ import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
+import { HttpStatusCode } from '@common/constants/http';
 
 
 export class B2BConnectionService {
@@ -116,7 +117,7 @@ export class B2BConnectionService {
     return updated;
   }
 
-  async revoke(tenantId: string, userId: string, id: string, dto: ConnectionActionDto) {
+  async revoke(tenantId: string, userId: string, id: string, reason : string) {
     const conn = await this.getById(tenantId, id);
     if (!['pending', 'approved'].includes(conn.status))
       throw new AppError('Cannot revoke in current state', 400);
@@ -137,7 +138,7 @@ export class B2BConnectionService {
       module: 'B2BConnection',
       action: 'revoke',
       entityId: id,
-      details: dto,
+      details: {reason},
     });
 
     eventBus.emit(EVENTS.B2B_CONNECTION_REVOKED, updated);
@@ -155,6 +156,65 @@ async findConnection(tenantAId: string, tenantBId: string) {
     },
   });
 }
+
+async ensureConnectionExists(tenantAId: string, tenantBId: string) {
+  const connection = await prisma.b2BConnection.findFirst({
+    where: {
+      OR: [
+        { tenantAId, tenantBId },
+        { tenantAId: tenantBId, tenantBId: tenantAId }
+      ],
+      status: 'approved',
+    }
+  });
+
+  if (!connection) {
+    throw new AppError(
+      `No approved B2B connection between tenants: ${tenantAId} and ${tenantBId}`, HttpStatusCode.FORBIDDEN
+
+    );
+  }
+
+  return connection;
+}
+
+async createOrUpdateWithSupplierProduct(tenantAId, tenantBId, productId, supplierId) {
+  const connection = await prisma.b2BConnection.upsert({
+    where: {
+      uniqueConnection: {
+        tenantAId,
+        tenantBId
+      }
+    },
+    update: {
+      updatedAt: new Date(),
+    },
+    create: {
+      tenantAId,
+      tenantBId,
+      status: 'approved',
+    }
+  });
+
+  // Link the product to supplier under B2B context
+  await prisma.productSupplier.upsert({
+    where: {
+      unique_supplier_product: {
+        productId,
+        supplierId,
+      },
+    },
+    update: {},
+    create: {
+      tenantId: tenantAId,
+      productId,
+      supplierId,
+    },
+  });
+
+  return connection;
+}
+
 
 }
 

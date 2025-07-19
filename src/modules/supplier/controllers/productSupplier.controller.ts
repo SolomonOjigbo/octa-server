@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { productSupplierService } from '../services/productSupplier.service';
 import { createProductSupplierSchema, updateProductSupplierSchema } from '../validations';
-import { auditService } from '@modules/audit/types/audit.service';
+import { auditService } from '@modules/audit/services/audit.service';
 import { eventEmitter } from '@events/event.emitter';
 import { CreateProductSupplierDto } from '../types/supplier.dto';
 
@@ -15,7 +15,7 @@ export class ProductSupplierController {
     const dto = { ...createProductSupplierSchema.parse(req.body), tenantId } as CreateProductSupplierDto;
     const ps = await productSupplierService.linkProductToSupplier(dto);
 
-    await auditService.log({ tenantId, userId, action:'PRODUCT_SUPPLIER_LINKED', entityType:'ProductSupplier', entityId:ps.id, metadata:dto });
+    await auditService.log({ tenantId, userId, action:'PRODUCT_SUPPLIER_LINKED', module:'ProductSupplier', entityId:ps.id, metadata:dto });
     eventEmitter.emit('productSupplier:linked', ps);
 
     res.status(201).json(ps);

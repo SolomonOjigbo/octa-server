@@ -24,3 +24,23 @@ export const createProductSupplierSchema = z.object({
 });
 
 export const updateProductSupplierSchema = createProductSupplierSchema.partial();
+
+export const SupplierCreateDtoSchema = z.object({
+  tenantId: z.string(),
+  name: z.string().min(1),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  leadTime: z.number().int().positive().optional(),
+  paymentTerms: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const SupplierUpdateDtoSchema = SupplierCreateDtoSchema.partial();
+
+export const ProductSupplierDtoSchema = z.object({
+  tenantId: z.string(),
+  supplierId: z.string(),
+  productId: z.string(),
+  isGlobal: z.boolean().optional(),
+});

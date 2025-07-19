@@ -45,6 +45,8 @@ export class StockTransferService {
     dto: CreateStockTransferDto
   ): Promise<StockTransferResponseDto> {
     // 1. Check B2B connection status
+    await b2bConnectionService.ensureConnectionExists(tenantId, dto.destTenantId);
+
     const conn = await b2bConnectionService.findConnection(
       tenantId,
       dto.destTenantId

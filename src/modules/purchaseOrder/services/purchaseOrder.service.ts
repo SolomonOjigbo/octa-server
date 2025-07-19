@@ -20,6 +20,8 @@ import {
 import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import prisma from "@shared/infra/database/prisma";
+import { inventoryFlowService } from "@modules/inventory/services/inventoryFlow.service";
+import { b2bConnectionService } from "@modules/b2b/services/b2bConnection.service";
 
 export class PurchaseOrderService {
   private cacheKey(tenantId: string) {
@@ -53,42 +55,61 @@ export class PurchaseOrderService {
     userId: string,
     dto: CreatePurchaseOrderDto
   ): Promise<PurchaseOrderResponseDto> {
-    const rec = await prisma.purchaseOrder.create({
-      data: {
-        tenantId,
-        supplierId: dto.supplierId,
-        storeId: dto.storeId,
-        warehouseId: dto.warehouseId,
-        orderDate: dto.orderDate,
-        receivedDate: dto.receivedDate,
-        totalAmount: dto.totalAmount,
-        notes: dto.notes,
-        createdById: userId,
-        items: {
-          create: dto.items.map(item => ({
-            tenantProductId:            item.tenantProductId,
-            tenantProductVariantId:     item.tenantProductVariantId,
-            quantity:                   item.quantity,
-            costPrice:                  item.costPrice,
-            batchNumber:                item.batchNumber,
-            expiryDate:                 item.expiryDate,
-          })),
+
+    try {
+      await b2bConnectionService.ensureConnectionExists(tenantId, dto.supplierId);
+  
+      const rec = await prisma.purchaseOrder.create({
+        data: {
+          tenantId,
+          supplierId: dto.supplierId,
+          storeId: dto.storeId,
+          warehouseId: dto.warehouseId,
+          orderDate: dto.orderDate,
+          receivedDate: dto.receivedDate,
+          totalAmount: dto.totalAmount,
+          notes: dto.notes,
+          createdById: userId,
+          items: {
+            create: dto.items.map(item => ({
+              tenantProductId:            item.tenantProductId,
+              tenantProductVariantId:     item.tenantProductVariantId,
+              quantity:                   item.quantity,
+              costPrice:                  item.costPrice,
+              batchNumber:                item.batchNumber,
+              expiryDate:                 item.expiryDate,
+            })),
+          },
         },
-      },
-      include: { items: true },
+        include: { items: true },
+      });
+  
+      await cacheService.del(this.cacheKey(tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'PurchaseOrder',
+        action: 'create',
+        entityId: rec.id,
+        details: dto,
+      });
+      eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, rec);
+      return rec;
+      
+    } catch (error) {
+      if (error instanceof AppError) {
+      throw error;
+    }
+
+    // Wrap unexpected errors in a consistent format
+    logger.error("Failed to create purchase order", { 
+      error, 
+      tenantId, 
+      userId, 
+      supplierId: dto.supplierId 
     });
 
-    await cacheService.del(this.cacheKey(tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'PurchaseOrder',
-      action: 'create',
-      entityId: rec.id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, rec);
-    return rec;
+    }
   }
 
   async update(
@@ -120,6 +141,51 @@ export class PurchaseOrderService {
     eventBus.emit(EVENTS.PURCHASE_ORDER_UPDATED, rec);
     return rec;
   }
+
+  async markAsReceived(tenantId: string, userId: string, poId: string) {
+  return prisma.$transaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { items: true },
+    });
+    if (!po || po.tenantId !== tenantId) {
+      throw new Error('Purchase Order not found or access denied');
+    }
+
+    if (po.status === 'received') {
+      throw new Error('Purchase Order already received');
+    }
+
+    // Update status
+    const receivedDate = new Date();
+    const updatedPO = await tx.purchaseOrder.update({
+      where: { id: poId },
+      data: { status: 'received', receivedDate },
+    });
+
+    // Record inventory movement
+    for (const item of po.items) {
+      await inventoryFlowService.recordPurchaseOrderReceipt({
+        tenantId,
+        userId,
+        storeId: po.storeId,
+        warehouseId: po.warehouseId,
+        purchaseOrderId: poId,
+        tenantProductId: item.tenantProductId,
+        tenantProductVariantId: item.tenantProductVariantId ?? undefined,
+        quantity: item.quantity,
+        costPrice: item.costPrice,
+        batchNumber: item.batchNumber,
+        expiryDate: item.expiryDate,
+        movementType: 'receipt',
+        reference: poId,
+      });
+    }
+
+    return updatedPO;
+  });
+}
+
 
   async cancel(
     tenantId: string,

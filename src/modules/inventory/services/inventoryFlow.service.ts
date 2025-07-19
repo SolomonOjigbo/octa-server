@@ -69,6 +69,38 @@ class InventoryFlowService {
     }
   }
 
+  async recordPurchaseOrderReceipt(dto: {
+  tenantId: string;
+  userId: string;
+  storeId?: string;
+  warehouseId?: string;
+  purchaseOrderId: string;
+  tenantProductId: string;
+  tenantProductVariantId?: string;
+  quantity: number;
+  costPrice: number;
+  batchNumber?: string;
+  expiryDate?: Date;
+  movementType: 'receipt';
+  reference: string;
+}) {
+  await stockService.adjustStock(dto.tenantId, dto.userId, {
+    tenantProductId: dto.tenantProductId,
+    tenantProductVariantId: dto.tenantProductVariantId,
+    storeId: dto.storeId,
+    warehouseId: dto.warehouseId,
+    batchNumber: dto.batchNumber,
+    expiryDate: dto.expiryDate,
+    quantity: dto.quantity,
+    costPrice: dto.costPrice,
+    movementType: dto.movementType,
+    reference: dto.reference,
+  });
+
+  // Add audit or event if needed
+}
+
+
   /**
    * Supplier Return → Decrease stock
    */

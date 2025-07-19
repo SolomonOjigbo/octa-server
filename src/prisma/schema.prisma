@@ -526,7 +526,7 @@ model Customer {
   email         String?
   phone         String?
   loyaltyNumber String?
-  segment       String? // e.g., "wholesale", "retail", "corporate", "insurance"
+  segment       String? // e.g., "wholesaler", "retailer", "corporate", "sales rep", "clinic", "hospital", etc.
   tags          String[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

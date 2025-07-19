@@ -7,7 +7,7 @@ export class SupplierService {
     return prisma.supplier.create({ data: dto });
   }
   getSuppliers(tenantId: string) {
-    return prisma.supplier.findMany({ where: { tenantId } });
+    return prisma.supplier.findMany({ where: { tenantId },  orderBy: { createdAt: 'desc' }, });
   }
   updateSupplier(id: string, dto: UpdateSupplierDto) {
     return prisma.supplier.update({ where: { id }, data: dto });

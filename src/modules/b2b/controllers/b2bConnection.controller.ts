@@ -46,8 +46,8 @@ export class B2BConnectionController {
   revoke = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user!.tenantId;
     const userId   = req.user!.id;
-    const dto      = connectionActionSchema.parse(req.body);
-    const conn     = await b2bConnectionService.revoke(tenantId, userId, req.params.id, dto);
+    const {reason}      = connectionActionSchema.parse(req.body);
+    const conn     = await b2bConnectionService.revoke(tenantId, userId, req.params.id, reason);
     res.json(conn);
   });
 }
