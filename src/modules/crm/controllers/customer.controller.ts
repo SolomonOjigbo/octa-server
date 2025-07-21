@@ -6,7 +6,7 @@ import { customerService } from '../services/customer.service';
 import { createCustomerSchema, updateCustomerSchema } from '../validations';
 import { CreateCustomerDto, UpdateCustomerDto } from '../types/crm.dto';
 import { AuditLogCreateParams } from '@modules/audit/types/audit.dto';
-import { auditService } from '@modules/audit/types/audit.service';
+import { auditService } from '@modules/audit/services/audit.service';
 import { eventEmitter } from '@events/event.emitter';
 
 export class CustomerController {
@@ -18,9 +18,9 @@ export class CustomerController {
     const customer = await customerService.createCustomer(dto);
 
     // Audit & Event
-    await auditService.log<Partial<CreateCustomerDto>>({
+    await auditService.log({
       tenantId, userId,
-      action: 'CUSTOMER_CREATED', entityType: 'Customer', entityId: customer.id,
+      action: 'CUSTOMER_CREATED', module: 'Customer', entityId: customer.id,
       metadata: dto
     });
     eventEmitter.emit('customer:created', customer);
@@ -45,9 +45,9 @@ export class CustomerController {
     const validated = updateCustomerSchema.parse(req.body) as UpdateCustomerDto;
     const customer = await customerService.updateCustomer(req.params.id, validated);
 
-    await auditService.log<Partial<UpdateCustomerDto>>({
+    await auditService.log({
       tenantId: customer.tenantId, userId,
-      action: 'CUSTOMER_UPDATED', entityType: 'Customer', entityId: customer.id,
+      action: 'CUSTOMER_UPDATED', module: 'Customer', entityId: customer.id,
       metadata: validated
     });
     eventEmitter.emit('customer:updated', customer);
@@ -59,7 +59,7 @@ export class CustomerController {
     const deleted = await customerService.deleteCustomer(req.params.id);
     await auditService.log({ 
       tenantId: deleted.tenantId, userId: req.user!.id,
-      action: 'CUSTOMER_DELETED', entityType: 'Customer', entityId: deleted.id
+      action: 'CUSTOMER_DELETED', module: 'Customer', entityId: deleted.id
     });
     eventEmitter.emit('customer:deleted', deleted);
     res.status(204).send();

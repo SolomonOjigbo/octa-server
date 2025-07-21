@@ -1,7 +1,6 @@
 // src/modules/supplier/types/supplier.dto.ts
 
 export interface CreateSupplierDto {
-  tenantId: string;
   name: string;
   email?: string;
   phone?: string;
@@ -14,12 +13,13 @@ export interface CreateSupplierDto {
 
 export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {}
 
+// Product Supplier
 export interface CreateProductSupplierDto {
-  tenantId: string;
   supplierId: string;
-  productId: string;
-  price: number;
-  currency: string;
+  globalProductId?: string;
+  tenantProductId?: string;
+  price?: number;
+  isGlobal: boolean;
   leadTime?: number;
 }
 

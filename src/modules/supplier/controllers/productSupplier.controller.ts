@@ -1,40 +1,87 @@
 // src/modules/supplier/controllers/productSupplier.controller.ts
 
-import { Request, Response } from 'express';
-import asyncHandler from 'express-async-handler';
+import { Request, Response, NextFunction } from 'express';
 import { productSupplierService } from '../services/productSupplier.service';
-import { createProductSupplierSchema, updateProductSupplierSchema } from '../validations';
-import { auditService } from '@modules/audit/services/audit.service';
-import { eventEmitter } from '@events/event.emitter';
-import { CreateProductSupplierDto } from '../types/supplier.dto';
-
+import {
+  CreateProductSupplierDtoSchema,
+  UpdateProductSupplierDtoSchema,
+} from '../types/productSupplier.dto';
 
 export class ProductSupplierController {
-  linkProduct = asyncHandler(async (req: Request, res: Response) => {
-    const tenantId = req.user!.tenantId, userId = req.user!.id;
-    const dto = { ...createProductSupplierSchema.parse(req.body), tenantId } as CreateProductSupplierDto;
-    const ps = await productSupplierService.linkProductToSupplier(dto);
+  async linkProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const dto = CreateProductSupplierDtoSchema.parse(req.body);
+      const tenantId = req.user.tenantId;
+      const link = await productSupplierService.linkProductToSupplier(
+        tenantId,
+        dto
+      );
+      res.status(201).json(link);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-    await auditService.log({ tenantId, userId, action:'PRODUCT_SUPPLIER_LINKED', module:'ProductSupplier', entityId:ps.id, metadata:dto });
-    eventEmitter.emit('productSupplier:linked', ps);
+  async updateLink(req: Request, res: Response, next: NextFunction) {
+    try {
+      const dto = UpdateProductSupplierDtoSchema.parse(req.body);
+      const tenantId = req.user.tenantId;
+      const { id } = req.params;
+      const updated = await productSupplierService.updateLink(
+        tenantId,
+        id,
+        dto
+      );
+      res.json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
 
-    res.status(201).json(ps);
-  });
+  async unlinkProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user.tenantId;
+      const { id } = req.params;
+      await productSupplierService.unlinkProduct(tenantId, id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
 
-  updateLink = asyncHandler(async (req, res) => {
-    const dto = updateProductSupplierSchema.parse(req.body);
-    const ps = await productSupplierService.updateLink(req.params.id, dto);
-    res.json(ps);
-  });
+  async getLinksForProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user.tenantId;
+      const { tenantProductId, globalProductId } = req.query as {
+        tenantProductId?: string;
+        globalProductId?: string;
+      };
 
-  unlinkProduct = asyncHandler(async (req, res) => {
-    await productSupplierService.unlinkProduct(req.params.id);
-    res.status(204).send();
-  });
+      // exactly one must be provided
+      if (
+        Boolean(tenantProductId) === Boolean(globalProductId)
+      ) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Must provide exactly one of 'tenantProductId' or 'globalProductId' in query",
+          });
+      }
 
-  getLinksForProduct = asyncHandler(async (req, res) => {
-    res.json(await productSupplierService.getLinksForProduct(req.params.productId, req.user!.tenantId));
-  });
+      const links = await productSupplierService.getLinksForProduct(
+        tenantId,
+        {
+          tenantProductId,
+          globalProductId,
+        }
+      );
+      res.json(links);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const productSupplierController = new ProductSupplierController();
+

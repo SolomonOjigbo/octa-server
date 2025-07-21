@@ -17,30 +17,32 @@ export const updateSupplierSchema = createSupplierSchema.partial();
 
 export const createProductSupplierSchema = z.object({
   supplierId: z.string().cuid(),
-  productId: z.string().cuid(),
-  price: z.number().min(0),
-  currency: z.string().length(3),
+  tenantProductId: z.string().cuid(),
+  price: z.number().min(0).optional(),
+  isGlobal: z.boolean(),
   leadTime: z.number().int().optional(),
 });
 
 export const updateProductSupplierSchema = createProductSupplierSchema.partial();
 
-export const SupplierCreateDtoSchema = z.object({
-  tenantId: z.string(),
-  name: z.string().min(1),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  leadTime: z.number().int().positive().optional(),
-  paymentTerms: z.string().optional(),
-  notes: z.string().optional(),
-});
+// export const SupplierCreateDtoSchema = z.object({
+//   tenantId: z.string(),
+//   name: z.string().min(1),
+//   email: z.string().email().optional(),
+//   phone: z.string().optional(),
+//   address: z.string().optional(),
+//   leadTime: z.number().int().positive().optional(),
+//   paymentTerms: z.string().optional(),
+//   notes: z.string().optional(),
+// });
 
-export const SupplierUpdateDtoSchema = SupplierCreateDtoSchema.partial();
+// export const SupplierUpdateDtoSchema = SupplierCreateDtoSchema.partial();
 
-export const ProductSupplierDtoSchema = z.object({
-  tenantId: z.string(),
-  supplierId: z.string(),
-  productId: z.string(),
-  isGlobal: z.boolean().optional(),
-});
+// export const ProductSupplierDtoSchema = z.object({
+//   tenantId: z.string(),
+//   supplierId: z.string(),
+//   tenantProductId: z.string(),
+//   isGlobal: z.boolean().optional(),
+//   price: z.number().optional(),
+//   leadTime: z.number().int().optional(),
+// });

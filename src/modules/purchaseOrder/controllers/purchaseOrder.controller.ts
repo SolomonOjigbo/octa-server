@@ -3,7 +3,7 @@
 import { AppError } from "@common/constants/app.errors";
 import { HttpStatusCode } from "@common/constants/http";
 
-import { CancelPurchaseOrderDto, CreatePurchaseOrderDto, LinkPaymentDto, ListPendingOrdersDto, UpdatePurchaseOrderDto } from "../types/purchaseOrder.dto";
+import { CancelPurchaseOrderDto, CreatePurchaseOrderDto, LinkPaymentDto, UpdatePurchaseOrderDto } from "../types/purchaseOrder.dto";
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { purchaseOrderService } from '../services/purchaseOrder.service';

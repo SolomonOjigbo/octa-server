@@ -1,0 +1,9 @@
+<h3>Purchase Order Created</h3>
+<p>PO No: {{poNumber}}</p>
+<p>Supplier: {{supplierName}}</p>
+
+<ul>
+  {{#each items}}
+    <li>{{product}} - Qty: {{quantity}}</li>
+  {{/each}}
+</ul>

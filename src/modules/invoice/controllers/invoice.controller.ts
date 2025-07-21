@@ -11,6 +11,7 @@ import {
 } from '../validations';
 import { invoiceService } from '../services/invoice.service';
 import { ApplyPaymentDto, CreateInvoiceDto, IssueInvoiceDto } from '../types/invoice.dto';
+import { paymentService } from '@modules/payments/services/payment.service';
 
 export const invoiceController = {
   list: asyncHandler(async (req: Request, res: Response) => {
@@ -52,6 +53,16 @@ export const invoiceController = {
     const rec = await invoiceService.applyPayment(req.user!.tenantId, req.user!.id, req.params.id, dto);
     res.json(rec);
   }),
+
+    applyInvoicePayment: asyncHandler(async(req: Request, res: Response) =>{
+  try {
+    const payment = await invoiceService.createPaymentAndApplyToInvoice(req.body);
+    res.status(201).json(payment);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+}),
+
 
   getPdf: asyncHandler(async (req: Request, res: Response) => {
     const pdf = await invoiceService.getPdf(req.user!.tenantId, req.params.id);

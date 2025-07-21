@@ -76,3 +76,11 @@ export interface InvoiceDetailDto extends InvoiceResponseDto {
   items:    InvoiceItemDto[];
   payments: Array<{ id:string; amount:number; method:string; paidAt: Date }>;
 }
+
+export class CreateInvoicePaymentDto {
+  invoiceId: string;
+  amount: number;
+  method: string; // e.g. cash, card, bank-transfer
+  reference?: string;
+  metadata?: any;
+}

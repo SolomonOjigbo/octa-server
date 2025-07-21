@@ -11,32 +11,64 @@ import { stockService } from "@modules/stock/services/stock.service";
 
 export class InventoryService {
 
-  async createMovement(
+async createMovement(
     tenantId: string,
     userId: string,
     dto: InventoryMovementDto
   ) {
-    // Perform atomic stock + inventory update
+    // 1) Resolve tenantProductId from globalProductId if needed
+    let tenantProductId = dto.tenantProductId!;
+    if (!tenantProductId && dto.globalProductId) {
+      let tp = await prisma.tenantProduct.findFirst({
+        where: {
+          tenantId,
+          globalProductId: dto.globalProductId,
+        },
+      });
+      if (!tp) {
+        tp = await prisma.tenantProduct.create({
+          data: {
+            tenantId,
+            globalProductId: dto.globalProductId,
+            isTransferable: true,
+          },
+        });
+      }
+      tenantProductId = tp.id;
+    }
+    if (!tenantProductId) {
+      throw new Error(
+        "Must supply exactly one of 'tenantProductId' or 'globalProductId'"
+      );
+    }
+
+    // 2) Atomically adjust stock and record inventory
     return prisma.$transaction(async (tx) => {
-      // 1. Adjust stock
-      const stock = await stockService.adjustStock(tenantId, userId, {
-        ...dto,
+      // adjust stock
+      await stockService.adjustStock(tenantId, userId, {
+        tenantProductId,
+        tenantProductVariantId: dto.tenantProductVariantId,
         storeId: dto.storeId ?? null,
         warehouseId: dto.warehouseId ?? null,
+        batchNumber: dto.batchNumber,
+        expiryDate: dto.expiryDate,
+        quantity: dto.quantity,
+        reference: dto.reference,
+        movementType: dto.movementType,
       });
 
-      // 2. Record inventory movement
-      const inventory = await tx.inventory.create({
+      // record inventory movement
+      const movement = await tx.inventory.create({
         data: {
           tenantId,
-          tenantProductId: dto.tenantProductId,
-          tenantProductVariantId: dto.tenantProductVariantId,
-          storeId: dto.storeId,
-          warehouseId: dto.warehouseId,
-          batchNumber: dto.batchNumber,
+          tenantProductId,
+          tenantProductVariantId: dto.tenantProductVariantId ?? null,
+          storeId: dto.storeId ?? null,
+          warehouseId: dto.warehouseId ?? null,
+          batchNumber: dto.batchNumber ?? null,
           quantity: dto.quantity,
-          costPrice: dto.costPrice,
-          expiryDate: dto.expiryDate,
+          costPrice: dto.costPrice ?? undefined,
+          expiryDate: dto.expiryDate ?? undefined,
           movementType: dto.movementType,
           reference: dto.reference,
           metadata: dto.metadata,
@@ -44,9 +76,89 @@ export class InventoryService {
         },
       });
 
-      return inventory;
+      // emit event for downstream flows (reports, reconciliation, notifications)
+      eventBus.emit(EVENTS.INVENTORY_MOVEMENT_CREATED, {
+        movement,
+        tenantId,
+        userId,
+      });
+
+      return movement;
     });
   }
+
+  /**
+   * Search inventory movements, filtering by either tenantProductId or globalProductId.
+   */
+   async searchMovements(
+    tenantId: string,
+    filters: {
+      tenantProductId?: string;
+      globalProductId?: string;
+      tenantProductVariantId?: string;
+      storeId?: string;
+      warehouseId?: string;
+      startDate?: Date;
+      endDate?: Date;
+      movementType?: string;
+      voided?: boolean;
+    }
+  ) {
+    const {
+      tenantProductId,
+      globalProductId,
+      tenantProductVariantId,
+      storeId,
+      warehouseId,
+      startDate,
+      endDate,
+      movementType,
+      voided = false,
+    } = filters;
+
+    // 1) Must supply exactly one of tenantProductId or globalProductId
+    if (Boolean(tenantProductId) === Boolean(globalProductId)) {
+      throw new Error(
+        "Must supply exactly one of 'tenantProductId' or 'globalProductId'"
+      );
+    }
+
+    // 2) Build the `where` filter
+    const where: any = {
+      tenantId,
+      tenantProductVariantId: tenantProductVariantId ?? undefined,
+      storeId: storeId ?? undefined,
+      warehouseId: warehouseId ?? undefined,
+      movementType: movementType ?? undefined,
+      voided,
+      createdAt: {
+        ...(startDate ? { gte: startDate } : {}),
+        ...(endDate ? { lte: endDate } : {}),
+      },
+    };
+
+    // 3) Attach tenantProductId condition
+    if (globalProductId) {
+      // Look up all tenantProductIds for this globalProductId
+      const tps = await prisma.tenantProduct.findMany({
+        where: { tenantId, globalProductId },
+        select: { id: true },
+      });
+      const ids = tps.map((t) => t.id);
+      where.tenantProductId = { in: ids };
+    } else {
+      // Single tenantProductId
+      where.tenantProductId = tenantProductId;
+    }
+
+    // 4) Query
+    return prisma.inventory.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+
   async getMovements(tenantId: string) {
     const cacheKey = `inventory_movements:${tenantId}`;
     const cached = await cacheService.get(cacheKey);
@@ -55,34 +167,6 @@ export class InventoryService {
     await cacheService.set(cacheKey, data, 300);
     return data;
   }
-
-  async searchMovements(tenantId: string, filters: {
-  productId?: string;
-  variantId?: string;
-  storeId?: string;
-  warehouseId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  movementType?: string;
-  voided?: boolean;
-}) {
-  return prisma.inventory.findMany({
-    where: {
-      tenantId,
-      tenantProductId: filters.productId,
-      tenantProductVariantId: filters.variantId,
-      storeId: filters.storeId,
-      warehouseId: filters.warehouseId,
-      movementType: filters.movementType,
-      voided: filters.voided ?? false,
-      createdAt: {
-        gte: filters.startDate,
-        lte: filters.endDate,
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-}
 
 
   async getById(tenantId: string, id: string) {

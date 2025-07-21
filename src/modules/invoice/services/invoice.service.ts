@@ -1,5 +1,4 @@
 // src/modules/invoice/services/invoice.service.ts
-
 import {
   CreateInvoiceDto,
   IssueInvoiceDto,
@@ -7,6 +6,7 @@ import {
   ApplyPaymentDto,
   InvoiceResponseDto,
   InvoiceDetailDto,
+  CreateInvoicePaymentDto,
 } from '../types/invoice.dto';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
@@ -105,6 +105,46 @@ export class InvoiceService {
       items, payments,
     };
   }
+
+  // invoice.service.ts
+
+  async getInvoiceById(invoiceId: string, tenantId: string) {
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      include: {
+        items: {
+          include: {
+            product: true,
+            variant: true,
+          },
+        },
+      customer: true,
+      issuedBy: { select: { id: true, name: true, email: true } },
+      tenant: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!invoice) {
+    throw new Error('Invoice not found');
+  }
+
+  // 👥 B2B metadata if applicable
+  let b2bMeta = null;
+  if (invoice.customer?.tenantId && invoice.customer.tenantId !== tenantId) {
+    b2bMeta = await prisma.b2BConnection.findFirst({
+      where: {
+        OR: [
+          { tenantAId: tenantId, tenantBId: invoice.customer.tenantId },
+          { tenantAId: invoice.customer.tenantId, tenantBId: tenantId },
+        ],
+        status: 'approved',
+      },
+    });
+  }
+
+  return { ...invoice, b2bConnection: b2bMeta };
+}
+
 
   async createDraft(
     tenantId: string,
@@ -242,6 +282,66 @@ export class InvoiceService {
     return this.getById(tenantId, id);
   }
 
+  async createInvoiceFromPO(po: any, userId: string) {
+  const newInvoice = prisma.invoice.create({
+    data: {
+      tenantId: po.tenantId,
+      storeId: po.storeId  ?? null,
+      customerId: po.customerId ?? null, // can be manually set later
+      purchaseOrderId: po.id,
+      status: 'draft',
+      issueDate: new Date(),
+      dueDate: null,
+      totalAmount: po.totalAmount,
+      createdById: userId,
+      notes: po.notes ?? 'Invoice Created from Purchase Order',
+      items: {
+        create: po.items.map(item => ({
+          tenantProductId: item.tenantProductId,
+          tenantProductVariantId: item.tenantProductVariantId,
+          quantity: item.quantity,
+          costPrice: item.costPrice,
+        })),
+      },
+    },
+  });
+
+  eventBus.emit('invoice.created', { invoiceId: newInvoice.id });
+  return newInvoice;
+}
+
+/**
+   * Fetches an invoice along with its payments,
+   * and returns aggregated payment status.
+   */
+  async getInvoiceWithPaymentStatus(invoiceId: string) {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        payments: true,
+        items: true,
+        customer: true,
+      },
+    });
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    // Sum up all successful payments
+    const amountPaid = invoice.payments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0
+    );
+    const remainingAmount = Number(invoice.totalAmount) - amountPaid;
+
+    return {
+      ...invoice,
+      amountPaid,
+      remainingAmount,
+      paymentCount: invoice.payments.length,
+    };
+  }
+
   async delete(
     tenantId: string,
     userId: string,
@@ -305,6 +405,57 @@ export class InvoiceService {
 
     return this.getById(tenantId, id);
   }
+
+async applyPaymentToInvoice(invoiceId: string, paymentId: string, amount: number) {
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) throw new Error("Invoice not found");
+
+  const newAmountPaid = invoice.amountPaid + amount;
+  const status = newAmountPaid >= invoice.totalAmount ? 'paid' : 'partial';
+
+  const updatedInvoice = await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      amountPaid: newAmountPaid,
+      status,
+      payments: {
+        connect: { id: paymentId },
+      },
+    },
+  });
+
+  return updatedInvoice;
+}
+
+  // payment.service.ts
+async createPaymentAndApplyToInvoice(dto: CreateInvoicePaymentDto) {
+  const { invoiceId, method, amount, reference, metadata } = dto;
+
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) throw new Error("Invoice not found");
+
+  const payment = await prisma.payment.create({
+    data: {
+      tenantId: invoice.tenantId,
+      amount,
+      method,
+      reference,
+      customerId: invoice.customerId,
+      invoiceId,
+      metadata,
+      status: "successful",
+    },
+  });
+
+  await invoiceService.applyPaymentToInvoice(invoiceId, payment.id, amount);
+
+  eventBus.emit(EVENTS.PAYMENT_CREATED, {
+  invoiceId,
+  paymentId: payment.id,
+});
+
+  return payment;
+}
 
   async getPdf(
     tenantId: string,

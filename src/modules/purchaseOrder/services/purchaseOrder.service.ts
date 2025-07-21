@@ -1,27 +1,23 @@
 // modules/purchaseOrder/services/purchaseOrder.service.ts
-import { inventoryService } from "../../inventory/services/inventory.service";
-import { stockService } from "../../stock/services/stock.service";
 import { auditService } from "@modules/audit/services/audit.service";
 import { logger } from "@logging/logger";
 import { cacheService } from "@cache/cache.service";
 import { AppError } from "@common/constants/app.errors";
-import { HttpStatusCode } from "@common/constants/http";
-import { StockMovementType } from "@common/types/stockMovement.dto";
-
-
-import {
-  CreatePurchaseOrderDto,
-  UpdatePurchaseOrderDto,
-  CancelPurchaseOrderDto,
-  LinkPaymentDto,
-  PurchaseOrderResponseDto
-} from '../types/purchaseOrder.dto';
-
 import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import prisma from "@shared/infra/database/prisma";
 import { inventoryFlowService } from "@modules/inventory/services/inventoryFlow.service";
 import { b2bConnectionService } from "@modules/b2b/services/b2bConnection.service";
+import { productSupplierService } from "@modules/supplier/services/productSupplier.service";
+import { supplierService } from "@modules/supplier/services/supplier.service";
+import { invoiceService } from '@modules/invoice/services/invoice.service';
+import {
+  CreatePurchaseOrderDto,
+  PurchaseOrderItemDto,
+  UpdatePurchaseOrderDto,
+  CancelPurchaseOrderDto,
+  LinkPaymentDto,
+} from '../types/purchaseOrder.dto';
 
 export class PurchaseOrderService {
   private cacheKey(tenantId: string) {
@@ -30,23 +26,23 @@ export class PurchaseOrderService {
 
   async list(tenantId: string) {
     const key = this.cacheKey(tenantId);
-    const cached = await cacheService.get<PurchaseOrderResponseDto[]>(key);
+    const cached = await cacheService.get(key);
     if (cached) return cached;
-    const data = await prisma.purchaseOrder.findMany({
+    const rows = await prisma.purchaseOrder.findMany({
       where: { tenantId },
-      include: { items: true },
+      include: { items: true, payments: true },
       orderBy: { orderDate: 'desc' },
     });
-    await cacheService.set(key, data, 300);
-    return data;
+    await cacheService.set(key, rows, 300);
+    return rows;
   }
 
   async getById(tenantId: string, id: string) {
     const po = await prisma.purchaseOrder.findFirst({
       where: { id, tenantId },
-      include: { items: true },
+      include: { items: true, payments: true },
     });
-    if (!po) throw new AppError('Not found', 404);
+    if (!po) throw new AppError('Purchase Order not found', 404);
     return po;
   }
 
@@ -54,62 +50,102 @@ export class PurchaseOrderService {
     tenantId: string,
     userId: string,
     dto: CreatePurchaseOrderDto
-  ): Promise<PurchaseOrderResponseDto> {
+  ) {
+    // 1) B2B supplier check
+    const supplier = await supplierService.getSupplierById(dto.supplierId);
+    if (!supplier) throw new AppError('Supplier not found', 404);
+    if (
+      supplier.tenantId &&
+      supplier.tenantId !== tenantId
+    ) {
+      await b2bConnectionService.ensureConnectionExists(
+        tenantId,
+        supplier.tenantId
+      );
+    }
 
-    try {
-      await b2bConnectionService.ensureConnectionExists(tenantId, dto.supplierId);
-  
-      const rec = await prisma.purchaseOrder.create({
-        data: {
-          tenantId,
-          supplierId: dto.supplierId,
-          storeId: dto.storeId,
-          warehouseId: dto.warehouseId,
-          orderDate: dto.orderDate,
-          receivedDate: dto.receivedDate,
-          totalAmount: dto.totalAmount,
-          notes: dto.notes,
-          createdById: userId,
-          items: {
-            create: dto.items.map(item => ({
-              tenantProductId:            item.tenantProductId,
-              tenantProductVariantId:     item.tenantProductVariantId,
-              quantity:                   item.quantity,
-              costPrice:                  item.costPrice,
-              batchNumber:                item.batchNumber,
-              expiryDate:                 item.expiryDate,
+    // 2) Materialize tenantProductId for items
+    const items: Array<PurchaseOrderItemDto & { tenantProductId: string }> =
+      await Promise.all(
+        dto.items.map(async (it) => {
+          let tpid = it.tenantProductId!;
+          if (!tpid && it.globalProductId) {
+            // find or create tenantProduct
+            let tp = await prisma.tenantProduct.findFirst({
+              where: {
+                tenantId,
+                globalProductId: it.globalProductId,
+              },
+            });
+            if (!tp) {
+              tp = await prisma.tenantProduct.create({
+                data: {
+                  tenantId,
+                  globalProductId: it.globalProductId,
+                  isTransferable: true,
+                },
+              });
+            }
+            tpid = tp.id;
+          }
+          return { ...it, tenantProductId: tpid };
+        })
+      );
+
+    // 3) Auto‐link ProductSupplier
+    for (const it of items) {
+      await productSupplierService.linkProductToSupplier(tenantId, {
+        supplierId: dto.supplierId,
+        tenantProductId: it.tenantProductId,
+        // price/leadTime optional
+      });
+    }
+
+    // 4) Create the PO + items
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        tenantId,
+        supplierId: dto.supplierId,
+        storeId: dto.storeId ?? null,
+        warehouseId: dto.warehouseId ?? null,
+        orderDate: dto.orderDate,
+        receivedDate: dto.receivedDate ?? null,
+        totalAmount: dto.totalAmount,
+        notes: dto.notes ?? undefined,
+        createdById: userId,
+        items: {
+          createMany: {
+            data: items.map((it) => ({
+              tenantProductId: it.tenantProductId,
+              tenantProductVariantId: it.tenantProductVariantId ?? null,
+              quantity: it.quantity,
+              costPrice: it.costPrice,
+              batchNumber: it.batchNumber ?? null,
+              expiryDate: it.expiryDate ?? null,
             })),
           },
         },
-        include: { items: true },
-      });
-  
-      await cacheService.del(this.cacheKey(tenantId));
-      await auditService.log({
-        tenantId,
-        userId,
-        module: 'PurchaseOrder',
-        action: 'create',
-        entityId: rec.id,
-        details: dto,
-      });
-      eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, rec);
-      return rec;
-      
-    } catch (error) {
-      if (error instanceof AppError) {
-      throw error;
-    }
-
-    // Wrap unexpected errors in a consistent format
-    logger.error("Failed to create purchase order", { 
-      error, 
-      tenantId, 
-      userId, 
-      supplierId: dto.supplierId 
+      },
+      include: { items: true },
     });
 
-    }
+    // 5) Clear cache & audit & events
+    await cacheService.del(this.cacheKey(tenantId));
+    await auditService.log({
+      tenantId,
+      userId,
+      module: 'PurchaseOrder',
+      action: 'create',
+      entityId: po.id,
+      details: dto,
+    });
+    eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, po);
+
+    // 6) Auto‐create draft invoice
+    const invoice = await invoiceService.createInvoiceFromPO(po, userId);
+    eventBus.emit(EVENTS.INVOICE_CREATED, invoice);
+
+    return po;
   }
 
   async update(
@@ -119,15 +155,15 @@ export class PurchaseOrderService {
     dto: UpdatePurchaseOrderDto
   ) {
     const existing = await this.getById(tenantId, id);
-    const rec = await prisma.purchaseOrder.update({
+    const po = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        status:       dto.status,
-        receivedDate: dto.receivedDate,
-        notes:        dto.notes,
-        updatedById:  userId,
+        status: dto.status ?? existing.status,
+        receivedDate: dto.receivedDate ?? existing.receivedDate,
+        notes: dto.notes ?? existing.notes,
+        updatedById: userId,
       },
-      include: { items: true },
+      include: { items: true, payments: true },
     });
     await cacheService.del(this.cacheKey(tenantId));
     await auditService.log({
@@ -138,54 +174,54 @@ export class PurchaseOrderService {
       entityId: id,
       details: dto,
     });
-    eventBus.emit(EVENTS.PURCHASE_ORDER_UPDATED, rec);
-    return rec;
+    eventBus.emit(EVENTS.PURCHASE_ORDER_UPDATED, po);
+    return po;
   }
 
-  async markAsReceived(tenantId: string, userId: string, poId: string) {
-  return prisma.$transaction(async (tx) => {
-    const po = await tx.purchaseOrder.findUnique({
-      where: { id: poId },
-      include: { items: true },
-    });
-    if (!po || po.tenantId !== tenantId) {
-      throw new Error('Purchase Order not found or access denied');
-    }
-
-    if (po.status === 'received') {
-      throw new Error('Purchase Order already received');
-    }
-
-    // Update status
-    const receivedDate = new Date();
-    const updatedPO = await tx.purchaseOrder.update({
-      where: { id: poId },
-      data: { status: 'received', receivedDate },
-    });
-
-    // Record inventory movement
-    for (const item of po.items) {
-      await inventoryFlowService.recordPurchaseOrderReceipt({
-        tenantId,
-        userId,
-        storeId: po.storeId,
-        warehouseId: po.warehouseId,
-        purchaseOrderId: poId,
-        tenantProductId: item.tenantProductId,
-        tenantProductVariantId: item.tenantProductVariantId ?? undefined,
-        quantity: item.quantity,
-        costPrice: item.costPrice,
-        batchNumber: item.batchNumber,
-        expiryDate: item.expiryDate,
-        movementType: 'receipt',
-        reference: poId,
+  async markAsReceived(
+    tenantId: string,
+    userId: string,
+    id: string
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const po = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { items: true },
       });
-    }
+      if (!po || po.tenantId !== tenantId)
+        throw new AppError('Not found or access denied', 404);
+      if (po.status === 'received')
+        throw new AppError('Already received', 400);
 
-    return updatedPO;
-  });
-}
+      const updated = await tx.purchaseOrder.update({
+        where: { id },
+        data: { status: 'received', receivedDate: new Date() },
+      });
 
+      // inventory receipt
+      for (const it of po.items) {
+        await inventoryFlowService.recordPurchaseOrderReceipt({
+          tenantId,
+          userId,
+          storeId: po.storeId,
+          warehouseId: po.warehouseId,
+          purchaseOrderId: id,
+          tenantProductId: it.tenantProductId,
+          tenantProductVariantId: it.tenantProductVariantId ?? undefined,
+          quantity: it.quantity,
+          costPrice: it.costPrice,
+          batchNumber: it.batchNumber,
+          expiryDate: it.expiryDate,
+          movementType: 'receipt',
+          reference: id,
+        });
+      }
+
+      await cacheService.del(this.cacheKey(tenantId));
+      eventBus.emit(EVENTS.PURCHASE_ORDER_RECEIVED, updated);
+      return updated;
+    });
+  }
 
   async cancel(
     tenantId: string,
@@ -196,14 +232,15 @@ export class PurchaseOrderService {
     const existing = await this.getById(tenantId, id);
     if (existing.status === 'cancelled')
       throw new AppError('Already cancelled', 400);
-    const rec = await prisma.purchaseOrder.update({
+
+    const po = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        status:      'cancelled',
+        status: 'cancelled',
+        notes: dto.reason ?? existing.notes,
         updatedById: userId,
-        notes:       dto.reason ?? existing.notes,
       },
-      include: { items: true },
+      include: { items: true, payments: true },
     });
     await cacheService.del(this.cacheKey(tenantId));
     await auditService.log({
@@ -214,8 +251,8 @@ export class PurchaseOrderService {
       entityId: id,
       details: dto,
     });
-    eventBus.emit(EVENTS.PURCHASE_ORDER_CANCELLED, rec);
-    return rec;
+    eventBus.emit(EVENTS.PURCHASE_ORDER_CANCELLED, po);
+    return po;
   }
 
   async linkPayment(
@@ -224,14 +261,13 @@ export class PurchaseOrderService {
     id: string,
     dto: LinkPaymentDto
   ) {
-    // attach Payment to PO
-    const rec = await prisma.purchaseOrder.update({
+    const po = await prisma.purchaseOrder.update({
       where: { id },
       data: {
         payments: {
           create: {
             paymentId: dto.paymentId,
-            amount:    dto.amount,
+            amount: dto.amount,
             createdBy: { connect: { id: userId } },
           },
         },
@@ -248,9 +284,10 @@ export class PurchaseOrderService {
       entityId: id,
       details: dto,
     });
-    eventBus.emit(EVENTS.PURCHASE_ORDER_PAYMENT_LINKED, rec);
-    return rec;
+    eventBus.emit(EVENTS.PURCHASE_ORDER_PAYMENT_LINKED, po);
+    return po;
   }
 }
 
-export const purchaseOrderService = new PurchaseOrderService();
+export const purchaseOrderService =
+  new PurchaseOrderService();

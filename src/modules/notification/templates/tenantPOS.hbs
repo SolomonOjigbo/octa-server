@@ -1,0 +1,13 @@
+<h2>{{storeName}} - POS Receipt</h2>
+<p>Transaction ID: {{transactionId}}</p>
+<p>Date: {{date}}</p>
+<p>Customer: {{customerName}}</p>
+
+<ul>
+  {{#each items}}
+    <li>{{name}} x {{quantity}} - ₦{{total}}</li>
+  {{/each}}
+</ul>
+
+<p><strong>Total: ₦{{totalAmount}}</strong></p>
+<p>Thank you for shopping with us.</p>

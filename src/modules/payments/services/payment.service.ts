@@ -9,6 +9,8 @@ import { logger } from "@logging/logger";
 import { paymentEvents } from "@events/types/paymentEvents.dto";
 import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
+import { invoiceService } from "@modules/invoice/services/invoice.service";
+import { CreateInvoicePaymentDto } from "@modules/invoice/types/invoice.dto";
 
 const prisma = new PrismaClient();
 
@@ -235,6 +237,7 @@ async reverse(
       // 3. If linked to a purchase order, update its status (simplified example)
       if (dto.purchaseOrderId) {
         // Similar logic to update purchase order status can be implemented here
+        await tx.purchaseOrder.update({ where: { id: dto.purchaseOrderId }, data: { status: "approved" } });
         await cacheService.del(`po-details:${dto.purchaseOrderId}`);
       }
 

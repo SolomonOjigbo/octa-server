@@ -2,8 +2,11 @@ import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import { logger } from '@logging/logger';
 import { auditService } from '@modules/audit/services/audit.service';
+import { inventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
 import { notificationService } from '@modules/notification/services/notification.service';
+import { transactionService } from '@modules/transactions/services/transaction.service';
 import { userRoleService } from '@modules/userRole/services/userRole.service';
+import { posService } from './services/pos.service';
 
 eventBus.on(EVENTS.POS_SESSION_OPENED, async (payload) => {
   logger.info(`[POS] Session opened for user ${payload.userId}`);
@@ -40,7 +43,7 @@ eventBus.on(EVENTS.POS_PAYMENT_CREATED, async (payload) => {
     details: {},
   });
   const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         payload.tenantId
       );
       for (const to of emails) {
@@ -64,7 +67,7 @@ eventBus.on(EVENTS.POS_CASH_DROP, async (payload) => {
     details: { amount: payload.amount },
   });
    const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         payload.tenantId
       );
     for (const to of emails) {
@@ -102,7 +105,7 @@ eventBus.on(EVENTS.POS_SALE_COMPLETED, async (payload) => {
         userId: payload.userId,
     });
     const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         payload.tenantId
       );
     for (const to of emails) {
@@ -128,7 +131,7 @@ eventBus.on(EVENTS.POS_RETURN_CREATED, async (payload) => {
         details: payload,
     });
     const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         payload.tenantId
       );
       for (const to of emails) {
@@ -142,3 +145,67 @@ eventBus.on(EVENTS.POS_RETURN_CREATED, async (payload) => {
     }
   logger.info(`[POS] Return processed: ${payload.transactionId}`);
 });
+
+eventBus.on('POSSession.closed', async (session) => {
+  const transactions = await transactionService.getTransactions(session.id);
+
+  for (const txn of transactions) {
+    for (const item of txn.items) {
+      await inventoryFlowService.recordConsumption({
+        tenantId: txn.tenantId,
+        storeId: txn.storeId,
+        tenantProductId: item.productId,
+        quantity: item.quantity,
+        reason: item.reason || 'POS sale',
+        transactionId: item.id,
+        reference: item?.reference,
+    costPrice: item.costPrice,
+    batchNumber: item.batchNumber,
+    expiryDate: item.expiryDate,
+    userId: item. item.userId,
+      });
+    }
+  }
+  // Dispatch POS summary email
+     const emails = await userRoleService.getUserEmailsByRoleName(
+        "tenant_admin",
+        session.tenantId
+      );
+  for (const to of emails) {
+  await notificationService.sendEmail({
+    to: to,
+    subject: 'POS Session Summary',
+    template: 'tenantPOSTemplate',
+    variables: { session, transactions },
+  });
+}
+});
+
+// EventBus.subscribe('POSSession.closed', async (event) => {
+//   const { sessionId, tenantId, closedBy } = event.payload;
+
+//   try {
+//     // Fetch session data and summary
+//     const session = await posService.getSessionById(sessionId);
+//     if (!session) throw new Error(`Session not found: ${sessionId}`);
+
+//     // Build summary context for the template
+//     const context = await buildTenantPOSSummaryContext(session);
+
+//     // Fetch tenant metadata for email
+//     const tenant = await tenantService.getTenantById(tenantId);
+//     const email = tenant?.email || 'admin@' + tenant?.name?.toLowerCase() + '.com';
+
+//     // Dispatch summary report
+//     await notificationService.sendEmail({
+//       to: email,
+//       subject: `POS Session Closed: ${session.code}`,
+//       template: 'tenantPOSTemplate',
+//       context,
+//     });
+
+//     console.log(`[POSSession] Summary report sent for session ${sessionId}`);
+//   } catch (error) {
+//     console.error(`[POSSession.subscriber] Failed to send session close report:`, error);
+//   }
+// });

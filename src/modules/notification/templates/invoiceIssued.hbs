@@ -1,0 +1,12 @@
+<h3>New Invoice Issued</h3>
+<p>Invoice No: {{invoiceNo}}</p>
+<p>Customer: {{customerName}}</p>
+<p>Due Date: {{dueDate}}</p>
+
+<ul>
+  {{#each items}}
+    <li>{{description}} - ₦{{amount}}</li>
+  {{/each}}
+</ul>
+
+<p>Total: ₦{{total}}</p>

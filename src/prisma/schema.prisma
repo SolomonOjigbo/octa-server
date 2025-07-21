@@ -177,7 +177,7 @@ model TenantProduct {
   variants      TenantVariant[]
 
   // cross‐module relations
-  ProductSupplier      ProductSupplier[] // supplier links for this tenant product
+  productSuppliers      ProductSupplier[] @relation("TenantProductToSupplier") // supplier links for this tenant product
   stocks               Stock[] // stock at tenant’s stores/warehouses
   stockTransfers       StockTransfer[] // transfers involving this tenant’s product
   purchaseOrderItems   PurchaseOrderItem[] // PO line items for this tenant product
@@ -186,6 +186,7 @@ model TenantProduct {
   StockTransfer        StockTransfer[]     @relation("TransferDestProduct")
 
   @@unique([tenantId, sku])
+  ProductSupplier ProductSupplier[]
 }
 
 model TenantCategory {
@@ -402,6 +403,8 @@ model Transaction {
   Payment Payment[] @relation("PaymentTransaction")
 
   POSSalesReturn POSSalesReturn[]
+
+  Refund Refund[]
 }
 
 model Payment {
@@ -517,8 +520,6 @@ model POSSalesReturn {
   @@index([sessionId])
 }
 
-
-
 model Customer {
   id            String   @id @default(cuid())
   tenantId      String
@@ -537,6 +538,26 @@ model Customer {
   communicationLogs CommunicationLog[]
 
   Invoice Invoice[]
+}
+
+model B2BConnection {
+  id        String   @id @default(cuid())
+  tenantAId String
+  tenantBId String
+  status    String // pending, approved, rejected, revoked
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantA        Tenant          @relation("b2bA", fields: [tenantAId], references: [id])
+  tenantB        Tenant          @relation("b2bB", fields: [tenantBId], references: [id])
+  // Optionally, reference PurchaseOrders or Inventory if B2B includes cross-tenant procurement
+  purchaseOrders PurchaseOrder[]
+  inventories    Inventory[]
+
+  StockTransfer StockTransfer[]
+
+  GlobalProduct GlobalProduct[] @relation("GlobalProductB2B")
 }
 
 model Supplier {
@@ -560,170 +581,29 @@ model Supplier {
   communicationLogs CommunicationLog[]
 }
 
-model CommunicationLog {
-  tenantId   String
-  id         String   @id @default(cuid())
-  customerId String?
-  supplierId String?
-  userId     String? // staff who initiated
-  method     String // "call", "email", "sms", "whatsapp", etc.
-  content    String
-  direction  String // "inbound", "outbound"
-  timestamp  DateTime @default(now())
-
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  customer Customer? @relation(fields: [customerId], references: [id])
-  supplier Supplier? @relation(fields: [supplierId], references: [id])
-  user     User?     @relation(fields: [userId], references: [id])
-}
-
-model User {
-  id        String   @id @default(cuid())
-  tenantId  String
-  storeId   String?
-  name      String
-  email     String   @unique
-  password  String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  store     Store?   @relation(fields: [storeId], references: [id])
-
-  // Auth/Password reset/invite
-  passwordResetToken   String?        @unique
-  passwordResetExpires DateTime?
-  inviteToken          String?        @unique
-  inviteExpires        DateTime?
-  refreshTokens        RefreshToken[]
-  roles                UserRole[]
-  posSessions          POSSession[]
-  transactions         Transaction[]
-
-  ActivityLog ActivityLog[]
-
-  Notification Notification[]
-
-  CommunicationLog CommunicationLog[]
-
-  stockTransfersRequester StockTransfer[] @relation("RequestedByUser")
-
-  stockTransfersApproved StockTransfer[] @relation("ApprovedByUser")
-
-  AuditLog AuditLog[]
-
-  // Relations to Inventory
-  createdInventories  Inventory[]   @relation("InventoryCreatedBy")
-  verifiedInventories Inventory[]   @relation("InventoryVerifiedBy")
-
-  Payment             Payment[]     @relation("PaymentUser")
-
-  StockTransferCreator StockTransfer[] @relation("TransferCreatedBy")
-
-  StockTransferApprover StockTransfer[] @relation("TransferApprovedBy")
-
-  PurchaseOrder PurchaseOrder[]     @relation("poCreatedBy")
-
-  PurchaseOrderUpdate PurchaseOrder[]     @relation("poUpdatedBy")
-
-  InvoiceCreatedBy Invoice[] @relation("invoiceCreatedBy")
-
-  InvoiceUpdatedBy Invoice[] @relation("invoiceUpdatedBy")
-
-  POSCashDrop POSCashDrop[]
-
-  POSReconciliation POSReconciliation[]
-
-  POSSalesReturn POSSalesReturn[]
-}
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-model UserRole {
-  id         String    @id @default(cuid())
-  tenantId   String
-  userId     String
-  roleId     String
-  assignedBy String?
-  assignedAt DateTime  @default(now())
-  expiresAt  DateTime? // Optional expiration
-
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
-  role   Role   @relation(fields: [roleId], references: [id])
-
-  @@unique([userId, roleId, tenantId])
-}
-
-model Role {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  description String?
-  context     String? // tenant, store, warehouse, etc.
-  isSystem    Boolean  @default(false) // System roles can't be modified
-  parentId    String? // New: For role hierarchy
-  warehouseId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  parent      Role?        @relation("RoleHierarchy", fields: [parentId], references: [id])
-  children    Role[]       @relation("RoleHierarchy")
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
-  permissions Permission[] @relation("RolePermissions")
-  userRoles   UserRole[]
-
-  @@unique([name, context])
-}
-
-model Permission {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  description String?
-  roles       Role[]  @relation("RolePermissions")
-}
-
-model B2BConnection {
-  id        String   @id @default(cuid())
-  tenantAId String
-  tenantBId String
-  status    String // pending, approved, rejected, revoked
-  settings  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenantA        Tenant          @relation("b2bA", fields: [tenantAId], references: [id])
-  tenantB        Tenant          @relation("b2bB", fields: [tenantBId], references: [id])
-  // Optionally, reference PurchaseOrders or Inventory if B2B includes cross-tenant procurement
-  purchaseOrders PurchaseOrder[]
-  inventories    Inventory[]
-
-  StockTransfer StockTransfer[]
-
-  GlobalProduct GlobalProduct[] @relation("GlobalProductB2B")
-}
-
 model ProductSupplier {
-  id         String   @id @default(cuid())
-  tenantId   String
-  productId  String
-  supplierId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenantProductId String?   // if linking a tenant’s own product
+  globalProductId String?   // if linking a shared/global product
+  supplierId      String
+  price           Float
+  leadTime        Int?
+  isGlobal        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
   supplier Supplier @relation(fields: [supplierId], references: [id])
 
-  TenantProduct TenantProduct[]
 
-  GlobalProduct GlobalProduct[]
+   // explicit relations
+  tenantProduct  TenantProduct? @relation(fields: [tenantProductId], references: [id])
+  globalProduct  GlobalProduct? @relation(fields: [globalProductId], references: [id])
+
+ 
+
+  TenantProduct TenantProduct[] @relation("TenantProductToSupplier")
 }
 
 model PurchaseOrder {
@@ -880,6 +760,152 @@ model InvoiceItem {
   lineTotal   Float
 
   invoice     Invoice   @relation(fields: [invoiceId], references: [id])
+}
+
+
+model Refund {
+  id              String   @id @default(cuid())
+  transactionId   String
+  refundItems     Json     // [{ productId, quantity, reason }]
+  totalRefund     Float
+  tenantId        String
+  userId          String?
+  refundMethod    String?  // cash, reversal, credit, etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+}
+
+
+model CommunicationLog {
+  tenantId   String
+  id         String   @id @default(cuid())
+  customerId String?
+  supplierId String?
+  userId     String? // staff who initiated
+  method     String // "call", "email", "sms", "whatsapp", etc.
+  content    String
+  direction  String // "inbound", "outbound"
+  timestamp  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  storeId   String?
+  name      String
+  email     String   @unique
+  password  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  store     Store?   @relation(fields: [storeId], references: [id])
+
+  // Auth/Password reset/invite
+  passwordResetToken   String?        @unique
+  passwordResetExpires DateTime?
+  inviteToken          String?        @unique
+  inviteExpires        DateTime?
+  refreshTokens        RefreshToken[]
+  roles                UserRole[]
+  posSessions          POSSession[]
+  transactions         Transaction[]
+
+  ActivityLog ActivityLog[]
+
+  Notification Notification[]
+
+  CommunicationLog CommunicationLog[]
+
+  stockTransfersRequester StockTransfer[] @relation("RequestedByUser")
+
+  stockTransfersApproved StockTransfer[] @relation("ApprovedByUser")
+
+  AuditLog AuditLog[]
+
+  // Relations to Inventory
+  createdInventories  Inventory[]   @relation("InventoryCreatedBy")
+  verifiedInventories Inventory[]   @relation("InventoryVerifiedBy")
+
+  Payment             Payment[]     @relation("PaymentUser")
+
+  StockTransferCreator StockTransfer[] @relation("TransferCreatedBy")
+
+  StockTransferApprover StockTransfer[] @relation("TransferApprovedBy")
+
+  PurchaseOrder PurchaseOrder[]     @relation("poCreatedBy")
+
+  PurchaseOrderUpdate PurchaseOrder[]     @relation("poUpdatedBy")
+
+  InvoiceCreatedBy Invoice[] @relation("invoiceCreatedBy")
+
+  InvoiceUpdatedBy Invoice[] @relation("invoiceUpdatedBy")
+
+  POSCashDrop POSCashDrop[]
+
+  POSReconciliation POSReconciliation[]
+
+  POSSalesReturn POSSalesReturn[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model UserRole {
+  id         String    @id @default(cuid())
+  tenantId   String
+  userId     String
+  roleId     String
+  assignedBy String?
+  assignedAt DateTime  @default(now())
+  expiresAt  DateTime? // Optional expiration
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId, tenantId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  context     String? // tenant, store, warehouse, etc.
+  isSystem    Boolean  @default(false) // System roles can't be modified
+  parentId    String? // New: For role hierarchy
+  warehouseId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      Role?        @relation("RoleHierarchy", fields: [parentId], references: [id])
+  children    Role[]       @relation("RoleHierarchy")
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  permissions Permission[] @relation("RolePermissions")
+  userRoles   UserRole[]
+
+  @@unique([name, context])
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  roles       Role[]  @relation("RolePermissions")
 }
 
 

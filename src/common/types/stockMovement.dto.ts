@@ -2,6 +2,7 @@
 export enum StockMovementType {
   PURCHASE = 'PURCHASE',
   SALE = 'SALE',
+  CONSUMPTION = 'CONSUMPTION',
   ADJUSTMENT = 'ADJUSTMENT',
   TRANSFER_IN = 'TRANSFER_IN',
   TRANSFER_OUT = 'TRANSFER_OUT',
@@ -18,7 +19,7 @@ export enum StockMovementType {
 
 export interface StockMovementEvent {
   tenantId: string;
-  productId: string;
+  tenantProductId: string;
   variantId?: string;
   storeId?: string;
   warehouseId?: string;

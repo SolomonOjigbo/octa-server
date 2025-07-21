@@ -8,6 +8,7 @@ import { z } from "zod";
 
 export const InventoryMovementSchema = z.object({
   tenantProductId: z.string().min(1),
+  globalProductId: z.string().cuid().optional(),
   tenantProductVariantId: z.string().optional(),
   batchNumber: z.string().optional(),
   storeId: z.string().optional(),
@@ -17,8 +18,18 @@ export const InventoryMovementSchema = z.object({
   expiryDate: z.coerce.date().optional(),
   movementType: z.nativeEnum(StockMovementType),
   reference: z.string().optional(),
+  reason: z.string().optional(),
   metadata: z.record(z.any()).optional()
-});
+})
+  .refine(
+    (data) =>
+      Boolean(data.tenantProductId) !== Boolean(data.globalProductId),
+    {
+      message:
+        "Must provide exactly one of 'tenantProductId' or 'globalProductId'",
+      path: ['tenantProductId', 'globalProductId'],
+    }
+  );
 
 export const VoidInventoryMovementSchema = z.object({
   id: z.string().min(1),
@@ -33,34 +44,24 @@ export const UpdateInventoryMovementSchema = z.object({
 });
 
 export const InventorySearchSchema = z.object({
-  productId: z.string().optional(),
-  variantId: z.string().optional(),
+  tenantProductId: z.string().cuid().optional(),
+  globalProductId: z.string().cuid().optional(),
+  tenantProductVariantId: z.string().cuid().optional(),
   storeId: z.string().optional(),
   warehouseId: z.string().optional(),
   movementType: z.string().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   voided: z.boolean().optional(),
-});
-
-
-
-// export const InventoryMovementSchema = z.object({
-//   tenantProductId:        z.string().cuid(),
-//   tenantProductVariantId: z.string().cuid().optional(),
-//   quantity:               z.number(),
-//   costPrice:              z.number().optional(),
-//   movementType:           z.string().min(1),
-//   reference:              z.string().optional(),
-//   batchNumber:            z.string().optional(),
-//   expiryDate:             z.coerce.date().optional(),
-//   storeId:                z.string().cuid().optional(),
-//   warehouseId:            z.string().cuid().optional(),
-//   temperature:            z.number().optional(),
-//   isControlled:           z.boolean().optional(),
-//   requiresRefrigeration:  z.boolean().optional(),
-//   metadata:               z.record(z.any()).optional(),
-// });
+}).refine(
+    (data) =>
+      Boolean(data.tenantProductId) !== Boolean(data.globalProductId),
+    {
+      message:
+        "Must provide exactly one of 'tenantProductId' or 'globalProductId'",
+      path: ['tenantProductId', 'globalProductId'],
+    }
+  );
 
 
 // export const InventoryAdjustmentSchema = z.object({

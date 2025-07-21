@@ -73,6 +73,20 @@ export const PERMISSIONS = [
   'pos:return:create',
   'pos:cashdrop:create',
   'pos:reconcile:create',
+  
+  // Sales
+  'sales:read',
+  'sales:create',
+  'sales:update',
+  'sales:delete',
+  'sales:view',
+
+  // Cashdrop
+  'cashdrop:read',
+  'cashdrop:create',
+  'cashdrop:update',
+  'cashdrop:delete',
+  'cashdrop:view',
 
   // Payments
   'payment:read',
@@ -82,6 +96,49 @@ export const PERMISSIONS = [
   'payment:refund',
   'payment:reverse',
   'payment:view',
+
+  // Refunds
+  'refund:read',
+  'refund:create',
+  'refund:update',
+  'refund:delete',
+  'refund:view',
+
+  // Returns
+  'return:read',
+  'return:create',
+  'return:update',
+  'return:delete',
+  'return:view',
+
+  // Supplier
+  'supplier:read',
+  'supplier:create',
+  'supplier:update',
+  'supplier:delete',
+  'supplier:view',
+
+  // Customer
+  'customer:read',
+  'customer:create',
+  'customer:update',
+  'customer:delete',
+  'customer:view',
+
+
+  // Reconciliation
+  'reconciliation:read',
+  'reconciliation:create',
+  'reconciliation:update',
+  'reconciliation:delete',
+  'reconciliation:view',
+
+  // B2B Connection
+  'b2b:read',
+  'b2b:create',
+  'b2b:update',
+  'b2b:delete',
+  'b2b:view',
 
   // Transactions
   'transaction:read',
@@ -101,15 +158,22 @@ export const PERMISSIONS = [
 
 // Role definitions
 export const ROLES = {
-  superAdmin: {
-    permissions: [...PERMISSIONS],
+  system_root: {
+    permissions: [
+      ...PERMISSIONS, 
+      // {'Add any other system permissions'}
+    ],
   },
 
-  tenantAdmin: {
+  super_admin: {
+    permissions: PERMISSIONS,
+  },
+
+  tenant_admin: {
     permissions: PERMISSIONS.filter(p => !p.startsWith('globalCategory') && !p.startsWith('globalProduct')),
   },
 
-  manager: {
+  store_manager: {
     permissions: [
       // read/view for all tenant domains
       'tenantCategory:read', 'tenantCategory:view',
@@ -118,12 +182,16 @@ export const ROLES = {
       'stock:read', 'stock:view',
       'inventory:read', 'inventory:view',
       'purchaseOrder:read', 'purchaseOrder:create', 'purchaseOrder:update', 'purchaseOrder:linkPayment', 'purchaseOrder:view',
+      'invoice:create', 'invoice:view', 'invoice:update', 'invoice:delete',
       'pos:session:read', 'pos:session:view', 'pos:transaction:create', 'pos:return:create',
       'stockTransfer:read', 'stockTransfer:create', 'stockTransfer:update', 'stockTransfer:view',
       'payment:create', 'payment:read', 'payment:view',
       'transaction:create', 'transaction:read', 'transaction:view',
       'reporting:sales','reporting:inventory','reporting:purchaseOrders','reporting:transactions','reporting:payments','reporting:b2bConnections',
       'b2b:read','b2b:create','b2b:update','b2b:view',
+      'communicationLog:create','communicationLog:view','communicationLog:update','communicationLog:delete',
+      'refund:create','refund:view','refund:update','refund:delete',
+
     ],
   },
 
@@ -137,6 +205,11 @@ export const ROLES = {
       'pos:reconcile:create',
       'stock:read',
       'inventory:read',
+       "sale:process",
+      "sale:reverse",
+      "discount:manage",
+      "customer:create",
+      "customer:view",
     ],
   },
 };
@@ -284,7 +357,7 @@ export const defaultPermissions = [
 
 export const defaultRoles = [
   {
-    name: "System Admin",
+    name: "Super Admin",
     description: "Full system access with all permissions",
     isSystem: true,
     permissions: permissions.map(p => p.name),

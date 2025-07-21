@@ -5,7 +5,7 @@ export class CacheService {
   private client: Redis;
 
   constructor() {
-    this.client = new Redis(process.env.REDIS_URL);
+    this.client = new Redis(process.env.REDIS_PROD_URL);
   }
 
   async get<T>(key: string): Promise<T | null> {

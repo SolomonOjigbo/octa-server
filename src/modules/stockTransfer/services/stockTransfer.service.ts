@@ -1,5 +1,4 @@
 // src/modules/stockTransfer/services/stockTransfer.service.ts
-
 import {
   CreateStockTransferDto,
   ApproveStockTransferDto,
@@ -14,6 +13,7 @@ import { EVENTS } from '@events/events';
 import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
 import { b2bConnectionService } from '@modules/b2b/services/b2bConnection.service';
+import { inventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
 
 export class StockTransferService {
   private cacheKey(tenantId: string) {
@@ -36,8 +36,6 @@ export class StockTransferService {
     if (!transfer || transfer.tenantId !== tenantId) throw new AppError('Not found', 404);
     return transfer;
   }
-
-
 
   async requestTransfer(
     tenantId: string,
@@ -79,6 +77,8 @@ export class StockTransferService {
     const record = await prisma.stockTransfer.create({
       data: { tenantId, status: 'pending', createdById: userId, ...dto },
     });
+     await inventoryFlowService.recordStockTransferReceipt(tenantId, userId,  record.id);
+     
    await cacheService.del(this.cacheKey(tenantId));
     await auditService.log({
       tenantId,
@@ -130,8 +130,9 @@ export class StockTransferService {
       where: { id },
       data: { status: 'approved', approvedById: userId },
     });
-
-
+    
+    
+    eventBus.emit('stockTransfer.received', { stockTransferId: id });
     await cacheService.del(this.cacheKey(t.tenantId));
     await auditService.log({
       tenantId,
@@ -142,6 +143,8 @@ export class StockTransferService {
       details: dto,
     });
     eventBus.emit(EVENTS.STOCK_TRANSFER_APPROVED, updated);
+
+
     return updated;
   }
 

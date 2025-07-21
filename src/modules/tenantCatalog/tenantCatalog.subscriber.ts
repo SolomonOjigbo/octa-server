@@ -9,7 +9,7 @@ import {logger} from "@logging/logger";
 // Helper: fetch tenant catalog admins
 async function getCatalogAdmins(name: string, context: any): Promise<string[]> {
    const {tenantId, storeId, warehouseId } = context;
-  const role = await roleService.getRoleByName("tenant_catalog_admin", context);
+  const role = await roleService.getRoleByName("tenant_admin", context);
   if (!role) return [];
   const assignments = await userRoleService.getRoleUsers(role.id);
   return assignments.map(a => a.user.email).filter(Boolean);
@@ -19,7 +19,7 @@ async function getCatalogAdmins(name: string, context: any): Promise<string[]> {
 eventBus.on(EVENTS.TENANT_PRODUCT_CREATED, async (payload) => {
 //   const toList = await getCatalogAdmins(name, context);
     const emails = await userRoleService.getUserEmailsByRoleName(
-      "tenant_catalog_admin",
+      "tenant_admin",
       payload.tenantId
     );
   for (const to of emails) {
@@ -36,7 +36,7 @@ eventBus.on(EVENTS.TENANT_PRODUCT_CREATED, async (payload) => {
 eventBus.on(EVENTS.TENANT_PRODUCT_UPDATED, async (p) => {
 //   const toList = await getCatalogAdmins(p.tenantId);
   const emails = await userRoleService.getUserEmailsByRoleName(
-      "tenant_catalog_admin",
+      "tenant_admin",
       p.tenantId
     );
   for (const to of emails) {
@@ -60,7 +60,7 @@ eventBus.on(EVENTS.TENANT_PRODUCT_DELETED, async (p) => {
         // });
         // }
   const emails = await userRoleService.getUserEmailsByRoleName(
-      "tenant_catalog_admin",
+      "tenant_admin",
       p.tenantId
     );
   for (const to of emails) {
@@ -86,7 +86,7 @@ eventBus.on(EVENTS.TENANT_CATEGORY_CREATED, async (c) => {
 //   }
 
   const emails = await userRoleService.getUserEmailsByRoleName(
-      "tenant_catalog_admin",
+      "tenant_admin",
       c.tenantId
     );
     for (const to of emails) {
@@ -110,7 +110,7 @@ eventBus.on(EVENTS.TENANT_CATEGORY_UPDATED, async (c) => {
 //     });
 //   }
     const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         c.tenantId
     );
     for (const to of emails) {
@@ -127,7 +127,7 @@ eventBus.on(EVENTS.TENANT_CATEGORY_UPDATED, async (c) => {
 eventBus.on(EVENTS.TENANT_CATEGORY_DELETED, async (c) => {
 //   const toList = await getCatalogAdmins(c.tenantId);
 const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         c.tenantId
     );
   for (const to of emails) {
@@ -144,7 +144,7 @@ const emails = await userRoleService.getUserEmailsByRoleName(
 eventBus.on(EVENTS.TENANT_VARIANT_CREATED, async (v) => {
 //   const toList = await getCatalogAdmins(v.tenantId);
 const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         v.tenantId
     );
   for (const to of emails) {
@@ -168,7 +168,7 @@ eventBus.on(EVENTS.TENANT_VARIANT_UPDATED, async (v) => {
         // });
         // }
 const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         v.tenantId
     );
   for (const to of emails) {
@@ -193,7 +193,7 @@ eventBus.on(EVENTS.TENANT_VARIANT_DELETED, async (v) => {
 //   }
 
 const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_catalog_admin",
+        "tenant_admin",
         v.tenantId
     );
     for (const to of emails) {
