@@ -1,3 +1,4 @@
+import 'module-alias/register';
 import { authService } from "../../../modules/auth/services/auth.service";
 import { Middleware } from "./middleware/Middleware";
 import { RequestMiddleware } from "./middleware/RequestMiddleware";
@@ -14,7 +15,8 @@ import { swaggerUiHandler, swaggerUiSetup } from "../config/swagger";
 import "@modules/tenantCatalog/tenantCatalog.subscriber";
 import "@modules/globalCatalog/globalCatalog.subscriber";
 import "@modules/pos/posSession.subscriber";
-
+import "@modules/invoice/invoice.subscriber";
+import "@modules/reconciliation/reconciliation.subscriber";
 
 
 

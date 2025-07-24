@@ -1,6 +1,35 @@
+// src/modules/payment/validations.ts
 import { z } from 'zod';
+import {
+  PaymentReferenceType,
+  PaymentStatus
+} from '@prisma/client';
 
-// in validations.ts
+export const CreatePaymentSchema = z.object({
+  amount:          z.number().min(0),
+  method:          z.string(),
+  reference:       z.string().optional(),
+  status:          z.nativeEnum(PaymentStatus).default(PaymentStatus.PENDING),
+  referenceType:   z.nativeEnum(PaymentReferenceType).optional(),
+  transactionId:   z.string().cuid().optional(),
+  purchaseOrderId: z.string().cuid().optional(),
+  invoiceId:       z.string().cuid().optional(),
+  sessionId:       z.string().cuid().optional(),
+  userId:          z.string().cuid().optional(),
+  paymentDate:     z.coerce.date().optional(),
+});
+
+export const UpdatePaymentSchema = CreatePaymentSchema.partial();
+
+
+
+
+
+
+
+
+
+
 export const RefundPaymentSchema = z.object({
   amount: z.number().min(0).optional(),    // if partial refund
   reason: z.string().optional(),
@@ -8,29 +37,6 @@ export const RefundPaymentSchema = z.object({
 
 export const ReversePaymentSchema = z.object({
   reason: z.string().optional(),
-});
-
-
-export const createPaymentSchema = z.object({
-  tenantId:       z.string().cuid(),
-  customerId:      z.string().cuid().optional(),             // �� add
-  purchaseOrderId: z.string().cuid().optional(),
-  transactionId:   z.string().cuid().optional(),
-  sessionId:       z.string().cuid().optional(),             // ← add
-  amount:          z.number().min(0),
-  method:          z.string().min(1),
-  reference:       z.string().optional(),
-  status:          z.enum(['pending','completed','failed','refunded','cancelled']).default('pending'),
-  paidAt:          z.coerce.date().optional(),               // ← add
-  userId:          z.string().cuid().optional(),             // rarely user‐supplied, but reflect Prisma
-});
-
-export const updatePaymentSchema = z.object({
-  amount:    z.number().min(0).optional(),
-  method:    z.string().min(1).optional(),
-  reference: z.string().optional(),
-  status:    z.enum(['pending','completed','failed','refunded','cancelled']).optional(),
-  paidAt:    z.coerce.date().optional(),                     // ← add
 });
 
 

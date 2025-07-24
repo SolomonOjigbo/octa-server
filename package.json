@@ -55,7 +55,7 @@
     "redis": "^4.6.6",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuidv4": "^6.2.13",
+    "uuid": "^11.1.0",
     "validator": "^13.9.0",
     "winston": "^3.17.0",
     "zod": "^3.25.67"

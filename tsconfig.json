@@ -22,11 +22,10 @@
       "@middleware/*": ["middleware/*"],
       "@logging/*": ["logging/*"],
       "@lib/*": ["lib/*"],
-      "@prisma/*": ["prisma/*"],
       "@common/*": ["common/*"],
       "@cache/*": ["cache/*"],
       "@events/*": ["events/*"],
-      "@config/*": ["shared/config/*"]
+      "@config/*": ["shared/config/*"],
     }
 
   },

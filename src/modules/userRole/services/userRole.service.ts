@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { AssignRoleDto, RemoveRoleDto } from "../types/userRole.dto";
 
-const prisma = new PrismaClient();
+
 
 export class UserRoleService {
   async assignRole(dto: AssignRoleDto) {

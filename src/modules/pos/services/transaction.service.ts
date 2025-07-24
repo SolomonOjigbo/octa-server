@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import prisma from "@shared/infra/database/prisma";
+
 
 type Transaction = Awaited<ReturnType<typeof prisma.transaction.create>>;
 

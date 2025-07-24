@@ -17,7 +17,7 @@ export interface BaseAuditLog {
   tenantId: string;
   userId?: string;
   action: string;
-  entityType: string;
+  module: string;
   entityId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -118,7 +118,7 @@ export interface UserActivityParams {
 
 export interface AuditLogQueryParams {
   tenantId: string;
-  entityType?: string;
+  module?: string;
   entityId?: string;
   action?: string;
   userId?: string;
@@ -273,7 +273,7 @@ export type AuditActionType =
   tenantId: string;
   userId?: string;
   action: string;
-  entityType: string;
+  module: string;
   entityId: string;
   metadata?: T;
   ipAddress?: string;

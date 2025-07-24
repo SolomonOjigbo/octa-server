@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 
-const prisma = new PrismaClient();
+
 
 export class PermissionService {
   async createPermission(name: string, description?: string) {

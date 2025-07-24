@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { CreateCommunicationLogDto } from "../types/crm.dto";
 
-const prisma = new PrismaClient();
+
 
 export class CommunicationLogService {
   async createLog(dto: CreateCommunicationLogDto) {

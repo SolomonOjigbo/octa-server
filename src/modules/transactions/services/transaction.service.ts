@@ -1,13 +1,14 @@
-import { PrismaClient } from "@prisma/client";
-import { CreateTransactionDto, GetTransactionFilters, TransactionResponseDto, UpdateTransactionDto, UpdateTransactionStatusDto } from "../types/transaction.dto";
+import prisma from "@shared/infra/database/prisma";
+import { CreateTransactionDto, GetTransactionFilters, TransactionPaymentStatus, TransactionResponseDto, TransactionStatus, UpdateTransactionDto} from "../types/transaction.dto";
 import { auditService } from "@modules/audit/services/audit.service";
 import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
 import { paymentService } from "@modules/payments/services/payment.service";
 import { cacheService } from "@cache/cache.service";
 import { AppError } from "@common/constants/app.errors";
+import { PaymentStatus } from "@prisma/client";
 
-const prisma = new PrismaClient();
+
 
 export class TransactionService {
 
@@ -28,7 +29,7 @@ export class TransactionService {
     }
     return prisma.transaction.findMany({
       where,
-      include: { items: true, payments: true, customer: true, user: true, store: true, posSession: true },
+      include: { items: true, payments: true, customer: true, store: true, posSession: true },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -37,20 +38,20 @@ export class TransactionService {
     const key = this.cacheKey(tenantId);
     const cached = await cacheService.get<TransactionResponseDto[]>(key);
     if (cached) return cached;
-
+  
     const records = await prisma.transaction.findMany({
       where: { tenantId },
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
     await cacheService.set(key, records, 300);
-    return records;
+    return records as TransactionResponseDto[];
   }
  
 
-  async createTransaction(tenantId: string, userId: string, dto: CreateTransactionDto): Promise<TransactionResponseDto>  {
+  async createTransaction(tenantId: string, userId: string, dto: CreateTransactionDto) {
 
      // 1) If it’s a PO invoice, mark the PO “invoiced” or update its balance
-  if (dto.referenceType === 'purchaseOrder' && dto.referenceId) {
+  if (dto.referenceType === 'PURCHASE_ORDER' && dto.referenceId) {
     await prisma.purchaseOrder.update({
       where: { id: dto.referenceId },
       data: { status: 'invoiced' }
@@ -58,34 +59,47 @@ export class TransactionService {
   }
 
   // 2) If it’s a POS transaction, mark the sale “posted”
-  if (dto.referenceType === 'posTransaction' && dto.referenceId) {
-    await prisma.posTransaction.update({
+  if (dto.referenceType === 'POS_TRANSACTION' && dto.referenceId) {
+    await prisma.transaction.update({
       where: { id: dto.referenceId },
-      data: { status: 'posted' }
+      data: { status: 'COMPLETED' }
     });
   }
 
   // 3) If it’s a stock transfer, record the financial side
-  if (dto.referenceType === 'stockTransfer' && dto.referenceId) {
+  if (dto.referenceType === 'STOCK_TRANSFER' && dto.referenceId) {
     await prisma.stockTransfer.update({
       where: { id: dto.referenceId },
-      data: { financialStatus: 'billed' }
+      data: { status: 'BILLED' }
     });
   }
 
   // 4) Create the transaction record
   const rec = await prisma.transaction.create({
-    data: {
-      tenantId,
-      createdById: userId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ...dto,
-    }
+     data: {
+        tenant: { connect: { id: tenantId } },
+        store:       dto.storeId     ? { connect: { id: dto.storeId     } } : undefined,
+        warehouse:   dto.warehouseId ? { connect: { id: dto.warehouseId } } : undefined,
+        createdBy:   { connect: { id: userId } },
+        customer:      dto.customerId  ? { connect: { id: dto.customerId  } } : undefined,
+        amount:        dto.amount,
+        discount:      dto.discount,
+        taxAmount:     dto.taxAmount,
+        referenceType: dto.referenceType,
+        referenceId:   dto.referenceId,
+        shippingFee:   dto.shippingFee,
+        shippingType:  dto.shippingType,
+        shippingAddress:dto.shippingAddress,
+        metadata:      dto.metadata,
+        paymentMethod: dto.paymentMethod,
+        paymentStatus: dto.paymentStatus,
+        status:        "PENDING",
+        posSession:    dto.posSessionId ? { connect:{ id:dto.posSessionId }} : undefined,
+      }
   });
 
     // 5) If paymentStatus=’paid’, kick off a Payment record too
-  if (dto.paymentStatus === 'paid') {
+  if (dto.paymentStatus === 'PAID') {
     await paymentService.create(
       tenantId,
       userId,
@@ -93,7 +107,7 @@ export class TransactionService {
         transactionId: rec.id,
         amount: rec.amount,
         method: 'internal',       // or info from metadata
-        status: 'completed',
+        status: PaymentStatus.COMPLETED,
         paymentDate: new Date()
       }
     );
@@ -112,13 +126,17 @@ export class TransactionService {
     userId: string,
     id: string,
     dto: UpdateTransactionDto
-  ): Promise<TransactionResponseDto> {
+  ) {
     const existing = await this.getById(tenantId, id);
+    if (!existing){
+      throw new AppError('Transaction not found', 404);
+    }
     const rec = await prisma.transaction.update({
       where: { id },
       data: {
         ...dto,
-        updatedBy: { connect: { id: userId } },
+        status: 'PENDING',
+        updatedById: userId,
       },
     });
     await cacheService.del(this.cacheKey(tenantId));
@@ -138,7 +156,7 @@ export class TransactionService {
   //   return prisma.transaction.update({ where: { id }, data: { status: dto.status } });
   // }
 
-   async getById(tenantId: string, id: string): Promise<TransactionResponseDto> {
+   async getById(tenantId: string, id: string){
     const rec = await prisma.transaction.findUnique({ where: { id } });
     if (!rec || rec.tenantId !== tenantId) {
       throw new AppError('Transaction not found', 404);
@@ -170,53 +188,3 @@ export class TransactionService {
 }
 
 export const transactionService = new TransactionService();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// type Transaction = Awaited<ReturnType<typeof prisma.transaction.create>>;
-
-// export class TransactionService {
-//   async createTransaction(data: Partial<Transaction>): Promise<Transaction> {
-//     return prisma.transaction.create({ data });
-//   }
-
-//   async getTransactionById(id: string): Promise<Transaction | null> {
-//     return prisma.transaction.findUnique({ where: { id } });
-//   }
-
-//   async updateTransaction(id: string, data: Partial<Transaction>): Promise<Transaction> {
-//     return prisma.transaction.update({ where: { id }, data });
-//   }
-
-//   async deleteTransaction(id: string): Promise<Transaction> {
-//     return prisma.transaction.delete({ where: { id } });
-//   }
-
-//   async listTransactionsByStore(storeId: string): Promise<Transaction[]> {
-//     return prisma.transaction.findMany({ where: { storeId } });
-//   }
-
-//   async listTransactionsByTenant(tenantId: string): Promise<Transaction[]> {
-//     return prisma.transaction.findMany({ where: { tenantId } });
-//   }
-
-//   async listTransactionsByCustomer(customerId: string): Promise<Transaction[]> {
-//     return prisma.transaction.findMany({ where: { customerId } });
-//   }
-// }

@@ -1,3 +1,5 @@
+import { CreateStoreDto, StoreType } from "@modules/store/types/store.dto";
+
 // Business Entity DTOs
 export interface CreateBusinessEntityDto {
   tenantId: string;
@@ -12,9 +14,10 @@ export interface BusinessEntityDto {
   tenantId: string;
   name: string;
   taxId?: string;
-  legalAddress?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  legalAddress: string;
+  stores?: CreateStoreDto[];
+  createdAt?: Date;
+  updatedAt?: Date;
   metadata?: {
     createdBy?: string;
     updatedBy?: string;

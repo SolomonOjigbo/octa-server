@@ -23,11 +23,12 @@ export interface CreateStoreDto {
   address?: string;
   phone?: string;
   email?: string;
-  type?: string;
+  type: string;
   status?: string;
   isMain?: boolean;
   managerId?: string;
   openingHours?: any[];
+  createdAt?: Date;
 }
 
 export interface UpdateStoreDto extends Partial<CreateStoreDto> {}

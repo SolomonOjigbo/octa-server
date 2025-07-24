@@ -17,6 +17,7 @@ export interface AdjustProductStockDto {
   storeId?: string;
   warehouseId?: string;
   quantity: number;
+  costPrice?: number;
   reference?: string;
   movementType?: string;
   batchNumber?: string;

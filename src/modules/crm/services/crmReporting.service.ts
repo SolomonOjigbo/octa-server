@@ -1,6 +1,6 @@
 
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import prisma from "@shared/infra/database/prisma";
+
 
 export class CRMReportingService {
   async getCustomerSummary(customerId: string) {

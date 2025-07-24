@@ -6,13 +6,20 @@ export interface CreateCustomerDto {
   email?: string;
   phone?: string;
   address?: string;
-  gender?: 'male' | 'female' | 'other';
-  dateOfBirth?: string;
-  isActive?: boolean;
   loyaltyNumber?: string;
   segment?: string;
   tags?: string[];
-  defaultPaymentTerm?: string;
+}
+
+export interface TenantCustomerDto {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  loyaltyNumber?: string;
+  segment?: string;
+  tags?: string[];
 }
 
 export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {}

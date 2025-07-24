@@ -1,8 +1,8 @@
 // src/modules/audit/services/audit.service.ts
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { AuditEntry } from "../types/audit.dto";
 
-const prisma = new PrismaClient();
+
 
 export class AuditService {
   async log(entry: AuditEntry) {

@@ -1,8 +1,8 @@
 import winston from 'winston';
-import { PrismaClient } from '@prisma/client';
 import { LogEntry, LoggerConfig, HttpRequestLog } from './types';
+import prisma from '@shared/infra/database/prisma';
 
-const prisma = new PrismaClient();
+
 
 export const createConsoleTransport = (config: LoggerConfig) => {
   if (!config.logToConsole) return null;

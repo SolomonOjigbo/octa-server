@@ -35,5 +35,5 @@ export interface BaseItem {
   quantity: number;
   reason?: string;
   reference: string;
-  metadata?: any;
+  metadata?: Record<string, any>;
 }

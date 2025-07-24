@@ -1,6 +1,6 @@
 // src/modules/globalCatalog/services/globalCategory.service.ts
 
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { CreateGlobalCategoryDto, UpdateGlobalCategoryDto } from "../types/globalCatalog.dto";
 import { cacheService } from "@cache/cache.service";
 import { CacheKeys } from "@cache/cacheKeys";
@@ -10,7 +10,7 @@ import { EVENTS } from "@events/events";
 import {logger }from "@logging/logger";
 import { createGlobalCategorySchema, updateGlobalCategorySchema } from "../validations";
 
-const prisma = new PrismaClient();
+
 
 export class GlobalCategoryService {
   async create(tenantId: string, actorId: string, dto: CreateGlobalCategoryDto) {

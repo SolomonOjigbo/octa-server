@@ -1,5 +1,5 @@
 // auth.middleware.ts
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-const prisma = new PrismaClient();
+
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;

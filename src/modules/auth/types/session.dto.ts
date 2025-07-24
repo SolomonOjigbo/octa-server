@@ -17,6 +17,7 @@ export interface CreateSessionDto {
 }
 
 export interface UpdateSessionDto {
+  token?: string;
   ipAddress?: string;
   userAgent?: string;
 }

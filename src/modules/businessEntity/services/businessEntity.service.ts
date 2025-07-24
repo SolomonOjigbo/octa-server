@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { BusinessEntityDto, CreateBusinessEntityDto, UpdateBusinessEntityDto } from "../types/businessEntity.dto";
 
-const prisma = new PrismaClient();
+
 
 export class BusinessEntityService {
 async createEntity(dto: CreateBusinessEntityDto) {

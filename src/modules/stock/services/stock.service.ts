@@ -30,7 +30,7 @@ export class StockService {
       };
 
       // Fetch current stock
-      const existing = await tx.stock.findUnique({ where });
+      const existing = await tx.stock.findUnique({ where: {id: dto.id} });
       const oldQty = existing?.quantity ?? 0;
       const newQty = oldQty + dto.quantity;
 
@@ -40,8 +40,8 @@ export class StockService {
 
       // Upsert stock
       const stock = await tx.stock.upsert({
-        where,
-        create: { ...where, quantity: newQty },
+        where: {id: dto.id},
+        create: { ...dto, quantity: newQty },
         update: { quantity: newQty },
       });
 
@@ -55,7 +55,7 @@ export class StockService {
           tenantProductVariantId: dto.tenantProductVariantId ?? null,
           batchNumber: dto.batchNumber ?? null,
           quantity: dto.quantity,
-          costPrice: dto.costPrice ?? existing?.costPrice ?? null,
+          costPrice: dto.costPrice ?? null,
           expiryDate: dto.expiryDate,
           movementType: dto.movementType,
           reference: dto.reference,

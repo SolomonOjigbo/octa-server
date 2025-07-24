@@ -1,5 +1,7 @@
 // src/modules/pos/types/pos.dto.ts
 
+import { TransactionStatus } from "@modules/transactions/types/transaction.dto";
+
 export type OpenSessionDto = {
   storeId: string;
   openingBalance: number;
@@ -29,6 +31,7 @@ export interface CreateTransactionDto {
   sessionId: string;
   customerId?: string;
   items: SaleItemDto[];
+  status?: TransactionStatus;
   paymentMethod: string;
   total: number;
   cashReceived?: number;

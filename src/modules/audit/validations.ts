@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const auditQuerySchema = z.object({
   tenantId: z.string().cuid().optional(),
-  entityType: z.string().min(2).max(50).optional(),
+  module: z.string().min(2).max(50).optional(),
   entityId: z.string().min(1).max(50).optional(),
   action: z.string().min(2).max(50).optional(),
   userId: z.string().cuid().optional(),

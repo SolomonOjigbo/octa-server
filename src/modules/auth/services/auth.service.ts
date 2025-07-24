@@ -1,13 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { add, isAfter } from "date-fns";
 import { signJwt, verifyJwt } from "../utils/jwt";
-import { redisClient } from "../../../middleware/cache";
-import { SessionInfo } from "../types/session.dto";
 import { sessionService } from "../services/session.service";
+import prisma from "@shared/infra/database/prisma";
 
-const prisma = new PrismaClient();
 
 export class AuthService {
   async login(email: string, password: string, ip?: string, userAgent?: string) {
@@ -29,7 +27,6 @@ export class AuthService {
       userId: user.id, 
       tenantId: user.tenantId,
       storeId: user.storeId || undefined,
-      warehouseId: user.warehouseId || undefined
     });
 
     const refreshToken = await sessionService.createSession({
@@ -52,7 +49,6 @@ export class AuthService {
         email: user.email,
         tenantId: user.tenantId,
         storeId: user.storeId,
-        warehouseId: user.warehouseId
       },
       accessToken,
       refreshToken
@@ -77,7 +73,6 @@ export class AuthService {
       userId: user.id,
       tenantId: user.tenantId,
       storeId: user.storeId || undefined,
-      warehouseId: user.warehouseId || undefined
     });
 
     // Update session info

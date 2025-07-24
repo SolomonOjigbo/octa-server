@@ -1,5 +1,5 @@
 import { PrismaClient} from "@prisma/client";
-const prisma = new PrismaClient();
+
 
 type UserRole = Awaited<ReturnType<typeof prisma.userRole.create>>;
 

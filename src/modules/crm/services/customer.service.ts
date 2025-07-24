@@ -1,7 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-import { CreateCustomerDto, UpdateCustomerDto } from "../types/crm.dto";
+import prisma from "@shared/infra/database/prisma";
+import { CreateCustomerDto, TenantCustomerDto, UpdateCustomerDto } from "../types/crm.dto";
+import { logger } from "@logging/logger";
 
-const prisma = new PrismaClient();
+
 
 export class CustomerService {
   async createCustomer(dto: CreateCustomerDto) {
@@ -30,7 +31,34 @@ async deleteCustomer(id: string) {
     return prisma.customer.delete({ where: { id } });
   }
 
-  // src/modules/crm/customer.service.ts
+
+
+  async createCustomerForTenantB(tenantA: TenantCustomerDto, tenantBId: string) {
+  const exists = await prisma.customer.findFirst({
+    where: {
+      tenantId: tenantBId,
+      linkedTenantId: tenantA.id,
+    },
+  });
+
+
+  if (exists) {
+    logger.info(`[Customer] Customer for Tenant ${tenantA.id} already exists in Tenant ${tenantBId}`);
+    return exists;
+  }
+
+  return prisma.customer.create({
+    data: {
+      tenantId: tenantBId,
+      name: tenantA.name,
+      segment: 'wholesale',
+      tags: ['b2b', 'octa-tenant'],
+      linkedTenantId: tenantA.id,
+    },
+  });
+}
+
+
 async createFromB2BConnection(connection, partnerTenant) {
   return prisma.customer.upsert({
     where: {

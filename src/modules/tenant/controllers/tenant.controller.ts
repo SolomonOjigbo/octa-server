@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { tenantService } from "../services/tenant.service";
 import { tenantOnboardingSchema, updateTenantSchema } from "../validations";
 import {  UpdateTenantDto, TenantResponseDto, TenantOnboardingDto } from "../types/tenant.dto";
-import { auditService } from "../../audit/types/audit.service";
+import { auditService } from "../../audit/services/audit.service";
 import { AuditAction } from "../../audit/types/audit.dto";
 
 export class TenantController {
@@ -59,7 +59,7 @@ export class TenantController {
         userId: req.user?.id,
         tenantId: id,
         action: AuditAction.TENANT_UPDATED,
-        entityType: "Tenant",
+        module: "Tenant",
         entityId: id
       });
 
@@ -81,7 +81,7 @@ export class TenantController {
         userId: req.user?.id,
         tenantId: id,
         action: AuditAction.TENANT_DELETED,
-        entityType: "Tenant",
+        module: "Tenant",
         entityId: id
       });
 

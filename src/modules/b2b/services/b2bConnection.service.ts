@@ -6,6 +6,7 @@ import { EVENTS } from '@events/events';
 import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
 import { HttpStatusCode } from '@common/constants/http';
+import { customerService } from '@modules/crm/services/customer.service';
 
 
 export class B2BConnectionService {
@@ -74,6 +75,10 @@ export class B2BConnectionService {
       where: { id },
       data: { status: 'approved' },
     });
+    
+    const tenantA = await prisma.tenant.findUnique({ where: { id: conn.tenantAId  } });
+
+    await customerService.createCustomerForTenantB(tenantA, tenantId);
 
     await cacheService.del(this.cacheKey(conn.tenantAId));
     await cacheService.del(this.cacheKey(conn.tenantBId));

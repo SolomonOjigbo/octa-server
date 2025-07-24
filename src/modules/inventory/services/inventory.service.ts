@@ -197,7 +197,9 @@ async updateMovement(
   const updated = await prisma.inventory.update({
     where: { id },
     data: {
-      metadata: { ...existing.metadata, ...dto.metadata },
+      metadata: existing.metadata && dto.metadata
+        ? { ...dto.metadata }
+        : dto.metadata || existing.metadata,
       batchNumber: dto.batchNumber,
       expiryDate: dto.expiryDate,
     },
@@ -243,7 +245,6 @@ async updateMovement(
     data: {
       voided: true,
       metadata: {
-        ...record.metadata,
         voidedBy: userId,
         voidedAt: new Date().toISOString(),
         voidReason: reason,

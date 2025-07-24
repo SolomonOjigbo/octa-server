@@ -1,23 +1,32 @@
-export type PaymentStatus = 'pending'|'completed'|'failed'|'refunded'|'cancelled';
+// src/modules/payment/types/payment.dto.ts
+import {
+  PaymentReferenceType,
+  PaymentStatus
+} from '@prisma/client';
 
 export interface CreatePaymentDto {
-  purchaseOrderId?: string;
-  transactionId?:   string;
-  sessionId?:       string;     // ← add
   amount:           number;
   method:           string;
   reference?:       string;
-  status?:          'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
-  paymentDate?:          Date;
+  status?:          PaymentStatus;
+  referenceType?:   PaymentReferenceType;
+  transactionId?:   string;
+  purchaseOrderId?: string;
+  invoiceId?:       string;
+  sessionId?:       string;
+  userId?:          string;
+  paymentDate?:     Date;
 }
 
 export interface UpdatePaymentDto {
-  amount?:    number;
-  method?:    string;
-  reference?: string;
-  status?:    PaymentStatus;
-  paidAt?:    Date;              // ← add
+  amount?:        number;
+  method?:        string;
+  reference?:     string;
+  status?:        PaymentStatus;
+  referenceType?: PaymentReferenceType;
+  paymentDate?:   Date;
 }
+
 
 
 export interface CreateRefundDto {

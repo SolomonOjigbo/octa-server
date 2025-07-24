@@ -2,7 +2,7 @@
 import prisma from '@shared/infra/database/prisma';
 import { CreateGlobalProductVariantDto, UpdateGlobalProductVariantDto } from '../types/globalCatalog.dto';
 
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { cacheService } from "@cache/cache.service";
 import { CacheKeys } from "@cache/cacheKeys";
 import { auditService } from "@modules/audit/services/audit.service";

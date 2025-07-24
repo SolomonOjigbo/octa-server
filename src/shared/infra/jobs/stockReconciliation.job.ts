@@ -1,11 +1,11 @@
 
 
 import cron from "node-cron";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import {logger} from "@logging/logger";
 import { notificationService } from "@modules/notification/services/notification.service";
 
-const prisma = new PrismaClient();
+
 
 // Run daily at 3:00 AM
 export function scheduleStockReconciliation() {

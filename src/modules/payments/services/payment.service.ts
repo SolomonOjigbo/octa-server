@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { CreatePaymentDto, CreateRefundDto, PaymentResponseDto, RefundPaymentDto, ReversePaymentDto, UpdatePaymentDto } from "../types/payment.dto";
 import { auditService } from "@modules/audit/services/audit.service";
 import { AppError, ErrorCode } from "@common/constants/app.errors";
@@ -9,10 +9,8 @@ import { logger } from "@logging/logger";
 import { paymentEvents } from "@events/types/paymentEvents.dto";
 import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
-import { invoiceService } from "@modules/invoice/services/invoice.service";
-import { CreateInvoicePaymentDto } from "@modules/invoice/types/invoice.dto";
 
-const prisma = new PrismaClient();
+
 
 
 
@@ -22,96 +20,58 @@ export class PaymentService {
     return `payments:${tenantId}`;
   }
 
-
-  //V1 Services
-    async create(
-      tenantId: string,
-      userId: string,
-      dto: CreatePaymentDto
-    ): Promise<PaymentResponseDto> {
-
-    const rec = await prisma.payment.create({
+  async create(
+    tenantId: string,
+    userId:   string,
+    dto:      CreatePaymentDto
+  ) {
+    const payment = await prisma.payment.create({
       data: {
-        tenantId,
+        tenant:        { connect: { id: tenantId } },
+        amount:        dto.amount,
+        method:        dto.method,
+        reference:     dto.reference,
+        status:        dto.status,
+        referenceType: dto.referenceType,
+        transaction:   dto.transactionId
+                          ? { connect: { id: dto.transactionId } }
+                          : undefined,
         purchaseOrder: dto.purchaseOrderId
-          ? { connect: { id: dto.purchaseOrderId } }
-          : undefined,
-        posTransaction: dto.transactionId
-          ? { connect: { id: dto.transactionId } }
-          : undefined,
-        amount:      dto.amount,
-        method:      dto.method,
-        reference:   dto.reference,
-        paymentDate: dto.paymentDate,
-        createdBy:   { connect: { id: userId } },
+                          ? { connect: { id: dto.purchaseOrderId } }
+                          : undefined,
+        invoice:       dto.invoiceId
+                          ? { connect: { id: dto.invoiceId } }
+                          : undefined,
+        paymentDate:   dto.paymentDate,
+        createdBy:     { connect: { id: userId } },
       },
     });
 
-    // after creating payment:
-if (dto.purchaseOrderId) {
-  // 1) adjust PO balance
-  const po = await prisma.purchaseOrder.update({
-    where:{ id: dto.purchaseOrderId },
-    data: { 
-      // assume you have an outstandingAmount field
-      outstandingAmount: { decrement: dto.amount },
-      status: {
-        set: 
-        /* if outstandingAmount <= 0 then 'paid' else keep existing */
-        dto.amount <= 0? 'paid' : dto.status  // assuming status is a string field
-      }
-    }
-  });
-}
-
-    if (dto.transactionId) {
-      // 2) mark POS transaction as paid
-      await prisma.posTransaction.update({
-        where:{ id: dto.transactionId },
-        data:{ status:'paid' }
-      });
-    }
-
-    await cacheService.del(this.cacheKey(tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module:   'Payment',
-      action:   'create',
-      entityId: rec.id,
-      details:  dto,
-    });
-    eventBus.emit(EVENTS.PAYMENT_CREATED, rec);
-    return rec;
+    return payment;
   }
 
-  //resource only available to root (System) Admin 
   async update(
     tenantId: string,
     userId: string,
     id: string,
     dto: UpdatePaymentDto
-  ): Promise<PaymentResponseDto> {
-    const existing = await this.getById(tenantId, id);
-    const rec = await prisma.payment.update({
+  ) {
+    const payment = await prisma.payment.update({
       where: { id },
       data: {
-        ...dto,
-        updatedBy: { connect: { id: userId } },
-      },
+        amount:        dto.amount,
+        method:        dto.method,
+        reference:     dto.reference,
+        status:        dto.status,
+        referenceType: dto.referenceType,
+        paymentDate:   dto.paymentDate,
+        updatedAt:     new Date(),
+        // updatedBy:     dto.userId ? { connect: { id: dto.userId } } : { connect: { id: userId } },
+      }
     });
-    await cacheService.del(this.cacheKey(tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module:   'Payment',
-      action:   'update',
-      entityId: id,
-      details:  dto,
-    });
-    eventBus.emit(EVENTS.PAYMENT_UPDATED, rec);
-    return rec;
+    return payment;
   }
+
 
     async delete(tenantId: string, userId: string, id: string): Promise<void> {
     const existing = await this.getById(tenantId, id);
@@ -136,26 +96,27 @@ async refund(
   dto: RefundPaymentDto
 ) {
   const orig = await this.getById(tenantId, id);
-  if (orig.status !== 'completed') 
+  if (orig.status !== 'COMPLETED') 
     throw new AppError('Only completed payments can be refunded', 400);
 
   const refundAmount = dto.amount ?? orig.amount;
   // 1) mark original as refunded (or partial)
   await prisma.payment.update({
     where:{ id },
-    data: { status:'refunded', updatedBy:{ connect:{ id:userId } }, reference: dto.reason }
+    data: { status:'refunded', reference: dto.reason }
   });
 
   // 2) optionally create a negative‐amount payment record
   const refundRec = await prisma.payment.create({
     data:{
-      tenantId,
+      tenant:        { connect: { id: tenantId } },
       amount:       -refundAmount,
       method:       orig.method,
       reference:    `refund for ${id}`,
-      status:       'completed',
-      paidAt:       new Date(),
-      user:         { connect:{ id:userId } },
+      status:       'COMPLETED',
+      paymentDate:       new Date(),
+      createdBy:           { connect: { id: userId} },
+      referenceType:  "POS_TRANSACTION",
       transaction:  orig.transactionId ? { connect:{ id:orig.transactionId } } : undefined,
       purchaseOrder: orig.purchaseOrderId ? { connect:{ id:orig.purchaseOrderId } } : undefined,
     }
@@ -169,9 +130,9 @@ async refund(
     });
   }
   if (orig.transactionId) {
-    await prisma.posTransaction.update({
+    await prisma.transaction.update({
       where:{ id: orig.transactionId },
-      data:{ status:'refunded' }
+      data:{ status:'REFUNDED' }
     });
   }
 
@@ -189,20 +150,17 @@ async reverse(
   dto:ReversePaymentDto
 ) {
   const orig = await this.getById(tenantId, id);
-  if (orig.status !== 'pending')
+  if (orig.status !== 'PENDING')
     throw new AppError('Only pending payments can be reversed', 400);
 
   const rec = await prisma.payment.update({
     where:{ id },
-    data:{ status:'cancelled', reference: dto.reason, updatedBy:{ connect:{ id:userId } } }
+    data:{ status:'cancelled', reference: dto.reason, userId:userId }
   });
   await auditService.log({ tenantId, userId, module:'Payment', action:'reverse', entityId:id, details: dto });
   eventBus.emit(EVENTS.PAYMENT_REVERSED, rec);
   return rec;
 }
-
-
-  //V2 Services
   /**
    * Creates a payment and updates the related transaction or purchase order.
    */
@@ -211,7 +169,21 @@ async reverse(
       // 1. Create the payment record
       const payment = await tx.payment.create({
         data: {
-          ...dto,
+          tenant:        { connect: { id: tenantId } },
+           amount:        dto.amount,
+            method:        dto.method,
+            reference:     dto.reference,
+            status:        dto.status,
+            referenceType: dto.referenceType,
+            transaction:   dto.transactionId
+                              ? { connect: { id: dto.transactionId } }
+                              : undefined,
+            purchaseOrder: dto.purchaseOrderId
+                              ? { connect: { id: dto.purchaseOrderId } }
+                              : undefined,
+            invoice:       dto.invoiceId
+                              ? { connect: { id: dto.invoiceId } }
+                              : undefined,
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date()
         }
       });
@@ -227,7 +199,7 @@ async reverse(
         }))._sum.amount || 0;
 
         let paymentStatus = "partial";
-        if (totalPaid >= transaction.totalAmount) {
+        if (totalPaid >= transaction.amount) {
           paymentStatus = "paid";
         }
         await tx.transaction.update({ where: { id: dto.transactionId }, data: { paymentStatus } });
@@ -325,7 +297,7 @@ async reverse(
           purchaseOrderId: originalPayment.purchaseOrderId,
           sessionId: dto.sessionId ?? originalPayment.sessionId,
           userId: dto.userId,
-          paidAt: new Date(),
+          paymentDate: new Date(),
         },
       });
 
@@ -345,7 +317,7 @@ async reverse(
     });
   }
 
-  async list(tenantId: string): Promise<PaymentResponseDto[]> {
+  async list(tenantId: string) {
     const key = this.cacheKey(tenantId);
     const cached = await cacheService.get<PaymentResponseDto[]>(key);
     if (cached) return cached;
@@ -361,7 +333,7 @@ async reverse(
     return prisma.payment.findMany({ where: filters });
   }
 
-  async getById(tenantId: string, id: string): Promise<PaymentResponseDto> {
+  async getById(tenantId: string, id: string) {
     const payment = await prisma.payment.findUnique({ where: { id } });
     if (!payment || payment.tenantId !== tenantId) {
       throw new AppError('Payment not found', 404);

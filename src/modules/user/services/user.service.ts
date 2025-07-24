@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { CreateUserDto, UpdateUserDto } from "../types/user.dto";
+import prisma from "@shared/infra/database/prisma";
 
-const prisma = new PrismaClient();
+
 
 export class UserService {
   async createUser(dto: CreateUserDto) {
@@ -36,8 +36,7 @@ export class UserService {
         email: dto.email,
         phone: dto.phone,
         password: hashed,
-        isRoot: dto.isRoot ?? false,
-        isActive: true,
+        isActive: true,   
       },
     });
   }

@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { BusinessEntityDto } from "../../businessEntity/types/businessEntity.dto";
-import { CreateUserDto } from "../../user/types/user.dto";
+import { BusinessEntityDto, UpdateBusinessEntityDto } from "../../businessEntity/types/businessEntity.dto";
+import { CreateUserDto, UpdateUserDto } from "../../user/types/user.dto";
+import { StoreType } from "@modules/store/types/store.dto";
 
-
-// Types
 
 export interface TenantOnboardingDto {
   tenant: {
@@ -16,12 +15,14 @@ export interface TenantOnboardingDto {
     name: string;
     taxId?: string;
     legalAddress?: string;
+    tenantId: string;
   };
   store: {
     name: string;
     code: string;
     address?: string;
     isMain?: boolean;
+    type?: StoreType;
   };
   adminUser: {
     name: string;
@@ -48,10 +49,10 @@ export interface TenantResponseDto {
   contactEmail?: string;
   createdAt: Date;
   updatedAt: Date;
-  updatedBy?: string | null; // User ID of the last updater
+  updatedBy?: string | null;
 }
 
 export interface TenantWithRelationsDto extends TenantResponseDto {
-  businessEntities: BusinessEntityDto[];
-  users: CreateUserDto[];
+  businessEntities: UpdateBusinessEntityDto[];
+  users: UpdateUserDto[];
 }

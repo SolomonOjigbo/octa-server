@@ -17,7 +17,7 @@ router.use(requireAuth);
     *        tags: [Audit]
     *        summary: List audit logs
     *        parameters:
-    *        - name: entityType
+    *        - name: module
     *            in: query
     *            schema:
     *            type: string

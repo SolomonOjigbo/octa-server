@@ -34,7 +34,7 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_CREATED, async (payload: {
     await cacheService.del(CacheKeys.globalProductList(payload.tenantId));
 
     const emails = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -77,7 +77,7 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_UPDATED, async (payload: {
 
 
     const emails = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -121,7 +121,7 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_DELETED, async (payload: {
 
 
     const emails = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -154,7 +154,7 @@ eventBus.on(EVENTS.GLOBAL_CATEGORY_CREATED, async (payload: {
   try {
     // 1. Notification emails
     const emails = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -194,7 +194,7 @@ eventBus.on(EVENTS.GLOBAL_CATEGORY_UPDATED, async (payload: {
 }) => {
   try {
   const recipients = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -231,7 +231,7 @@ eventBus.on(EVENTS.GLOBAL_CATEGORY_DELETED, async (payload: {
 }) => {
   try {
     const recipients = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -271,7 +271,7 @@ eventBus.on(EVENTS.GLOBAL_VARIANT_CREATED, async (payload: {
 }) => {
   try {
     const recipients = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -307,7 +307,7 @@ eventBus.on(EVENTS.GLOBAL_VARIANT_UPDATED, async (payload: {
 }) => {
   try {
     const recipients = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 
@@ -345,7 +345,7 @@ eventBus.on(EVENTS.GLOBAL_VARIANT_DELETED, async (payload: {
 }) => {
   try {
     const recipients = await userRoleService.getUserEmailsByRoleName(
-      "global_catalog_admin",
+      "super_admin",
       payload.tenantId
     );
 

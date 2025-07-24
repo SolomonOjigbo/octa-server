@@ -1,10 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@shared/infra/database/prisma";
 import { add, isAfter } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
 import { redisClient } from "../../../middleware/cache";
 import { SessionInfo, CreateSessionDto, UpdateSessionDto, SessionResponse } from "../types/session.dto";
 
-const prisma = new PrismaClient();
 
 export class SessionService {
   private readonly SESSION_EXPIRY_DAYS = 7;
@@ -20,11 +19,22 @@ export class SessionService {
         tenantId: sessionData.tenantId,
         token,
         expiresAt,
-        ipAddress: sessionData.ipAddress,
-        userAgent: sessionData.userAgent
       }
     });
 
+    // 2. Manually build your full SessionInfo
+const sessionInfo: SessionInfo = {
+  id:         session.id,
+  userId:     session.userId,
+  token:      session.token,
+  expiresAt:  session.expiresAt,
+  createdAt:  session.createdAt,
+  tenantId:   session.tenantId,    
+  ipAddress:  sessionData.ipAddress, // now TS knows this isn’t part of the DB call
+  userAgent:  sessionData.userAgent,
+};
+
+// 3. Cache and return the enriched object
     await this.cacheSession(session);
 
     return token;
@@ -100,8 +110,6 @@ export class SessionService {
     return sessions.map(session => ({
       id: session.id,
       createdAt: session.createdAt,
-      ipAddress: session.ipAddress || undefined,
-      userAgent: session.userAgent || undefined,
       expiresAt: session.expiresAt
     }));
   }

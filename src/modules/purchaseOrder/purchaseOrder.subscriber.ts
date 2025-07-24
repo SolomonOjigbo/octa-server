@@ -39,5 +39,6 @@ export class PurchaseOrderSubscriber {
   private onPurchaseOrderReceived = async ({ tenantId, userId, poId }: { tenantId: string, userId: string, poId: string }) => {
     // Trigger stock adjustment or reconciliation if necessary
     await this.inventoryFlowService.recordReceiptForPO(tenantId, userId, poId);
+    
   };
 }

@@ -18,7 +18,7 @@ import {
   LogoutDto
 } from "../types/auth.dto";
 import { AuditAction } from "../../audit/types/audit.dto";
-import { auditService } from "../../audit/types/audit.service";
+import { auditService } from "../../audit/services/audit.service";
 
 export class AuthController {
   async login(req: Request, res: Response) {
@@ -37,7 +37,7 @@ export class AuthController {
       userId: result.user.id,
       tenantId: result.user.tenantId,
       action: AuditAction.USER_LOGIN,
-      entityType: "User",
+      module: "User",
       entityId: result.user.id,
   
     });
@@ -71,7 +71,7 @@ export class AuthController {
         userId: user.id,
         tenantId: user.tenantId,
         action: AuditAction.USER_LOGOUT,
-        entityType: "User",
+        module: "User",
         entityId: user.id
       });
     }
@@ -96,7 +96,7 @@ export class AuthController {
       userId: user.id,
       tenantId: user.tenantId,
       action: AuditAction.USER_INVITED,
-      entityType: "User",
+      module: "User",
       entityId: validated.email,
     });
 
@@ -115,7 +115,7 @@ export class AuthController {
       userId: user.id,
       tenantId: user.tenantId,
       action: AuditAction.USER_ACTIVATED,
-      entityType: "User",
+      module: "User",
       entityId: user.id
     });
 
@@ -140,7 +140,7 @@ export class AuthController {
         userId: user.id,
         tenantId: user.tenantId,
         action: AuditAction.PASSWORD_RESET,
-        entityType: "User",
+        module: "User",
         entityId: user.id
       });
     }

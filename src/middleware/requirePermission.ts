@@ -15,11 +15,11 @@ export function requirePermission(permission: string) {
         throw new ForbiddenError("Authentication required");
       }
 
-      const { id: userId, tenantId, storeId, warehouseId } = req.user;
+      const { id: userId, tenantId, storeId } = req.user;
 
 
       // Cache key for user permissions
-      const cacheKey = `user:${userId}:permissions:${tenantId}:${storeId || ''}:${warehouseId || ''}`;
+      const cacheKey = `user:${userId}:permissions:${tenantId}:${storeId}`;
 
       // Try to get permissions from cache
       let permissions: string[] = [];
