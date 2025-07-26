@@ -11,6 +11,7 @@ export const createSupplierSchema = z.object({
   performanceMetrics: z.record(z.any()).optional(),
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
+  createdAt: z.date()
 });
 
 export const updateSupplierSchema = createSupplierSchema.partial();

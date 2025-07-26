@@ -28,6 +28,7 @@ export const CreateTransactionSchema = z.object({
   items: z.array(SaleItemSchema).min(1),
   paymentMethod: z.string(),
   cashReceived: z.number().min(0).optional(),
+  amount:  z.number().min(0)
 });
 
 export const CreatePaymentSchema = z.object({

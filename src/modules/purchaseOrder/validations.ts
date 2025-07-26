@@ -1,5 +1,6 @@
 
 // src/modules/purchaseOrder/validations.ts
+import { PaymentStatus } from '@modules/transactions/types/transaction.dto';
 import { z } from 'zod';
 
 /**
@@ -33,6 +34,8 @@ export const CreatePurchaseOrderSchema = z.object({
   orderDate: z.coerce.date(),
   receivedDate: z.coerce.date().optional(),
   totalAmount: z.number().min(0),
+  status: z.enum(['pending', 'approved', 'received', 'cancelled']).default('pending'),
+  userId: z.string().cuid(),
   notes: z.string().optional(),
   items: z.array(PurchaseOrderItemSchema).min(1),
 });
@@ -52,4 +55,6 @@ export const CancelPurchaseOrderSchema = z
 export const LinkPaymentSchema = z.object({
   paymentId: z.string().cuid(),
   amount: z.number().min(0),
+  paymentMethod: z.string().optional(),
+  status: z.nativeEnum(PaymentStatus)
 });

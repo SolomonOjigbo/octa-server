@@ -162,7 +162,6 @@ router.put(
 );
 
 
-
 /**
  * @swagger
  * /stores/{id}:
@@ -177,17 +176,15 @@ router.put(
  *         schema:
  *           type: string
  *         required: true
- *        description: Store ID
- *    responses:
+ *         description: Store ID
+ *     responses:
  *       204:
  *         description: Store deleted successfully
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden
- * 
  */
-
 router.delete(
   "/:id",
   requireAuth,

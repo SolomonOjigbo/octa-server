@@ -12,8 +12,8 @@ import { CreateSupplierDto } from '../types/supplier.dto';
 export class SupplierController {
   createSupplier = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user!.tenantId, userId = req.user!.id;
-    const dto = { ...createSupplierSchema.parse(req.body), tenantId } as CreateSupplierDto;
-    const supplier = await supplierService.createSupplier(dto);
+    const dto = createSupplierSchema.parse(req.body) as CreateSupplierDto;
+    const supplier = await supplierService.createSupplier(dto, tenantId);
 
     await auditService.log({ tenantId, userId, action:'SUPPLIER_CREATED', module:'Supplier', entityId:supplier.id, metadata:dto });
     eventEmitter.emit('supplier:created', supplier);

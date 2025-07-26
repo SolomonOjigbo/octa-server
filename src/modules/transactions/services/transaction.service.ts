@@ -1,5 +1,5 @@
 import prisma from "@shared/infra/database/prisma";
-import { CreateTransactionDto, GetTransactionFilters, TransactionPaymentStatus, TransactionResponseDto, TransactionStatus, UpdateTransactionDto} from "../types/transaction.dto";
+import { CreateTransactionDto, GetTransactionFilters, TransactionResponseDto, TransactionStatus, UpdateTransactionDto} from "../types/transaction.dto";
 import { auditService } from "@modules/audit/services/audit.service";
 import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
@@ -93,7 +93,7 @@ export class TransactionService {
         metadata:      dto.metadata,
         paymentMethod: dto.paymentMethod,
         paymentStatus: dto.paymentStatus,
-        status:        "PENDING",
+        status:        "POSTED",
         posSession:    dto.posSessionId ? { connect:{ id:dto.posSessionId }} : undefined,
       }
   });
@@ -107,7 +107,7 @@ export class TransactionService {
         transactionId: rec.id,
         amount: rec.amount,
         method: 'internal',       // or info from metadata
-        status: PaymentStatus.COMPLETED,
+        status: PaymentStatus.PAID,
         paymentDate: new Date()
       }
     );
@@ -128,14 +128,16 @@ export class TransactionService {
     dto: UpdateTransactionDto
   ) {
     const existing = await this.getById(tenantId, id);
-    if (!existing){
+    if (!existing) {
       throw new AppError('Transaction not found', 404);
     }
     const rec = await prisma.transaction.update({
       where: { id },
       data: {
         ...dto,
-        status: 'PENDING',
+        storeId: dto.storeId,
+        status: dto.status,
+        paymentMethod: dto.paymentMethod,
         updatedById: userId,
       },
     });

@@ -16,6 +16,7 @@ export interface InventoryMovementDto {
   expiryDate?: Date;
   movementType: string;
   reference?: string;
+  reason?: string;
   metadata?: any;
 }
 

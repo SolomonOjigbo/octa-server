@@ -9,6 +9,7 @@ export interface CreateSupplierDto {
   performanceMetrics?: Record<string, any>;
   paymentTerms?: string;
   notes?: string;
+  createdAt: Date;
 }
 
 export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {}

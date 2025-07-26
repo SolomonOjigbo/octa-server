@@ -55,7 +55,7 @@ export interface PurchaseOrderAuditMetadata {
 }
 
 export interface StockAuditMetadata {
-  productId: string;
+  tenantProductId: string;
   variantId?: string;
   previousQuantity: number;
   newQuantity: number;

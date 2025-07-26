@@ -8,7 +8,7 @@ export type PosEventPayload = {
     method: string;
     reference?: string;
     items?: {
-      productId: string;
+      tenantProductId: string;
       quantity: number;
       reason?: string;
     }[];

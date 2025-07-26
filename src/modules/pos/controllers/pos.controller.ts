@@ -45,7 +45,7 @@ export const posController = {
   }),
 
   createSalesReturn: asyncHandler(async (req, res) => {
-    const dto = CreateSalesReturnSchema.parse(req.body) as CreateTransactionDto;
+    const dto = CreateSalesReturnSchema.parse(req.body) as CreateSalesReturnDto;
     const ret = await posService.createSalesReturn(req.user!.tenantId, req.user!.id, dto);
     res.status(201).json(ret);
   }),
@@ -89,7 +89,7 @@ export const posController = {
     const userId = req.user?.id;
     const tenantId = req.user.tenantId;
 
-    const dto = CreateTransactionSchema.parse(req.body) as CreateTransactionDto;
+    const dto = CreateTransactionSchema.parse(req.body) as CreateSalesReturnDto;
     // if (!parsed.success) {
     //   return res.status(400).json({ error: parsed.error.errors });
     // }

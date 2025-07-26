@@ -35,14 +35,14 @@ async getById(req:Request, res:Response) {
     const userId = req.user!.id;
     const tenantId = req.user!.tenantId;
     const dto = GlobalProductSchema.partial().parse(req.body) as UpdateGlobalProductDto;
-    res.json(await globalProductService.updateGlobalProduct(id, tenantId, dto));
+    res.json(await globalProductService.updateGlobalProduct(id, userId, tenantId, dto));
   });
   /** @swagger /global-products/{id} delete */
   delete = asyncHandler(async (req,res) => {
     const userId = req.user!.id;
     const id = req.params.id;
     const tenantId = req.user!.tenantId;
-    await globalProductService.deleteGlobalProduct(id, tenantId);
+    await globalProductService.deleteGlobalProduct(id, userId, tenantId);
     res.sendStatus(204);
   });
 }

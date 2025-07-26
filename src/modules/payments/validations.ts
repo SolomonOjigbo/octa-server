@@ -9,7 +9,7 @@ export const CreatePaymentSchema = z.object({
   amount:          z.number().min(0),
   method:          z.string(),
   reference:       z.string().optional(),
-  status:          z.nativeEnum(PaymentStatus).default(PaymentStatus.PENDING),
+  status:          z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
   referenceType:   z.nativeEnum(PaymentReferenceType).optional(),
   transactionId:   z.string().cuid().optional(),
   purchaseOrderId: z.string().cuid().optional(),

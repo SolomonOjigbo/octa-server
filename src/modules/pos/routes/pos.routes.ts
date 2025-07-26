@@ -1,5 +1,3 @@
-// POS Session endpoints
-// src/modules/pos/pos.routes.ts
 import { Router } from "express";
 import { posController } from "../controllers/pos.controller";
 import { requirePermission } from "@middleware/requirePermission";
@@ -14,7 +12,7 @@ router.use(requireAuth);
  * @swagger
  * tags:
  *   - name: POS
- *     description: Point‐of‐sale operations
+ *     description: Point-of-sale operations
  */
 
 /**
@@ -23,8 +21,9 @@ router.use(requireAuth);
  *   post:
  *     tags: [POS]
  *     summary: Open a new POS session
- *     security: [bearerAuth: []]
- *      requestBody:
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
  *       content:
  *         application/json:
  *           schema:
@@ -49,7 +48,8 @@ router.post(
  *       - name: id
  *         in: path
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *     requestBody:
  *       content:
  *         application/json:

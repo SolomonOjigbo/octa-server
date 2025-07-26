@@ -12,7 +12,7 @@ export class POSReceiptService {
       include: {
         items: true,
         customer: true,
-        session: {
+        posSession: {
           include: {
             store: true,
             user: true,
@@ -35,11 +35,11 @@ export class POSReceiptService {
       transactionId: transaction.id,
       date: transaction.createdAt,
       store: {
-        name: transaction.session.store.name,
-        address: transaction.session.store.address,
+        name: transaction.posSession.store.name,
+        address: transaction.posSession.store.address,
       },
       cashier: {
-        name: transaction.session.user.name,
+        name: transaction.posSession.user.name,
       },
       customer: transaction.customer ?? null,
       items: transaction.items.map((item) => ({
@@ -48,16 +48,16 @@ export class POSReceiptService {
         quantity: item.quantity,
         price: item.price,
         discount: item.discount,
-        tax: item.tax,
+        // tax: item.,
       })),
       totals: {
-        total: transaction.total,
+        total: transaction.amount,
         paymentMethod: transaction.paymentMethod,
         payments: transaction.payments,
       },
       metadata: {
         sessionId: transaction.posSessionId,
-        reference: transaction.reference,
+        reference: transaction.referenceType,
       },
     };
   }

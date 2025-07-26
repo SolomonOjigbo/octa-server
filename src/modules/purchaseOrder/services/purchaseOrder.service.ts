@@ -104,15 +104,15 @@ export class PurchaseOrderService {
     // 4) Create the PO + items
     const po = await prisma.purchaseOrder.create({
       data: {
-        tenantId,
-        supplierId: dto.supplierId,
-        storeId: dto.storeId ?? null,
-        warehouseId: dto.warehouseId ?? null,
+        tenant: {connect: {id: tenantId}},
+        supplier: {connect: {id: dto.supplierId}},
+        status: dto.status,
+        store: {connect: {id: dto.storeId }},
         orderDate: dto.orderDate,
         receivedDate: dto.receivedDate ?? null,
         totalAmount: dto.totalAmount,
         notes: dto.notes ?? undefined,
-        createdById: userId,
+        createdBy: {connect: {id:userId}},
         items: {
           createMany: {
             data: items.map((it) => ({
@@ -264,11 +264,14 @@ export class PurchaseOrderService {
     const po = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        payments: {
+        Payment: {
           create: {
-            paymentId: dto.paymentId,
+            tenantId: tenantId,
+            method: dto.paymentMethod,
+            id: dto.paymentId,
             amount: dto.amount,
-            createdBy: { connect: { id: userId } },
+            status: dto.status
+            // createdBy: { connect: { id: userId } },
           },
         },
         updatedById: userId,

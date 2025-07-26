@@ -27,7 +27,10 @@ export class GlobalCategoryService {
     const exists = await prisma.globalCategory.findUnique({ where: { name: data.name } });
     if (exists) throw new Error("Category name must be unique.");
 
-    const cat = await prisma.globalCategory.create({ data });
+    const cat = await prisma.globalCategory.create({ data: {
+      ...data,
+      parent: {connect: {id: data.parentId}},
+    } });
 
     await auditService.log({ tenantId, userId: actorId, module: "global_category", action: "create", entityId: cat.id, details: data });
     cacheService.del(CacheKeys.globalCategoryList());

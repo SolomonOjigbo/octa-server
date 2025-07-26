@@ -7,25 +7,21 @@ const router = Router();
 router.use(requireAuth);
 /**
  * @swagger
- * tags:
- *   - name: Transactions
- *     description: Generic financial transactions ledger
- */
-
-
-/**
- * @swagger
- * /transactions/{id}:
+ * /transactions/search:
  *   get:
  *     tags: [Transactions]
- *    summary: search transactions by query parameters
- *  parameters:
- *      - name: id
- *        in: path
- *       required: true
- *     schema:
- * 
- * 
+ *     summary: Search transactions by query parameters
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of matching transactions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/TransactionResponseDto'
  */
 router.get("/search", transactionController.searchTransactions.bind(transactionController));
 
@@ -62,7 +58,8 @@ router.get(
  *       - name: id
  *         in: path
  *         required: true
- *         schema: { type: string }
+ *         schema: 
+ *           type: string
  *     responses:
  *       200:
  *         description: Transaction record

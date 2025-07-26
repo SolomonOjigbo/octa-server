@@ -1,7 +1,7 @@
 // src/modules/transactions/validations.ts
 import { TransactionReferenceType } from "@prisma/client";
 import { z } from "zod";
-import { TransactionPaymentStatus, TransactionStatus } from "./types/transaction.dto";
+import { PaymentStatus, TransactionStatus } from "./types/transaction.dto";
 
 
 
@@ -30,7 +30,7 @@ export const CreateTransactionSchema = z.object({
   shippingAddress:z.string().optional(),
   metadata:       z.record(z.any()).optional(),
   paymentMethod:  z.string(),
-  paymentStatus:  z.nativeEnum(TransactionPaymentStatus).default(TransactionPaymentStatus.UNPAID),
+  paymentStatus:  z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
   status:         z.nativeEnum(TransactionStatus).default(TransactionStatus.POSTED),
   posSessionId:   z.string().cuid().optional(),
 });

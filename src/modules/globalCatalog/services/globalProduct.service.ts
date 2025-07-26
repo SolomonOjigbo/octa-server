@@ -89,7 +89,7 @@ export class GlobalProductService {
     });
     await Promise.all([
       cacheService.del(CacheKeys.globalProductList(categoryId)),
-      cacheService.del(CacheKeys.globalProductDetail(tenantId, product.id  ))
+      cacheService.del(CacheKeys.globalProductDetail(product.id))
     ]);
     logger.info(`GlobalProduct created: ${product.id}`);
 
@@ -115,6 +115,7 @@ export class GlobalProductService {
   async updateGlobalProduct(
     id: string,
     userId: string,
+    tenantId: string,
     dto: UpdateGlobalProductDto,
   ) {
     // 1. Unique code check if changed
@@ -133,7 +134,7 @@ export class GlobalProductService {
 
     // 3. Audit
     await auditService.log({
-      tenantId: product.tenantId,
+      tenantId: tenantId,
       userId: userId,
       module: "global_product",
       action: "update",
@@ -142,14 +143,14 @@ export class GlobalProductService {
     });
 
     // 4. Cache
-    await cacheService.del(CacheKeys.globalProductList(product.tenantId));
+    await cacheService.del(CacheKeys.globalProductList(product.globalCategoryId));
     await cacheService.del(
-      CacheKeys.globalProductDetail(product.tenantId, id)
+      CacheKeys.globalProductDetail(id)
     );
 
     // 5. Event
     eventBus.emit(EVENTS.GLOBAL_PRODUCT_UPDATED, {
-      tenantId: product.tenantId,
+      tenantId: tenantId,
       globalProductId: id,
       changes: dto,
       userId,
@@ -159,7 +160,7 @@ export class GlobalProductService {
     return product;
   }
 
-  async deleteGlobalProduct(id: string, userId: string) {
+  async deleteGlobalProduct(id: string, userId: string, tenantId: string) {
     // 1. Fetch to get tenantId
     const product = await prisma.globalProduct.findUnique({ where: { id } });
     if (!product) throw new Error("GlobalProduct not found.");
@@ -169,7 +170,7 @@ export class GlobalProductService {
 
     // 3. Audit
     await auditService.log({
-      tenantId: product.tenantId,
+      tenantId: tenantId,
       userId: userId,
       module: "global_product",
       action: "delete",
@@ -177,14 +178,14 @@ export class GlobalProductService {
     });
 
     // 4. Cache
-    await cacheService.del(CacheKeys.globalProductList(product.tenantId));
+    await cacheService.del(CacheKeys.globalProductList(tenantId));
     await cacheService.del(
-      CacheKeys.globalProductDetail(product.tenantId, id)
+      CacheKeys.globalProductDetail( id)
     );
 
     // 5. Event
     eventBus.emit(EVENTS.GLOBAL_PRODUCT_DELETED, {
-      tenantId: product.tenantId,
+      tenantId: tenantId,
       globalProductId: id,
       userId,
     });
@@ -207,7 +208,7 @@ export class GlobalProductService {
     // Fetch first to get tenantId
     const product = await prisma.globalProduct.findUnique({ where: { id } });
     if (!product) throw new Error("GlobalProduct not found.");
-    const key = CacheKeys.globalProductDetail(product.tenantId, id);
+    const key = CacheKeys.globalProductDetail(id);
     let p = await cacheService.get<any>(key);
     if (!p) {
       p = product;

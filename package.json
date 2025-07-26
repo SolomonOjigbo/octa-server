@@ -95,7 +95,9 @@
     "@database": "dist/shared/database",
     "@middleware": "dist/middleware",
     "@routes": "dist/routes",
-    "@config": "dist/shared/config"
+    "@config": "dist/shared/config",
+    "@logging": "dist/logging",
+    "@common": "dist/common"
   },
   "husky": {
     "hooks": {

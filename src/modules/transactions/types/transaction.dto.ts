@@ -1,4 +1,5 @@
 
+
 export enum TransactionReferenceType {
   PURCHASE_ORDER = 'PURCHASE_ORDER',
   POS_TRANSACTION = 'POS_TRANSACTION',
@@ -8,8 +9,8 @@ export enum TransactionReferenceType {
 }
 
 // For payment status
-export enum TransactionPaymentStatus {
-  BILLED = 'BILLED',
+export enum PaymentStatus {
+  BILLED = 'PROCESSING',
   UNPAID = 'UNPAID',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
   PAID = 'PAID',
@@ -22,7 +23,7 @@ export enum TransactionStatus {
   CANCELLED = 'CANCELLED',
   POSTED = 'POSTED',
   REVERSED = 'REVERSED',
-  RETURNED = 'RETURNED',
+  FAILED = 'RETURNED',
 }
   
 
@@ -42,7 +43,7 @@ export interface CreateTransactionDto {
   shippingAddress?: string;
   metadata?:      Record<string, any>;
   paymentMethod:  string;
-  paymentStatus?: TransactionPaymentStatus;
+  paymentStatus?: PaymentStatus;
   status?:        TransactionStatus;
   posSessionId?:  string;
 }

@@ -57,23 +57,22 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_CREATED, async (payload: {
 // GLOBAL CATALOG UPDATED
 eventBus.on(EVENTS.GLOBAL_PRODUCT_UPDATED, async (payload: {
   tenantId: string;
-  catalogId: string;
-  updatedBy: string;
+  globalProductId: string;
+  userId: string;
   changes: any;
-  recipients: string[];
 }) => {
   try {
     await auditService.log({
       tenantId: payload.tenantId,
-      userId: payload.updatedBy,
+      userId: payload.userId,
       module: "global_catalog",
       action: "update",
-      entityId: payload.catalogId,
+      entityId: payload.globalProductId,
       details: payload.changes,
     });
 
     await cacheService.del(CacheKeys.globalProductList(payload.tenantId));
-    await cacheService.del(CacheKeys.globalProductDetail(payload.tenantId, payload.catalogId));
+    await cacheService.del(CacheKeys.globalProductDetail(payload.globalProductId));
 
 
     const emails = await userRoleService.getUserEmailsByRoleName(
@@ -87,13 +86,13 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_UPDATED, async (payload: {
     for (const to of emails) {
       await notificationService.sendEmail({
         to,
-        subject: `Global Catalog Updated: ${payload.catalogId}`,
+        subject: `Global Catalog Updated: ${payload.globalProductId}`,
         template: "globalCatalogUpdated",
-        variables: { id: payload.catalogId, changes: payload.changes },
+        variables: { id: payload.globalProductId, changes: payload.changes },
       });
     }
 
-    logger.info(`Handled GLOBAL_CATALOG_UPDATED for ${payload.catalogId}`);
+    logger.info(`Handled GLOBAL_CATALOG_UPDATED for ${payload.globalProductId}`);
   } catch (err) {
     logger.error("Error in GLOBAL_CATALOG_UPDATED subscriber", err);
   }
@@ -102,22 +101,20 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_UPDATED, async (payload: {
 // GLOBAL CATALOG DELETED
 eventBus.on(EVENTS.GLOBAL_PRODUCT_DELETED, async (payload: {
   tenantId: string;
-  catalogId: string;
-  deletedBy: string;
-  name: string;
-  recipients: string[];
+  globalProductId: string;
+  userId: string;
 }) => {
   try {
     await auditService.log({
       tenantId: payload.tenantId,
-      userId: payload.deletedBy,
+      userId: payload.userId,
       module: "global_catalog",
       action: "delete",
-      entityId: payload.catalogId,
+      entityId: payload.globalProductId,
     });
 
     await cacheService.del(CacheKeys.globalProductList(payload.tenantId));
-    await cacheService.del(CacheKeys.globalProductDetail(payload.tenantId, payload.catalogId));
+    await cacheService.del(CacheKeys.globalProductDetail(payload.globalProductId));
 
 
     const emails = await userRoleService.getUserEmailsByRoleName(
@@ -129,13 +126,13 @@ eventBus.on(EVENTS.GLOBAL_PRODUCT_DELETED, async (payload: {
     for (const to of emails) {
       await notificationService.sendEmail({
         to,
-        subject: `Global Catalog Deleted: ${payload.name}`,
+        subject: `Global Catalog Deleted: ${payload.globalProductId}`,
         template: "globalCatalogDeleted",
-        variables: { name: payload.name, id: payload.catalogId },
+        variables: { name: "Global Product", id: payload.globalProductId },
       });
     }
 
-    logger.info(`Handled GLOBAL_CATALOG_DELETED for ${payload.catalogId}`);
+    logger.info(`Handled GLOBAL_CATALOG_DELETED for ${payload.globalProductId}`);
   } catch (err) {
     logger.error("Error in GLOBAL_CATALOG_DELETED subscriber", err);
   }
@@ -280,7 +277,7 @@ eventBus.on(EVENTS.GLOBAL_VARIANT_CREATED, async (payload: {
         to,
         subject: `New Variant Added to Product ${payload.globalProductId}`,
         template: "globalVariantCreated",
-        variables: { variantId: payload.globalVariantId, productId: payload.globalProductId },
+        variables: { variantId: payload.globalVariantId, globalProductId: payload.globalProductId },
       });
     }
     await auditService.log({
@@ -289,7 +286,7 @@ eventBus.on(EVENTS.GLOBAL_VARIANT_CREATED, async (payload: {
       module: "global_variant",
       action: "notify:create",
       entityId: payload.globalVariantId,
-      details: { productId: payload.globalProductId, recipients },
+      details: { globalProductId: payload.globalProductId, recipients },
     });
     await cacheService.del(CacheKeys.globalVariantList(payload.globalProductId));
     logger.info(`GLOBAL_VARIANT_CREATED for ${payload.globalVariantId}`);

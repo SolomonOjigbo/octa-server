@@ -1,6 +1,7 @@
 // src/modules/pos/types/pos.dto.ts
 
 import { TransactionStatus } from "@modules/transactions/types/transaction.dto";
+import { TransactionReferenceType } from "@prisma/client";
 
 export type OpenSessionDto = {
   storeId: string;
@@ -24,6 +25,7 @@ export interface SaleItemDto {
   discount?: number;
   tax?: number;
   storeId?: string;
+  transaction?: string;
   metadata?: Record<string, any>;
 }
 
@@ -33,9 +35,10 @@ export interface CreateTransactionDto {
   items: SaleItemDto[];
   status?: TransactionStatus;
   paymentMethod: string;
-  total: number;
+  amount: number;
   cashReceived?: number;
-  reference: string;
+  referenceType?: TransactionReferenceType;
+  referenceId: string;
 }
 
 export interface CreatePaymentDto {
@@ -43,16 +46,20 @@ export interface CreatePaymentDto {
   amount: number;
   method: string;
   reference?: string;
+  status?: string;
 }
+
 
 export interface CreateSalesReturnDto {
   transactionId: string;
-  items: Array<{
-    tenantProductId: string;
-    tenantProductVariantId?: string;
-    quantity: number;
-    reason?: string;
-  }>;
+  sessionId: string;
+  refundAmount: number;
+  paymentMethod: string;
+  customerId: string;
+  reference?: string;
+  reason?:    string;
+  items: SaleItemDto[];
+  userId?: string;
 }
 
 export interface CreateCashDropDto {
@@ -63,8 +70,10 @@ export interface CreateCashDropDto {
 
 export interface ReconcileCashDto {
   sessionId: string;
-  countedCashAmount: number;
+  actualCash: number;
   varianceReason?: string;
+  variance?: number;
+  expectedCash: number;
 }
 
 export interface POSSessionSummary {

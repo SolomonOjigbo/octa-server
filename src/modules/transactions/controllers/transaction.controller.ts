@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { transactionService } from "../services/transaction.service";
 import { CreateTransactionSchema, getTransactionFiltersSchema, UpdateTransactionSchema} from "../validations";
-import { CreateTransactionDto, GetTransactionFilters, UpdateTransactionStatusDto } from "../types/transaction.dto";
+import { CreateTransactionDto, GetTransactionFilters, UpdateTransactionDto} from "../types/transaction.dto";
 import { asyncHandler } from "@middleware/errorHandler";
 
 export class TransactionController {
@@ -49,7 +49,7 @@ export class TransactionController {
   });
 
    update = asyncHandler(async (req: Request, res: Response) => {
-    const dto = UpdateTransactionSchema.parse(req.body);
+    const dto = UpdateTransactionSchema.parse(req.body) as UpdateTransactionDto;
     const rec = await transactionService.update(
       req.user!.tenantId,
       req.user!.id,

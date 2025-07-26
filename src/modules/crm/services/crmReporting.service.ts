@@ -13,7 +13,7 @@ export class CRMReportingService {
         communicationLogs: true,
       },
     });
-    const totalPurchases = customer?.transactions.reduce((sum, t) => sum + (t.totalAmount ?? 0), 0) ?? 0;
+    const totalPurchases = customer?.transactions.reduce((sum, t) => sum + (t.amount ?? 0), 0) ?? 0;
     const totalPaid = customer?.payments.reduce((sum, p) => sum + (p.amount ?? 0), 0) ?? 0;
     const lastPurchase = customer?.transactions.reduce((latest, t) =>
       !latest || (t.createdAt > latest.createdAt) ? t : latest, undefined as any
@@ -35,7 +35,8 @@ export class CRMReportingService {
       orderBy: [
         {
           transactions: {
-            _sum: { totalAmount: "desc" },
+           
+              _count: "desc",
           },
         },
       ],
@@ -71,7 +72,7 @@ export class CRMReportingService {
     });
     return customers
       .map(c => {
-        const purchases = c.transactions.reduce((s, t) => s + (t.totalAmount || 0), 0);
+        const purchases = c.transactions.reduce((s, t) => s + (t.amount || 0), 0);
         const paid = c.payments.reduce((s, p) => s + (p.amount || 0), 0);
         return { ...c, balance: purchases - paid };
       })

@@ -5,6 +5,7 @@ export interface CreateGlobalCategoryDto {
   imageUrl?: string;
   parentId?: string;
   description?: string;
+  parent?: string;
 }
 export interface UpdateGlobalCategoryDto extends Partial<CreateGlobalCategoryDto> {
   id: string;
@@ -18,7 +19,6 @@ export interface CreateGlobalProductDto {
   imageUrl?: string;
   brand?: string;
   dosageForm?: string;
-  strength?: string;
   sellingType?: string;
   description?: string;
   isPrescription?: boolean;

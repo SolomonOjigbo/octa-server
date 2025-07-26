@@ -161,7 +161,7 @@ router.put(
  *   delete:
  *     summary: Delete business entity by ID
  *     tags: [BusinessEntity]
- *    security:
+ *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
@@ -177,8 +177,7 @@ router.put(
  *         description: Forbidden
  *       404:
  *         description: Not found
- * 
- * */
+ */
 
 router.delete(
   "/:id",

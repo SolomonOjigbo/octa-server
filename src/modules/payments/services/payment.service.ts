@@ -96,14 +96,14 @@ async refund(
   dto: RefundPaymentDto
 ) {
   const orig = await this.getById(tenantId, id);
-  if (orig.status !== 'COMPLETED') 
+  if (orig.status !== 'PAID') 
     throw new AppError('Only completed payments can be refunded', 400);
 
   const refundAmount = dto.amount ?? orig.amount;
   // 1) mark original as refunded (or partial)
   await prisma.payment.update({
     where:{ id },
-    data: { status:'refunded', reference: dto.reason }
+    data: { status:'REFUNDED', reference: dto.reason }
   });
 
   // 2) optionally create a negative‐amount payment record
@@ -113,7 +113,7 @@ async refund(
       amount:       -refundAmount,
       method:       orig.method,
       reference:    `refund for ${id}`,
-      status:       'COMPLETED',
+      status:       'REFUNDED',
       paymentDate:       new Date(),
       createdBy:           { connect: { id: userId} },
       referenceType:  "POS_TRANSACTION",
@@ -132,7 +132,7 @@ async refund(
   if (orig.transactionId) {
     await prisma.transaction.update({
       where:{ id: orig.transactionId },
-      data:{ status:'REFUNDED' }
+      data:{ status:'RETURNED' }
     });
   }
 
@@ -150,12 +150,12 @@ async reverse(
   dto:ReversePaymentDto
 ) {
   const orig = await this.getById(tenantId, id);
-  if (orig.status !== 'PENDING')
-    throw new AppError('Only pending payments can be reversed', 400);
+  if (orig.status !== 'PAID')
+    throw new AppError('Only paid payments can be reversed', 400);
 
   const rec = await prisma.payment.update({
     where:{ id },
-    data:{ status:'cancelled', reference: dto.reason, userId:userId }
+    data:{ status:'REFUNDED', reference: dto.reason, userId:userId }
   });
   await auditService.log({ tenantId, userId, module:'Payment', action:'reverse', entityId:id, details: dto });
   eventBus.emit(EVENTS.PAYMENT_REVERSED, rec);
@@ -194,15 +194,15 @@ async reverse(
         if (!transaction) throw new AppError("Transaction not found", HttpStatusCode.NOT_FOUND);
 
         const totalPaid = (await tx.payment.aggregate({
-          where: { transactionId: dto.transactionId, status: "completed" },
+          where: { transactionId: dto.transactionId, status: "PAID" },
           _sum: { amount: true },
         }))._sum.amount || 0;
 
-        let paymentStatus = "partial";
+        let paymentStatus = "PARTIALLY_PAID";
         if (totalPaid >= transaction.amount) {
-          paymentStatus = "paid";
+          paymentStatus = "COMPLETED";
         }
-        await tx.transaction.update({ where: { id: dto.transactionId }, data: { paymentStatus } });
+        await tx.transaction.update({ where: { id: dto.transactionId }, data: { paymentStatus: 'PROCESSING' } });
         await cacheService.del(`pos-receipt:${dto.transactionId}`);
       }
 
@@ -239,18 +239,18 @@ async reverse(
       if (!existingPayment) {
           throw new AppError("Payment not found.", HttpStatusCode.NOT_FOUND);
       }
-      if (existingPayment.status === 'reversed') {
+      if (existingPayment.status === 'REFUNDED') {
           throw new AppError("Payment has already been reversed.", HttpStatusCode.BAD_REQUEST);
       }
 
       const payment = await tx.payment.update({
         where: { id },
-        data: { status: "reversed", reference: `Reversed: ${reason}` },
+        data: { status: "REFUNDED", reference: `Reversed: ${reason}` },
       });
 
       // Update related transaction/PO status back to pending/partial
       if (payment.transactionId) {
-          await tx.transaction.update({ where: { id: payment.transactionId }, data: { paymentStatus: 'partial' } });
+          await tx.transaction.update({ where: { id: payment.transactionId }, data: { paymentStatus: 'REFUNDED' } });
           await cacheService.del(`pos-receipt:${payment.transactionId}`);
       }
 
@@ -292,7 +292,7 @@ async reverse(
           amount: -Math.abs(dto.amount), // Ensure amount is negative
           method: dto.method,
           reference: `Refund for payment ${dto.originalPaymentId}. Reason: ${dto.reason || 'N/A'}`,
-          status: "completed",
+          status: "REFUNDED",
           transactionId: originalPayment.transactionId,
           purchaseOrderId: originalPayment.purchaseOrderId,
           sessionId: dto.sessionId ?? originalPayment.sessionId,

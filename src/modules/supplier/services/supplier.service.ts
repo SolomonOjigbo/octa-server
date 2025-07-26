@@ -3,8 +3,8 @@ import prisma from '@shared/infra/database/prisma';
 import { CreateSupplierDto, UpdateSupplierDto } from '../types/supplier.dto';
 
 export class SupplierService {
-  async createSupplier(dto: CreateSupplierDto) {
-    return prisma.supplier.create({ data: dto });
+  async createSupplier(dto: CreateSupplierDto, tenantId: string) {
+    return prisma.supplier.create({ data: {...dto, tenantId} });
   }
   async getSuppliers(tenantId: string) {
     return prisma.supplier.findMany({ where: { tenantId },  orderBy: { createdAt: 'desc' }, });

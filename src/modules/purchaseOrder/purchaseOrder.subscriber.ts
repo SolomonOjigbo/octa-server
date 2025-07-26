@@ -25,7 +25,7 @@ export class PurchaseOrderSubscriber {
     await this.notificationService.sendEmail({
       to: email,
       subject: 'Purchase Order Created',
-      template: 'purchaseOrderCreated',
+      template: null,
       variables: {
         supplierName: po.supplier.name,
         poId: po.id,

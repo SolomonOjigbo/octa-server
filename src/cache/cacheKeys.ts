@@ -1,6 +1,6 @@
 export const CacheKeys = {
   globalProductList: (tenantId: string) => `global_products:list:${tenantId}`,
-  globalProductDetail: (tenantId: string, globalProductId: string) => `global_products:detail:${tenantId}:${globalProductId}`,
+  globalProductDetail: (globalProductId: string) => `global_products:detail:${globalProductId}`,
   globalProductVariants: (tenantId: string, globalProductId: string) => `global_products:variants:${tenantId}:${globalProductId}`,
   globalCategoryList: () => `global_categories:list:global`,
   globalCategoryDetail: (categoryId: string) => `global_categories:detail:${categoryId}`,

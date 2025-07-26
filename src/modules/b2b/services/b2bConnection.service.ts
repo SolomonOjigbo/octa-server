@@ -183,44 +183,6 @@ async ensureConnectionExists(tenantAId: string, tenantBId: string) {
   return connection;
 }
 
-// async createOrUpdateWithSupplierProduct(tenantAId, tenantBId, productId, supplierId) {
-//   const connection = await prisma.b2BConnection.upsert({
-//     where: {
-//       uniqueConnection: {
-//         tenantAId,
-//         tenantBId
-//       }
-//     },
-//     update: {
-//       updatedAt: new Date(),
-//     },
-//     create: {
-//       tenantAId,
-//       tenantBId,
-//       status: 'approved',
-//     }
-//   });
-
-//   // Link the product to supplier under B2B context
-//   await prisma.productSupplier.upsert({
-//     where: {
-//       unique_supplier_product: {
-//         productId,
-//         supplierId,
-//       },
-//     },
-//     update: {},
-//     create: {
-//       tenantId: tenantAId,
-//       productId,
-//       supplierId,
-//     },
-//   });
-
-//   return connection;
-// }
-
-
 }
 
 export const b2bConnectionService = new B2BConnectionService();

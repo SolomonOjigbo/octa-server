@@ -41,7 +41,7 @@ export class StockTransferService {
     tenantId: string,
     userId: string,
     dto: CreateStockTransferDto
-  ): Promise<StockTransferResponseDto> {
+  ){
     // 1. Check B2B connection status
     await b2bConnectionService.ensureConnectionExists(tenantId, dto.destTenantId);
 
@@ -49,7 +49,7 @@ export class StockTransferService {
       tenantId,
       dto.destTenantId
     );
-    if (!conn || conn.status !== 'approved' || !conn.isActive) {
+    if (!conn || conn.status !== 'approved') {
       throw new AppError(
         'No active, approved B2B connection between these tenants',
         403
@@ -97,14 +97,14 @@ export class StockTransferService {
     userId: string,
     id: string,
     dto: ApproveStockTransferDto
-  ): Promise<StockTransferResponseDto> {
+  ){
     const t = await this.getById(tenantId, id);
     if (t.status !== 'pending' || t.destTenantId !== tenantId) throw new AppError('Forbidden or wrong status', 403);
     const conn = await b2bConnectionService.findConnection(
       t.tenantId,
       t.destTenantId
     );
-    if (!conn || conn.status !== 'approved' || !conn.isActive) {
+    if (!conn || conn.status !== 'approved') {
       throw new AppError(
         'Cannot approve: B2B connection is not active/approved',
         403
@@ -153,7 +153,7 @@ export class StockTransferService {
     userId: string,
     id: string,
     dto: RejectStockTransferDto
-  ): Promise<StockTransferResponseDto> {
+  ){
     const t = await this.getById(tenantId, id);
     if (t.status !== 'pending' || t.destTenantId !== tenantId) throw new AppError('Forbidden or wrong status', 403);
     const updated = await prisma.stockTransfer.update({

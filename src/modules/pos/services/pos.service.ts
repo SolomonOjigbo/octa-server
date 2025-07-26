@@ -33,12 +33,13 @@ export class POSService {
 ) {
   const session = await prisma.pOSSession.create({
     data: {
-      tenantId,
-      storeId: dto.storeId,
-      userId,
+      tenant: {connect: {id: tenantId} },
+      store: {connect: {id: dto.storeId}},
+      user: {connect: {id: userId}},
       openedBy: userId,
       openingBalance: dto.openingBalance,
       notes: dto.notes ?? null,
+      status: "Active"
     },
   });
 
@@ -110,17 +111,17 @@ export class POSService {
 
 
   async getSessionSummary(tenantId: string, sessionId: string): Promise<POSSessionSummary> {
-    const session = await prisma.posSession.findFirst({
+    const session = await prisma.pOSSession.findFirst({
       where: { id: sessionId, tenantId },
       include: { transactions:true, payments:true, salesReturns:true, cashDrops:true, reconciliations:true },
     });
     if (!session) throw new AppError('Session not found',404);
 
-    const totalSales      = session.transactions.reduce((s,t)=>s + (t.totalAmount||0), 0);
+    const totalSales      = session.transactions.reduce((s,t)=>s + (t.amount||0), 0);
     const totalPayments   = session.payments.reduce((s,p)=>s + p.amount,0);
     const totalReturns    = session.salesReturns.reduce((s,r)=>s + (r.refundAmount||0),0);
     const totalCashDrops  = session.cashDrops.reduce((s,c)=>s + c.amount,0);
-    const totalReconciled = session.reconciliations.reduce((s,r)=>s + r.countedCashAmount,0);
+    const totalReconciled = session.reconciliations.reduce((s,r)=>s + r.actualCash,0);
 
     return {
       sessionId,
@@ -140,18 +141,21 @@ export class POSService {
     // 1. Create transaction record
     const transaction = await tx.transaction.create({
       data: {
-        tenantId,
-        customerId: dto.customerId,
-        total: dto.total,
+        tenant: {connect: {id: tenantId}},
+        customer: {connect: {id: dto.customerId}},
+        amount: dto.amount,
         paymentMethod: dto.paymentMethod,
-        reference: dto.reference || uuid(),
-        posSessionId: dto.sessionId,
-        createdById: userId,
+        referenceType: dto.referenceType,
+        referenceId: dto.referenceId || uuid(),
+        posSession: {connect: {id: dto.sessionId}},
+        createdBy: {connect: {id: userId}},
+        status: "POSTED",
         items: {
           create: dto.items.map((item) => ({
             tenantProductId: item.tenantProductId,
             tenantProductVariantId: item.tenantProductVariantId,
             quantity: item.quantity,
+            transaction: {connect: {id: item.transaction}},
             price: item.unitPrice,
             discount: item.discount,
             tax: item.tax,
@@ -179,7 +183,7 @@ export class POSService {
         },
       }))
     );
-    await auditService.log({ tenantId, userId, module:'POS', action:'createTransaction', entityId:tx.id, details: dto });
+    await auditService.log({ tenantId, userId, module:'POS', action:'createTransaction', entityId:dto.referenceId, details: dto });
 
     // 3. Emit event
     eventBus.emit(EVENTS.POS_ORDER_CREATED, {
@@ -192,14 +196,15 @@ export class POSService {
 }
 
   async createPayment(tenantId: string, userId: string, dto: CreatePaymentDto) {
-    const payment = await prisma.posPayment.create({
+    const payment = await prisma.payment.create({
       data: {
-        tenantId,
+        tenant: {connect: {id: tenantId}},
         transaction: { connect:{ id: dto.transactionId } },
         amount: dto.amount,
         method: dto.method,
         reference: dto.reference,
-        createdBy: { connect:{ id:userId } }
+        createdBy: { connect:{ id:userId } },
+        status: "PAID"
       }
     });
     await auditService.log({ tenantId, userId, module:'POS', action:'createPayment', entityId:payment.id, details: dto });
@@ -207,50 +212,21 @@ export class POSService {
     return payment;
   }
 
-  // async createSalesReturn(tenantId: string, userId: string, dto: CreateTransactionDto) {
-  //   const ret = await prisma.posSalesReturn.create({
-  //     data: {
-  //       tenantId,
-  //       transaction: { connect:{ id:dto.transactionId } },
-  //       createdBy: { connect:{ id:userId } },
-  //       items: {
-  //         create: dto.items.map(i=>({
-  //           tenantProductId:         i.tenantProductId,
-  //           tenantProductVariantId:  i.tenantProductVariantId,
-  //           quantity:                i.quantity,
-  //           reason:                  i.reason
-  //         })),
-  //       }
-  //     },
-  //     include:{ items:true }
-  //   });
-  //   // restock inventory
-  //   for (const item of dto.items) {
-  //     await stockService.incrementStock(tenantId, userId, {
-  //       tenantProductId:        item.tenantProductId,
-  //       tenantProductVariantId: item.tenantProductVariantId,
-  //       quantity:               item.quantity,
-  //     });
-  //   }
-  //   eventBus.emit(EVENTS.POS_SALES_RETURN_CREATED, ret);
-  //   return ret;
-  // }
   async createSalesReturn(
   tenantId: string,
   userId: string,
-  dto: CreateTransactionDto
+  dto: CreateSalesReturnDto 
 ) {
   return prisma.$transaction(async (tx) => {
-    const returnTxn = await tx.transaction.create({
+    const returnTxn = await tx.pOSSalesReturn.create({
       data: {
-        tenantId,
-        customerId: dto.customerId,
-        total: dto.total,
+        tenant: {connect: {id: tenantId}},
+        customer: {connect: {id: dto.customerId}},
+        refundAmount: dto.refundAmount,
         paymentMethod: dto.paymentMethod,
-        reference: `RETURN-${dto.reference ?? Date.now()}`,
-        posSessionId: dto.sessionId,
-        createdById: userId,
-        isReturn: true,
+        session: {connect: {id: dto.sessionId}},
+        createdBy: {connect: {id: userId}},
+        transaction: {connect: {id: dto.transactionId}},
         items: {
           create: dto.items.map((item) => ({
             tenantProductId: item.tenantProductId,
@@ -292,9 +268,9 @@ export class POSService {
 
 
   async createCashDrop(tenantId: string, userId: string, dto: CreateCashDropDto) {
-    const drop = await prisma.posCashDrop.create({
+    const drop = await prisma.pOSCashDrop.create({
       data: {
-        tenantId,
+        tenant: {connect: {id: tenantId}},
         session: { connect:{ id:dto.sessionId } },
         amount: dto.amount,
         reason: dto.reason,
@@ -307,13 +283,15 @@ export class POSService {
   }
 
   async reconcileCash(tenantId: string, userId: string, dto: ReconcileCashDto) {
-    const rec = await prisma.posReconciliation.create({
+    const rec = await prisma.pOSReconciliation.create({
       data: {
-        tenantId,
+        tenant: {connect: {id: tenantId}},
         session: { connect:{ id:dto.sessionId } },
-        countedCashAmount: dto.countedCashAmount,
+        actualCash: dto.actualCash,
+        expectedCash: dto.expectedCash,
         varianceReason:    dto.varianceReason,
-        createdBy: { connect:{ id:userId } }
+        variance: dto.variance,
+        createdBy: { connect:{ id: userId } }
       }
     });
     await auditService.log({ tenantId, userId, module:'POS', action:'reconcileCash', entityId:rec.id, details: dto });

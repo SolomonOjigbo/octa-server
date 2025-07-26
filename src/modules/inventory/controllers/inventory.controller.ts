@@ -10,7 +10,7 @@ export const inventoryController = {
 
   createMovement: asyncHandler(async (req: Request, res: Response) => {
     try {
-      const dto = InventoryMovementSchema.parse(req.body);
+      const dto = InventoryMovementSchema.parse(req.body) as InventoryMovementDto;
       const userId = req.user?.id;
       const tenantId = req.user?.tenantId;
       const movement = await inventoryService.createMovement(tenantId, userId, dto);
@@ -40,7 +40,7 @@ export const inventoryController = {
       const tenantId = req.user?.tenantId;
       const userId = req.user?.id
     const {
-       productId,
+       tenantProductId,
         variantId,
         storeId,
         warehouseId,
@@ -49,8 +49,7 @@ export const inventoryController = {
         movementType,
         voided,
           } = req.body;
-        const data = await inventoryService.searchMovements(tenantId, {    productId,
-        variantId,
+        const data = await inventoryService.searchMovements(tenantId, {    tenantProductId,
         storeId,
         warehouseId,
         startDate,
@@ -68,7 +67,7 @@ export const inventoryController = {
   updateMovement: asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user!.tenantId;
     const userId   = req.user!.id;
-    const dto      = InventoryMovementSchema.partial().parse(req.body);
+    const dto      = InventoryMovementSchema.parse(req.body);
     const rec      = await inventoryService.updateMovement(tenantId, userId, req.params.id, dto);
     res.json(rec);
   }),

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { paymentService } from "../services/payment.service";
-import { createPaymentSchema, createRefundSchema, RefundPaymentSchema, ReversePaymentSchema, reversePaymentSchema, updatePaymentSchema } from "../validations";
-import { CreatePaymentDto, CreateRefundDto, RefundPaymentDto, ReversePaymentDto } from "../types/payment.dto";
+import { CreatePaymentSchema,RefundPaymentSchema, ReversePaymentSchema,UpdatePaymentSchema } from "../validations";
+import { CreatePaymentDto, RefundPaymentDto } from "../types/payment.dto";
 import { asyncHandler } from "@middleware/errorHandler";
 
 export class PaymentController {
@@ -21,7 +21,7 @@ export class PaymentController {
   create = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user!.tenantId;
     const userId   = req.user!.id;
-    const dto      = createPaymentSchema.parse(req.body) as CreatePaymentDto;
+    const dto      = CreatePaymentSchema.parse(req.body) as CreatePaymentDto;
     const rec      = await paymentService.create(tenantId, userId, dto);
     res.status(201).json(rec);
   });
@@ -29,7 +29,7 @@ export class PaymentController {
   update = asyncHandler(async (req: Request, res: Response) => {
     const tenantId = req.user!.tenantId;
     const userId   = req.user!.id;
-    const dto      = updatePaymentSchema.parse(req.body);
+    const dto      = UpdatePaymentSchema.parse(req.body);
     const rec      = await paymentService.update(tenantId, userId, req.params.id, dto);
     res.json(rec);
   });

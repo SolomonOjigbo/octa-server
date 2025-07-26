@@ -58,7 +58,7 @@ export class RoleService {
   }
   async getRoleByName(name: string, context: { tenantId?: string; storeId?: string; warehouseId?: string }) {
     return prisma.role.findUnique({
-      where: { name,...context },
+      where: {...context,  name: name },
       include: { permissions: true },
     });
   }
