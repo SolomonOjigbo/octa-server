@@ -150,17 +150,22 @@ export class POSService {
         posSession: {connect: {id: dto.sessionId}},
         createdBy: {connect: {id: userId}},
         status: "POSTED",
-        items: {
-          create: dto.items.map((item) => ({
-            tenantProductId: item.tenantProductId,
-            tenantProductVariantId: item.tenantProductVariantId,
-            quantity: item.quantity,
-            transaction: {connect: {id: item.transaction}},
-            price: item.unitPrice,
-            discount: item.discount,
-            tax: item.tax,
-          })),
-        },
+        // items: {
+        //   create: dto.items.map((item) => ({
+        //     tenantProductId: item.tenantProductId,
+        //     tenantProductVariantId: item.tenantProductVariantId,
+        //     name: item.name,
+        //     costPrice: item.costPrice,
+        //     sku: item.sku,
+        //     sellingPrice: item.sellingPrice,
+        //     totalPrice: null,
+        //     quantity: item.quantity,
+        //     transaction: {connect: {id: item.transaction}},
+        //     price: item.unitPrice,
+        //     discount: item.discount,
+        //     tax: item.tax,
+        //   })),
+        // },
       },
     });
 
@@ -172,6 +177,8 @@ export class POSService {
         tenantProductId: item.tenantProductId,
         tenantProductVariantId: item.tenantProductVariantId,
         quantity: item.quantity,
+         name: item.name,
+        sku: item.sku,
         storeId: item.storeId,
         reference: transaction.id,
         metadata: {
@@ -233,6 +240,11 @@ export class POSService {
             tenantProductVariantId: item.tenantProductVariantId,
             quantity: item.quantity,
             price: item.unitPrice,
+            name: item.name,
+            costPrice: item.costPrice,
+            sku: item.sku,
+            sellingPrice: item.unitPrice,
+            totalPrice: null,
             discount: item.discount,
             tax: item.tax,
           })),
@@ -248,6 +260,8 @@ export class POSService {
         tenantProductVariantId: item.tenantProductVariantId,
         quantity: item.quantity,
         storeId: item.storeId,
+        name: item.name,
+        sku: item.sku,
         reference: returnTxn.id,
         metadata: {
           returnFrom: dto.reference,

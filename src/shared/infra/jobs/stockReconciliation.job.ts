@@ -14,7 +14,7 @@ export function scheduleStockReconciliation() {
 
     // 1. Aggregate inventory by key
     const invAgg = await prisma.inventory.groupBy({
-      by: ["tenantId", "storeId", "productId", "batchNumber"],
+      by: ["tenantId", "storeId", "tenantProductId", "batchNumber"],
       _sum: { quantity: true },
     });
 
@@ -26,14 +26,14 @@ export function scheduleStockReconciliation() {
         where: {
           tenantId: rec.tenantId,
           storeId: rec.storeId,
-          tenantProductId: rec.productId,
+          tenantProductId: rec.tenantProductId,
           batchNumber: rec.batchNumber,
         },
       });
       const stockQty = stock?.quantity ?? 0;
 
       if (stockQty !== sumQty) {
-        const msg = `Reconciliation mismatch: tenant=${rec.tenantId}, store=${rec.storeId}, product=${rec.productId}, batch=${rec.batchNumber} → stock=${stockQty}, inventorySum=${sumQty}`;
+        const msg = `Reconciliation mismatch: tenant=${rec.tenantId}, store=${rec.storeId}, product=${rec.tenantProductId}, batch=${rec.batchNumber} → stock=${stockQty}, inventorySum=${sumQty}`;
         logger.warn("❗ " + msg);
         // Send alert email to ops team
         await notificationService.sendEmail({

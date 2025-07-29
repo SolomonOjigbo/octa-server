@@ -215,17 +215,6 @@ model User {
   Transaction Transaction[] @relation("TransactionUpdatedBy")
 }
 
-model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tenantId  String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-}
-
 model UserRole {
   id         String    @id @default(cuid())
   tenantId   String
@@ -234,7 +223,6 @@ model UserRole {
   assignedBy String?
   assignedAt DateTime  @default(now())
   expiresAt  DateTime? // Optional expiration
-
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
   role   Role   @relation(fields: [roleId], references: [id])
@@ -271,7 +259,16 @@ model Permission {
   roles       Role[]  @relation("RolePermissions")
 }
 
-
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
 
 model GlobalCategory {
   id          String          @id @default(cuid())
@@ -299,14 +296,16 @@ model GlobalProduct {
   imageUrl         String? // image link for UI
   brand            String? // manufacturer/brand
   dosageForm       String?
-  strength         String?
   sellingType      String? // online, store(POS), etc.
   description      String?
+  costPrice        Decimal?
+  sellingPrice     Decimal?
+  isVariable       Boolean
   isPrescription   Boolean   @default(false)
   isActive         Boolean   @default(true)
   deletedAt        DateTime? // soft‐delete
   createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  updatedAt        DateTime?  @updatedAt
   category        GlobalCategory         @relation(fields: [globalCategoryId], references: [id])
   variants        GlobalVariant[]    
   tenantOverrides TenantProduct[] // tenant‐scoped overrides
@@ -355,17 +354,23 @@ model TenantProduct {
   tenantId         String
   globalProductId  String? // null for tenant‐only
   tenantCategoryId String?
-  sku              String? // optional override
-  name             String? // optional override
-  barcode          String? // tenant‐specific if needed
-  imageUrl         String?
-  brand            String?
+  sku              String    @unique
+  name             String
+  barcode          String? // UPC/EAN code
+  imageUrl         String? // image link for UI
+  brand            String? // manufacturer/brand
+  dosageForm       String?
+  sellingType      String? // online, store(POS), etc.
   description      String?
-  isTransferable   Boolean   @default(false)
+  costPrice        Decimal?
+  sellingPrice     Decimal?
+  isVariable       Boolean
+  isPrescription   Boolean   @default(false)
   isActive         Boolean   @default(true)
-  deletedAt        DateTime?
+  deletedAt        DateTime? // soft‐delete
   createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  updatedAt        DateTime?  @updatedAt
+  isTransferable   Boolean   @default(false)
 
   category      TenantCategory?        @relation(fields: [tenantCategoryId], references: [id])
   globalProduct GlobalProduct?         @relation(fields: [globalProductId], references: [id])
@@ -377,11 +382,11 @@ model TenantProduct {
   stockTransfers       StockTransfer[] // transfers involving this tenant’s product
   purchaseOrderItems   PurchaseOrderItem[] // PO line items for this tenant product
   Inventory            Inventory[]
-  StockTransferProduct StockTransfer[]     @relation("TransferSourceProduct")
-  StockTransfer        StockTransfer[]     @relation("TransferDestProduct")
 
   @@unique([tenantId, sku])
   ProductSupplier ProductSupplier[]
+  StockTransferItem StockTransferItem[] @relation("SourceTenantProduct")
+  StockTransferProduct StockTransferItem[] @relation("DestTenantProduct")
 }
 
 model TenantCategory {
@@ -423,6 +428,8 @@ model TenantVariant {
 
   @@unique([tenantProductId, sku])
   PurchaseOrderItem PurchaseOrderItem[]
+  StockTransferItem StockTransferItem[] @relation("SourceTenantVariant")
+  StockTransferDestItem StockTransferItem[] @relation("DestTenantVariant")
 }
 
 model Inventory {
@@ -431,7 +438,7 @@ model Inventory {
   tenantProductId        String
   tenantProductVariantId String?
   batchNumber            String?
-  quantity               Decimal   @default(0)
+  quantity               Int   @default(0)
   costPrice              Decimal?
   expiryDate             DateTime?
   movementType           String
@@ -481,6 +488,7 @@ model Stock {
   maxStockLevel          Int?
   reorderPoint           Int?
   reference              String?
+  reservedQuantity       Int?
   movementType           String
   reason                 String?
   batchNumber            String?
@@ -507,6 +515,11 @@ model TransactionItem {
   tenantProductVariantId String?
   quantity         Int
   price            Float
+  name             String
+  costPrice       Float
+  sku             String
+  sellingPrice    Float
+  totalPrice      Float
   discount         Float?
   batchNumber      String?
   expiryDate       DateTime?
@@ -594,6 +607,8 @@ model Payment {
   PurchaseOrder PurchaseOrder[]
 
   Invoice Invoice[] @relation("InvoicePayments")
+
+  Refund Refund[]
 }
 
 model POSSession {
@@ -747,6 +762,8 @@ model Supplier {
   purchaseOrders    PurchaseOrder[]
   payments          Payment[]          @relation("SupplierPayments")
   communicationLogs CommunicationLog[]
+
+  Invoice Invoice[]
 }
 
 model ProductSupplier {
@@ -804,6 +821,7 @@ model PurchaseOrder {
   @@index([tenantId])
   Payment Payment[] @relation("PaymentPurchaseOrder")
   B2BConnection B2BConnection[]
+  Refund Refund[]
 }
 
 model PurchaseOrderItem {
@@ -827,35 +845,49 @@ model PurchaseOrderItem {
   GlobalProduct GlobalProduct[]
 }
 
-model StockTransfer {
-  id                           String    @id @default(cuid())
-  tenantId                     String
-  sourceTenantProductId        String
+model StockTransferItem {
+  id                         String        @id @default(cuid())
+  stockTransferId            String
+  sourceTenantProductId      String
   sourceTenantProductVariantId String?
-  fromStoreId                  String?
-  fromWarehouseId              String?
-  destTenantId                 String
-  destTenantProductId          String
-  destTenantProductVariantId   String?
-  toStoreId                    String?
-  toWarehouseId                String?
-  quantity                     Int
-  status                       String // pending, approved, rejected, cancelled
-  batchNumber                  String?
-  expiryDate                   DateTime?
-  createdById                  String?
-  approvedById                 String?
-  transferType                 String?   @default("intra-tenant") // or enum
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  destTenantProductId        String
+  name                       String
+  sku                        String
+  reference                  String?
+  destTenantProductVariantId String?
+  quantity                   Int
+  batchNumber                String?
+  costPrice                  Int?
+  expiryDate                 DateTime?
+  stockTransfer              StockTransfer @relation(fields: [stockTransferId], references: [id])
+  sourceTenantProduct        TenantProduct? @relation("SourceTenantProduct", fields: [sourceTenantProductId], references: [id])
+  sourceTenantVariant        TenantVariant? @relation("SourceTenantVariant", fields: [sourceTenantProductVariantId], references: [id])
+  destTenantProduct          TenantProduct? @relation("DestTenantProduct", fields: [destTenantProductId], references: [id])
+  destTenantVariant          TenantVariant? @relation("DestTenantVariant", fields: [destTenantProductVariantId], references: [id])
 
-  sourceProduct           TenantProduct         @relation("TransferSourceProduct", fields: [sourceTenantProductId], references: [id])
-  sourceVariant           TenantVariant? @relation("TransferSourceVariant", fields: [sourceTenantProductVariantId], references: [id])
+  @@index([stockTransferId])
+}
+
+
+model StockTransfer {
+   id                     String                @id @default(cuid())
+  tenantId                String
+  fromStoreId             String?
+  fromWarehouseId         String?
+  destTenantId            String
+  toStoreId               String?
+  toWarehouseId           String?
+  status                  StockTransferStatus
+  transferType            StockTransferType
+  createdById             String?
+  approvedById            String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  items                   StockTransferItem[]
+  notes                   String?
   fromStore               Store?                @relation("TransferFromStore", fields: [fromStoreId], references: [id])
   fromWarehouse           Warehouse?            @relation("TransferFromWarehouse", fields: [fromWarehouseId], references: [id])
   destTenant              Tenant                @relation("TransferDestTenant", fields: [destTenantId], references: [id])
-  destProduct             TenantProduct         @relation("TransferDestProduct", fields: [destTenantProductId], references: [id])
-  destVariant             TenantVariant? @relation("TransferDestVariant", fields: [destTenantProductVariantId], references: [id])
   toStore                 Store?                @relation("TransferToStore", fields: [toStoreId], references: [id])
   toWarehouse             Warehouse?            @relation("TransferToWarehouse", fields: [toWarehouseId], references: [id])
   createdBy               User?                 @relation("TransferCreatedBy", fields: [createdById], references: [id])
@@ -872,9 +904,10 @@ model StockTransfer {
   Stock                   Stock[]
   Tenant                  Tenant[]              @relation("TransferSourceTenant")
 
-  @@index([tenantId])
-  @@index([sourceTenantProductId])
-  @@index([destTenantProductId])
+  TenantVariant TenantVariant[] @relation("TransferSourceVariant")
+
+
+  DestTenantVariant TenantVariant[] @relation("TransferDestVariant")
 }
 
 
@@ -882,12 +915,14 @@ model Invoice {
   id            String      @id @default(cuid())
   tenantId      String
   customerId    String?     // links to CRM.Customer
-  referenceType String      // e.g. "purchaseOrder", "posTransaction", "stockTransfer"
   referenceId   String?     // id of that document
   invoiceNo     String      @unique
   issueDate     DateTime    @default(now())
+  supplierId   String?  // Reference to Supplier
   dueDate       DateTime?
-  status        String      // draft, issued, paid, partiallyPaid, overdue, cancelled
+  status        InvoiceStatus
+  paymentStatus PaymentStatus
+  referenceType ReferenceType
   subTotal      Float
   taxTotal      Float
   totalAmount   Float
@@ -896,8 +931,9 @@ model Invoice {
   updatedById   String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-
+  
   tenant        Tenant      @relation(fields: [tenantId],     references: [id])
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
   customer      Customer?   @relation(fields: [customerId],   references: [id])
   createdBy     User?       @relation("invoiceCreatedBy",    fields: [createdById], references: [id])
   updatedBy     User?       @relation("invoiceUpdatedBy",    fields: [updatedById], references: [id])
@@ -928,11 +964,16 @@ model Refund {
   refundItems     Json     // [{ productId, quantity, reason }]
   totalRefund     Float
   tenantId        String
+  purchaseOrderId String?
+  paymentId       String?
+  invoiceId       String?
   userId          String?
   refundMethod    String?  // cash, reversal, credit, etc.
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  payment         Payment?   @relation(fields: [paymentId], references: [id])
   transaction     Transaction @relation(fields: [transactionId], references: [id])
 }
 
@@ -1037,4 +1078,34 @@ enum PaymentStatus {
   PARTIALLY_PAID
   PAID
   REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ReferenceType {
+  PURCHASE_ORDER
+  POS_TRANSACTION
+  STOCK_TRANSFER
+  B2B_CONNECTION
+}
+
+enum StockTransferStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+  CANCELLED
+  RECONCILED
+}
+
+enum StockTransferType {
+  INTRA_TENANT
+  CROSS_TENANT
 }

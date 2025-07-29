@@ -154,15 +154,15 @@ eventBus.on('POSSession.closed', async (session) => {
       await inventoryFlowService.recordConsumption({
         tenantId: txn.tenantId,
         storeId: txn.storeId,
-        tenantProductId: item.productId,
+        tenantProductId: item.tenantProductId,
         quantity: item.quantity,
-        reason: item.reason || 'POS sale',
         transactionId: item.id,
-        reference: item?.reference,
-    costPrice: item.costPrice,
+        reference: " POS Session Closed",
     batchNumber: item.batchNumber,
+    name: item.name,
+    sku: item.sku,
     expiryDate: item.expiryDate,
-    userId: item. item.userId,
+    userId: txn.createdById,
       });
     }
   }

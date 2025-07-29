@@ -13,14 +13,10 @@ export class GlobalProductController {
   create = asyncHandler(async (req: Request,res: Response) => {
     const userId = req.user!.id;
     const tenantId = req.user!.tenantId;
-    const dto = GlobalProductSchema.parse(req.body) as CreateGlobalProductDto;
+    const dto = req.body;
     const p = await globalProductService.createGlobalProduct(userId, tenantId, dto);
     res.status(201).json(p);
   });
-  /** @swagger /global-products/category/{categoryId} get */
-  // listByCategory = asyncHandler(async (req,res) => {
-  //   res.json(await globalProductService.(req.params.categoryId));
-  // });
   
   /** @swagger /global-products/{id} get */
 async getById(req:Request, res:Response) {

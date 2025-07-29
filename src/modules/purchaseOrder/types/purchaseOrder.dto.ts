@@ -1,7 +1,26 @@
 // // src/modules/purchaseOrder/types/purchaseOrder.dto.ts
 
 import { z } from "zod";
-import { CancelPurchaseOrderSchema, CreatePurchaseOrderSchema, LinkPaymentSchema, PurchaseOrderItemSchema, UpdatePurchaseOrderSchema } from "../validations";
+import { CancelPurchaseOrderSchema, CreatePurchaseOrderSchema, LinkPaymentSchema, PurchaseOrderItemSchema, PurchaseOrderStatusSchema, UpdatePurchaseOrderSchema } from "../validations";
+
+export type PurchaseOrderItemDto = z.infer<
+  typeof PurchaseOrderItemSchema
+>;
+
+export type CreatePurchaseOrderDto = z.infer<
+  typeof CreatePurchaseOrderSchema
+>;
+
+export type UpdatePurchaseOrderDto = z.infer<
+  typeof UpdatePurchaseOrderSchema
+>;
+
+export type CancelPurchaseOrderDto = z.infer<typeof CancelPurchaseOrderSchema>;
+export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusSchema>;
+export type LinkPaymentDto = z.infer<typeof LinkPaymentSchema>;
+
+
+
 
 // export type PurchaseOrderStatus = 'pending' | 'approved' | 'received' | 'cancelled';
 
@@ -140,24 +159,6 @@ import { CancelPurchaseOrderSchema, CreatePurchaseOrderSchema, LinkPaymentSchema
 //   limit?: number;
 //   page?: number;
 // }
-
-export type PurchaseOrderItemDto = z.infer<
-  typeof PurchaseOrderItemSchema
->;
-
-export type CreatePurchaseOrderDto = z.infer<
-  typeof CreatePurchaseOrderSchema
->;
-
-export type UpdatePurchaseOrderDto = z.infer<
-  typeof UpdatePurchaseOrderSchema
->;
-
-export type CancelPurchaseOrderDto = z.infer<
-  typeof CancelPurchaseOrderSchema
->;
-
-export type LinkPaymentDto = z.infer<typeof LinkPaymentSchema>;
 
 
 

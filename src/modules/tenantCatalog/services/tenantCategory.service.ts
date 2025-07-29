@@ -58,7 +58,7 @@ export class TenantCategoryService {
     }
 
     const category = await prisma.tenantCategory.update({
-      where: { id_tenantId: { id, tenantId: dto.tenantId! } },
+      where:  { id } ,
       data: dto as any,
     });
 

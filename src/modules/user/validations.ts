@@ -7,7 +7,7 @@ export const createUserSchema = z.object({
   email: z.string().email(),
   phone: z.string().optional(),
   password: z.string().min(6),
-  isRoot: z.boolean().optional(),
+
 });
 
 export const updateUserSchema = z.object({
@@ -16,5 +16,5 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   password: z.string().min(6).optional(),
-  isRoot: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 });

@@ -56,7 +56,11 @@ export const invoiceController = {
 
     applyInvoicePayment: asyncHandler(async(req: Request, res: Response) =>{
   try {
-    const payment = await invoiceService.createPaymentAndApplyToInvoice(req.body);
+    const userId = req.user?.id;
+    const id = req.params.id
+    const tenantId = req.user?.tenantId
+    const dto = req.body
+    const payment = await invoiceService.applyPayment(tenantId, userId, id, dto);
     res.status(201).json(payment);
   } catch (error) {
     res.status(400).json({ message: error.message });

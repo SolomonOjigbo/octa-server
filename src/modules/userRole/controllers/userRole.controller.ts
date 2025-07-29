@@ -28,8 +28,9 @@ export class UserRoleController {
    */
   async assignRole(req: Request, res: Response) {
     try {
+      const tenantId = req.user!.tenantId;
       const dto = assignRoleSchema.parse(req.body) as AssignRoleDto;
-      const result = await userRoleService.assignRole(dto);
+      const result = await userRoleService.assignRole(tenantId, dto);
       res.status(201).json(result);
     } catch (err: any) {
       res.status(400).json({ message: err.errors || err.message });
@@ -60,8 +61,9 @@ export class UserRoleController {
    */
   async removeRole(req: Request, res: Response) {
     try {
+      const tenantId = req.user!.tenantId;
       const dto = removeRoleSchema.parse(req.body) as RemoveRoleDto;
-      await userRoleService.removeRole(dto);
+      await userRoleService.removeRole(tenantId, dto);
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ message: err.errors || err.message });

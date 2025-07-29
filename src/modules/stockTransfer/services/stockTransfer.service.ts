@@ -5,6 +5,8 @@ import {
   RejectStockTransferDto,
   CancelStockTransferDto,
   StockTransferResponseDto,
+  StockTransferStatus,
+  StockTransferType,
 } from '../types/stockTransfer.dto';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
@@ -13,6 +15,7 @@ import { EVENTS } from '@events/events';
 import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
 import { b2bConnectionService } from '@modules/b2b/services/b2bConnection.service';
+import { inventoryService } from '@modules/inventory/services/inventory.service';
 import { inventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
 
 export class StockTransferService {
@@ -20,20 +23,35 @@ export class StockTransferService {
     return `stock_transfers:${tenantId}`;
   }
 
-  async list(tenantId: string) {
-    const key = this.cacheKey(tenantId);
+  async list(tenantId: string, filters: any = {}) {
+    const key = `${this.cacheKey(tenantId)}:${JSON.stringify(filters)}`;
     const cached = await cacheService.get<StockTransferResponseDto[]>(key);
     if (cached) return cached;
-    const transfers = await prisma.stockTransfer.findMany({
-      where: { tenantId },
+
+    const where: any = { tenantId };
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) where[key] = value;
     });
+
+    const transfers = await prisma.stockTransfer.findMany({
+      where,
+      include: { items: true }
+    });
+    
     await cacheService.set(key, transfers, 300);
     return transfers;
   }
 
   async getById(tenantId: string, id: string) {
-    const transfer = await prisma.stockTransfer.findUnique({ where: { id } });
-    if (!transfer || transfer.tenantId !== tenantId) throw new AppError('Not found', 404);
+    const transfer = await prisma.stockTransfer.findUnique({ 
+      where: { id },
+      include: { items: true }
+    });
+    
+    if (!transfer || transfer.tenantId !== tenantId) {
+      throw new AppError('Stock transfer not found', 404);
+    }
+    
     return transfer;
   }
 
@@ -41,55 +59,86 @@ export class StockTransferService {
     tenantId: string,
     userId: string,
     dto: CreateStockTransferDto
-  ){
-    // 1. Check B2B connection status
-    await b2bConnectionService.ensureConnectionExists(tenantId, dto.destTenantId);
+  ) {
+    return prisma.$transaction(async (tx) => {
+      // 1. Validate B2B connection for cross-tenant transfers
+      if (dto.transferType === 'CROSS_TENANT') {
+        const conn = await b2bConnectionService.findConnection(
+          tenantId,
+          dto.destTenantId
+        );
+        
+        if (!conn || conn.status !== 'APPROVED') {
+          throw new AppError(
+            'No active B2B connection between tenants',
+            403
+          );
+        }
+      }
 
-    const conn = await b2bConnectionService.findConnection(
-      tenantId,
-      dto.destTenantId
-    );
-    if (!conn || conn.status !== 'approved') {
-      throw new AppError(
-        'No active, approved B2B connection between these tenants',
-        403
-      );
-    }
+      // 2. Validate inventory availability
+      for (const item of dto.items) {
+        const args = { tenantId, productId:item.sourceTenantProductId, productVariantId: item.sourceTenantProductVariantId,  quantity:item.quantity, storeId:dto.fromStoreId } 
+        const available = await inventoryService.checkAvailability(args);
+        
+        if (!available) {
+          throw new AppError(
+            `Insufficient stock for product ${item.sourceTenantProductId}`,
+            400
+          );
+        }
+      }
 
-    // 2. (Optional) ensure dest tenant has created a PO for this product
-    const hasPO = await prisma.purchaseOrderItem.findFirst({
-      where: {
-        purchaseOrder: {
-          tenantId: dto.destTenantId,
-          status: { in: ['approved','received'] },
+      // 3. Create transfer record
+      const transfer = await tx.stockTransfer.create({
+        data: {
+          tenantId,
+          createdById: userId,
+          status: 'PENDING',
+          ...dto,
+          items: {
+            create: dto.items.map(item => ({
+              sourceTenantProductId: item.sourceTenantProductId,
+              sourceTenantProductVariantId: item.sourceTenantProductVariantId,
+              destTenantProductId: item.tenantProductId,
+              destTenantProductVariantId: item.destTenantProductVariantId,
+              quantity: item.quantity,
+              batchNumber: item.batchNumber,
+              expiryDate: item.expiryDate,
+              name: item.name,
+              sku: item.sku
+            }))
+          }
         },
-        tenantProductId: dto.sourceTenantProductId,
-      },
-    });
-    if (!hasPO) {
-      throw new AppError(
-        'Destination tenant must first create an approved purchase order for this product',
-        400
-      );
-    }
+        include: { items: true }
+      });
 
-    // now safe to create
-    const record = await prisma.stockTransfer.create({
-      data: { tenantId, status: 'pending', createdById: userId, ...dto },
+      const transferData = {
+        transferId: transfer.id,
+        items: dto.items,
+        tenantId,
+      }
+      // 4. Reserve inventory
+      await inventoryService.reserveStockForTransfer(
+        tenantId,
+        userId,
+        transferData
+      );
+
+      // 5. Clear cache and emit event
+      await cacheService.del(this.cacheKey(tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'StockTransfer',
+        action: 'create',
+        entityId: transfer.id,
+        details: dto,
+      });
+      
+      eventBus.emit(EVENTS.STOCK_TRANSFER_REQUESTED, transfer);
+      return transfer;
     });
-     await inventoryFlowService.recordStockTransferReceipt(tenantId, userId,  record.id);
-     
-   await cacheService.del(this.cacheKey(tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'StockTransfer',
-      action: 'create',
-      entityId: record.id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_TRANSFER_REQUESTED, record);
-    return record;
   }
 
   async approveTransfer(
@@ -97,55 +146,41 @@ export class StockTransferService {
     userId: string,
     id: string,
     dto: ApproveStockTransferDto
-  ){
-    const t = await this.getById(tenantId, id);
-    if (t.status !== 'pending' || t.destTenantId !== tenantId) throw new AppError('Forbidden or wrong status', 403);
-    const conn = await b2bConnectionService.findConnection(
-      t.tenantId,
-      t.destTenantId
-    );
-    if (!conn || conn.status !== 'approved') {
-      throw new AppError(
-        'Cannot approve: B2B connection is not active/approved',
-        403
-      );
-    }
-    // 2. (Optional) ensure dest tenant has created a PO for this product
-    const hasPO = await prisma.purchaseOrderItem.findFirst({
-      where: {
-        purchaseOrder: {
-          tenantId: dto.destTenantId,
-          status: { in: ['approved','received'] },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const transfer = await this.getById(tenantId, id);
+      
+      if (transfer.status !== 'PENDING' || transfer.destTenantId !== tenantId) {
+        throw new AppError('Transfer cannot be approved', 403);
+      }
+
+      // 1. Update transfer status
+      const updated = await tx.stockTransfer.update({
+        where: { id },
+        data: { 
+          status: 'APPROVED', 
+          approvedById: userId 
         },
-        tenantProductId: dto.sourceTenantProductId,
-      },
-    });
-    if (!hasPO) {
-      throw new AppError(
-        'Destination tenant must first create an approved purchase order for this product',
-        400
-      );
-    }
-    const updated = await prisma.stockTransfer.update({
-      where: { id },
-      data: { status: 'approved', approvedById: userId },
-    });
-    
-    
-    eventBus.emit('stockTransfer.received', { stockTransferId: id });
-    await cacheService.del(this.cacheKey(t.tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'StockTransfer',
-      action: 'approve',
-      entityId: id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_TRANSFER_APPROVED, updated);
+        include: { items: true }
+      });
 
+      // 2. Process inventory transfer
+      await inventoryFlowService.processStockTransfer(tenantId, userId, updated?.items);
 
-    return updated;
+      // 3. Clear cache and emit event
+      await cacheService.del(this.cacheKey(transfer.tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'StockTransfer',
+        action: 'approve',
+        entityId: id,
+        details: dto,
+      });
+      
+      eventBus.emit(EVENTS.STOCK_TRANSFER_APPROVED, updated);
+      return updated;
+    });
   }
 
   async rejectTransfer(
@@ -153,26 +188,42 @@ export class StockTransferService {
     userId: string,
     id: string,
     dto: RejectStockTransferDto
-  ){
-    const t = await this.getById(tenantId, id);
-    if (t.status !== 'pending' || t.destTenantId !== tenantId) throw new AppError('Forbidden or wrong status', 403);
-    const updated = await prisma.stockTransfer.update({
-      where: { id },
-      data: { status: 'rejected' },
-    });
-    await cacheService.del(this.cacheKey(t.tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'StockTransfer',
-      action: 'reject',
-      entityId: id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_TRANSFER_REJECTED, updated);
-    return updated;
-  }
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const transfer = await this.getById(tenantId, id);
+      
+      if (transfer.status !== 'PENDING' || transfer.destTenantId !== tenantId) {
+        throw new AppError('Transfer cannot be rejected', 403);
+      }
 
+      const updated = await tx.stockTransfer.update({
+        where: { id },
+        data: { status: 'REJECTED' },
+      });
+
+      // Release reserved stock
+      await inventoryService.releaseReservedStock(
+        transfer.tenantId, 
+        transfer.id
+      );
+
+      await cacheService.del(this.cacheKey(transfer.tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'StockTransfer',
+        action: 'reject',
+        entityId: id,
+        details: dto,
+      });
+      
+      eventBus.emit(EVENTS.STOCK_TRANSFER_REJECTED, {
+        ...updated,
+        reason: dto.reason
+      });
+      return updated;
+    });
+  }
 
   async cancelTransfer(
     tenantId: string,
@@ -180,24 +231,61 @@ export class StockTransferService {
     id: string,
     dto: CancelStockTransferDto
   ) {
-    const t = await this.getById(tenantId, id);
-    if (!['pending','approved'].includes(t.status)) throw new AppError('Cannot cancel', 400);
-    if (t.sourceTenantProductId !== tenantId && t.destTenantId !== tenantId)
-      throw new AppError('Forbidden', 403);
+    return prisma.$transaction(async (tx) => {
+      const transfer = await this.getById(tenantId, id);
+      
+      if (!['PENDING','APPROVED'].includes(transfer.status)) {
+        throw new AppError('Transfer cannot be cancelled', 400);
+      }
+
+      if (transfer.tenantId !== tenantId && transfer.destTenantId !== tenantId) {
+        throw new AppError('Unauthorized cancellation', 403);
+      }
+
+      const updated = await tx.stockTransfer.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      });
+
+      // Release reserved stock if not completed
+      if (transfer.status !== 'COMPLETED') {
+        await inventoryService.releaseReservedStock(
+          transfer.tenantId, 
+          transfer.id
+        );
+      }
+
+      await cacheService.del(this.cacheKey(transfer.tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'StockTransfer',
+        action: 'cancel',
+        entityId: id,
+        details: dto,
+      });
+      
+      eventBus.emit(EVENTS.STOCK_TRANSFER_CANCELLED, {
+        ...updated,
+        reason: dto.reason
+      });
+      return updated;
+    });
+  }
+
+  async completeTransfer(tenantId: string, transferId: string) {
+    const transfer = await this.getById(tenantId, transferId);
+    
+    if (transfer.status !== 'APPROVED') {
+      throw new AppError('Only approved transfers can be completed', 400);
+    }
+
     const updated = await prisma.stockTransfer.update({
-      where: { id },
-      data: { status: 'cancelled' },
+      where: { id: transferId },
+      data: { status: 'COMPLETED' },
     });
-    await cacheService.del(this.cacheKey(t.tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'StockTransfer',
-      action: 'cancel',
-      entityId: id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.STOCK_TRANSFER_CANCELED, updated);
+
+    eventBus.emit(EVENTS.STOCK_TRANSFER_COMPLETED, updated);
     return updated;
   }
 }

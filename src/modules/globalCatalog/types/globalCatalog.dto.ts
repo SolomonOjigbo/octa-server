@@ -1,11 +1,14 @@
 // src/modules/globalCatalog/types/globalCatalog.dto.ts
 
+export interface CSVRow {
+  [key: string]: string | number | boolean;
+}
+
 export interface CreateGlobalCategoryDto {
   name: string;
   imageUrl?: string;
   parentId?: string;
   description?: string;
-  parent?: string;
 }
 export interface UpdateGlobalCategoryDto extends Partial<CreateGlobalCategoryDto> {
   id: string;
@@ -16,6 +19,8 @@ export interface CreateGlobalProductDto {
   sku: string;
   name: string;
   barcode?: string;
+  costPrice: number;
+  sellingPrice: number;
   imageUrl?: string;
   brand?: string;
   dosageForm?: string;
@@ -23,6 +28,8 @@ export interface CreateGlobalProductDto {
   description?: string;
   isPrescription?: boolean;
   isActive?: boolean;
+  isVariable: boolean;
+  variants?: CreateGlobalProductVariantDto[];
 }
 export interface UpdateGlobalProductDto extends Partial<CreateGlobalProductDto> {
   id: string;
@@ -30,7 +37,11 @@ export interface UpdateGlobalProductDto extends Partial<CreateGlobalProductDto> 
 
 export interface CreateGlobalProductVariantDto {
   globalProductId: string;
-  variantAttributeIds: string[];
+   variantAttributes: {
+    id: string;
+    name: string;
+    options: string[];
+  }[];
   name: string;
   sku: string;
   imageUrl?: string;

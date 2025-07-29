@@ -38,7 +38,8 @@ export class GlobalVariantController {
       const dto = GlobalProductVariantSchema.partial().parse(req.body) as UpdateGlobalProductVariantDto;
       const id = req.params.id;
       const userId = req.user!.id;
-      res.json(await globalVariantService.updateGlobalProductVariant(id, dto, userId));
+      const tenantId = req.user.tenantId
+      res.json(await globalVariantService.updateGlobalProductVariant(id, tenantId, userId, dto));
     } catch (error) {
       res.status(400).json({ message: error.message });
     }
@@ -48,7 +49,8 @@ export class GlobalVariantController {
     try {
       const id = req.params.id;
       const userId = req.user!.id;
-      await globalVariantService.deleteGlobalVariant(id, userId);
+      const tenantId = req.user.tenantId;
+      await globalVariantService.deleteGlobalVariant(id, userId, tenantId);
       res.sendStatus(204);
       
     } catch (error) {

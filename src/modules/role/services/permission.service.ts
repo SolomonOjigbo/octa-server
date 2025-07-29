@@ -4,7 +4,12 @@ import prisma from "@shared/infra/database/prisma";
 
 export class PermissionService {
   async createPermission(name: string, description?: string) {
-    return prisma.permission.create({ data: { name, description } });
+      const existing = await prisma.permission.findUnique({ 
+    where: { name } 
+  });
+  if (existing) throw new Error("Permission exists");
+  
+  return prisma.permission.create({ data: { name, description } });
   }
   async getPermissions() {
     return prisma.permission.findMany();

@@ -6,18 +6,28 @@ import { CreateRoleDto, UpdateRoleDto } from "../types/role.dto";
 export class RoleService {
   async createRole(dto: CreateRoleDto) {
     // Optionally ensure tenant/store/warehouse exist
-    if (dto.tenantId) {
-      const t = await prisma.tenant.findUnique({ where: { id: dto.tenantId } });
-      if (!t) throw new Error("Invalid tenantId.");
-    }
-    if (dto.storeId) {
-      const s = await prisma.store.findUnique({ where: { id: dto.storeId } });
-      if (!s) throw new Error("Invalid storeId.");
-    }
-    if (dto.warehouseId) {
-      const w = await prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
-      if (!w) throw new Error("Invalid warehouseId.");
-    }
+    // if (dto.tenantId) {
+    //   const t = await prisma.tenant.findUnique({ where: { id: dto.tenantId } });
+    //   if (!t) throw new Error("Invalid tenantId.");
+    // }
+    // if (dto.storeId) {
+    //   const s = await prisma.store.findUnique({ where: { id: dto.storeId } });
+    //   if (!s) throw new Error("Invalid storeId.");
+    // }
+    // if (dto.warehouseId) {
+    //   const w = await prisma.warehouse.findUnique({ where: { id: dto.warehouseId } });
+    //   if (!w) throw new Error("Invalid warehouseId.");
+    // }
+     const context = dto.warehouseId ? 'warehouse' : 
+                 dto.storeId ? 'store' : 
+                 'tenant';
+
+  // Add duplicate name check
+  const existing = await prisma.role.findFirst({
+    where: { name: dto.name, context }
+  });
+  if (existing) throw new Error("Role name exists in context");
+
     // Create role with permissions
     return prisma.role.create({
       data: {

@@ -3,9 +3,10 @@
 import { PaymentStatus } from '@modules/transactions/types/transaction.dto';
 import { z } from 'zod';
 
-/**
- * Line‐item: exactly one of tenantProductId | globalProductId
- */
+export const PurchaseOrderStatusSchema = z.enum([
+  'PENDING', 'APPROVED', 'RECEIVED', 'CANCELLED', 'INVOICED'
+]);
+
 export const PurchaseOrderItemSchema = z
   .object({
     tenantProductId: z.string().cuid().optional(),
@@ -34,16 +35,14 @@ export const CreatePurchaseOrderSchema = z.object({
   orderDate: z.coerce.date(),
   receivedDate: z.coerce.date().optional(),
   totalAmount: z.number().min(0),
-  status: z.enum(['pending', 'approved', 'received', 'cancelled']).default('pending'),
+   status: PurchaseOrderStatusSchema.default('PENDING'),
   userId: z.string().cuid(),
   notes: z.string().optional(),
   items: z.array(PurchaseOrderItemSchema).min(1),
 });
 
 export const UpdatePurchaseOrderSchema = z.object({
-  status: z
-    .enum(['pending', 'approved', 'received', 'cancelled'])
-    .optional(),
+ status: PurchaseOrderStatusSchema.optional(),
   receivedDate: z.coerce.date().optional(),
   notes: z.string().optional(),
 });

@@ -70,7 +70,7 @@ export class TransactionService {
   if (dto.referenceType === 'STOCK_TRANSFER' && dto.referenceId) {
     await prisma.stockTransfer.update({
       where: { id: dto.referenceId },
-      data: { status: 'BILLED' }
+      data: { status: 'PENDING' }
     });
   }
 

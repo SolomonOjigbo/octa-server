@@ -22,6 +22,9 @@ export interface SaleItemDto {
   tenantProductVariantId?: string;
   quantity: number;
   unitPrice: number;
+  costPrice: number;
+  name: string;
+  sku: string;
   discount?: number;
   tax?: number;
   storeId?: string;

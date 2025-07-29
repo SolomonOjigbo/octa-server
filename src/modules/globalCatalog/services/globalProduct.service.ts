@@ -1,7 +1,11 @@
+import{ parse } from "csv-parse";
 import prisma from '@shared/infra/database/prisma';
-import { CreateGlobalProductDto, UpdateGlobalProductDto } from '../types/globalCatalog.dto';
-
-
+import { CreateGlobalProductDto, CreateGlobalProductVariantDto, CSVRow, UpdateGlobalProductDto } from '../types/globalCatalog.dto';
+import { Readable } from 'stream';
+import { createReadStream } from 'fs';
+import { promisify } from 'util';
+import * as fs from 'fs';
+import * as util from 'util';
 import { cacheService } from "@cache/cache.service";
 import { CacheKeys } from "@cache/cacheKeys";
 import { auditService } from "@modules/audit/services/audit.service";
@@ -9,9 +13,10 @@ import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
 import {logger } from "@logging/logger";
 import { globalVariantService } from './globalVariant.service';
-import { createGlobalProductSchema } from '../validations';
+import { createGlobalProductSchema, createGlobalVariantSchema } from '../validations';
+import { Prisma } from '@prisma/client';
 
-
+const pipeline = promisify(require('stream').pipeline);
 
 export class GlobalProductService {
   async createGlobalProduct(
@@ -26,10 +31,15 @@ export class GlobalProductService {
     let categoryId = data.globalCategoryId;
     if (!categoryId && dto.category) {
       // inline create
-      const newCat = await prisma.globalCategory.create({
-        data: { ...dto.category, createdAt: new Date(), updatedAt: new Date() },
-      });
-      categoryId = newCat.id;
+    const newCat = await prisma.globalCategory.create({
+      data: { 
+        name: dto.category.name,
+        ...(dto.category.imageUrl && { imageUrl: dto.category.imageUrl }),
+        ...(dto.category.parentId && { parentId: dto.category.parentId }),
+        ...(dto.category.description && { description: dto.category.description }),
+      },
+    });
+    categoryId = newCat.id;
 
       // audit & event for category
       await auditService.log({
@@ -56,22 +66,29 @@ export class GlobalProductService {
       throw new Error("globalCategoryId is required (either reference or inline).");
     }
 
-    // 3. Create the GlobalProduct
+    const productData: Prisma.GlobalProductCreateInput = {
+    ...(tenantId && {connect: {id: tenantId}}),
+    sku: data.sku,
+    isPrescription: data.isPrescription ?? false,
+    isActive: data.isActive ?? true,
+    isVariable: data.isVariable ?? false,
+    name: data.name,
+    category: { connect: { id: categoryId } }, // Proper relation connection
+    ...(data.barcode && { barcode: data.barcode }),
+    ...(data.imageUrl && { imageUrl: data.imageUrl }),
+    ...(data.brand && { brand: data.brand }),
+    ...(data.dosageForm && { dosageForm: data.dosageForm }),
+    ...(data.sellingType && { sellingType: data.sellingType }),
+    ...(data.description && { description: data.description }),
+       ...(!data.isVariable && { 
+      costPrice: data.costPrice,
+      sellingPrice: data.sellingPrice 
+    }),
+  };
+
     const product = await prisma.globalProduct.create({
-      data: {
-        globalCategoryId: categoryId,
-        sku: data.sku,
-        name: data.name,
-        barcode: data.barcode,
-        imageUrl: data.imageUrl,
-        brand: data.brand,
-        dosageForm: data.dosageForm,
-        sellingType: data.sellingType,
-        description: data.description,
-        isPrescription: data.isPrescription ?? false,
-        isActive: data.isActive ?? true,
-      },
-    });
+    data: productData
+      });
 
     // audit & event for product
     await auditService.log({
@@ -95,6 +112,13 @@ export class GlobalProductService {
 
     // 4. Create Variants (if any)
     if (Array.isArray(dto.variants)) {
+      if (!product.isVariable && dto.variants.length > 0) {
+      throw new Error("Cannot add variants to a non-variable product");
+    }
+
+    if (product.isVariable && dto.variants.length === 0) {
+      throw new Error("Variable products must have at least one variant");
+    }
       for (const v of dto.variants) {
         // attach the parent productId
         await globalVariantService.createGlobalProductVariant(
@@ -106,8 +130,9 @@ export class GlobalProductService {
         }
         );
       }
-    }
-
+    } else if (product.isVariable) {
+    throw new Error("Variable products must have variants");
+  }
     // 5. Return the newly created product
     return product;
   }
@@ -216,6 +241,346 @@ export class GlobalProductService {
     }
     return p;
   }
+
+  async bulkImportProductsFromCSV(
+  actorId: string,
+  tenantId: string,
+  filePath: string,
+): Promise<{ success: number; errors: Array<{ row: number; error: string }> }> {
+  const errors: Array<{ row: number; error: string }> = [];
+  let successCount = 0;
+
+  try {
+    // 1. Parse CSV file
+    const records = await this.parseCSVFile(filePath);
+
+    // 2. Process in batches (100 at a time)
+    const batchSize = 100;
+    for (let i = 0; i < records.length; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
+      const batchResults = await this.processImportBatch(actorId, tenantId, batch, i + 1);
+      successCount += batchResults.success;
+      errors.push(...batchResults.errors);
+    }
+
+    return { success: successCount, errors };
+  } catch (error) {
+    logger.error('Bulk import failed', error);
+    throw new Error('Failed to process CSV import');
+  }
+}
+
+
+
+private async parseCSVFile(filePath: string): Promise<Record<string, any>[]> {
+  try {
+    const records: Record<string, any>[] = [];
+    const parseOptions = {
+      columns: true,
+      trim: true,
+      skip_empty_lines: true,
+      cast: (value: string, context: { column: string | number }) => {
+        const column = typeof context.column === 'string' ? context.column : '';
+        return this.castCSVValue(value, { column });
+      }
+    };
+
+    // Create readable stream from file content
+    const stream = fs.createReadStream(filePath)
+      .pipe(parse(parseOptions))
+      .on('data', (record) => records.push(record))
+      .on('error', (error) => {
+        throw error;
+      });
+
+    // Wait for stream to finish
+    await new Promise((resolve, reject) => {
+      stream.on('end', resolve);
+      stream.on('error', reject);
+    });
+
+    return records;
+  } catch (error) {
+    logger.error('Failed to parse CSV file', { error, filePath });
+    throw new Error('Failed to parse CSV file');
+  }
+}
+
+private castCSVValue(value: string, context: { column: string }): string | number | boolean {
+  const booleanColumns = ['isVariable', 'isPrescription', 'isActive'];
+  const numberColumns = ['costPrice', 'sellingPrice', 'stock'];
+
+  if (booleanColumns.includes(context.column)) {
+    return value.toLowerCase() === 'true';
+  }
+
+  if (numberColumns.includes(context.column)) {
+    const parsedValue = parseFloat(value);
+    return isNaN(parsedValue) ? 0 : parsedValue;
+  }
+
+  return value;
+}
+
+private async processImportBatch(
+  actorId: string,
+  tenantId: string,
+  batch: any[],
+  startRow: number,
+): Promise<{ success: number; errors: Array<{ row: number; error: string }> }> {
+  const errors: Array<{ row: number; error: string }> = [];
+  let successCount = 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i];
+      const rowNumber = startRow + i;
+
+      try {
+        // Validate and transform row data
+        const productData = this.transformCSVRow(row);
+
+        // Create product
+        const product = await this.createProductFromImport(
+          tx,
+          actorId,
+          tenantId,
+          productData.product,
+          rowNumber
+        );
+
+        // Create variants if needed
+        if (productData.product.isVariable && productData.variants) {
+          await this.createVariantsFromImport(
+            tx,
+            actorId,
+            tenantId,
+            product.id,
+            productData.variants,
+            rowNumber
+          );
+        }
+
+        successCount++;
+      } catch (error) {
+        errors.push({
+          row: rowNumber,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        logger.error(`Error processing row ${rowNumber}`, error);
+      }
+    }
+  });
+
+  return { success: successCount, errors };
+}
+
+private transformCSVRow(row: any): {
+  product: CreateGlobalProductDto;
+  variants?: Array<any>;
+} {
+  // Basic validation
+  if (!row.sku || !row.name) {
+    throw new Error('Missing required fields: sku and name are required');
+  }
+
+  const productData: CreateGlobalProductDto = {
+    sku: row.sku,
+    name: row.name,
+    globalCategoryId: row.globalCategoryId,
+    barcode: row.barcode,
+    imageUrl: row.imageUrl,
+    brand: row.brand,
+    dosageForm: row.dosageForm,
+    description: row.description,
+    isPrescription: row.isPrescription === true,
+    isVariable: row.isVariable === true,
+    isActive: row.isActive !== false,
+    ...(!row.isVariable && {
+      costPrice: parseFloat(row.costPrice),
+      sellingPrice: parseFloat(row.sellingPrice)
+    })
+  };
+
+  let variants: Array<CreateGlobalProductVariantDto> | undefined;
+
+  if (row.isVariable) {
+    if (!row.variants) {
+      throw new Error('Variable products must have variants');
+    }
+
+    try {
+      variants = JSON.parse(row.variants);
+    } catch (e) {
+      throw new Error('Invalid variants format. Expected JSON string');
+    }
+
+    if (!Array.isArray(variants)) {
+      throw new Error('Variants must be an array');
+    }
+  }
+
+  return { product: productData, variants };
+}
+private async createProductFromImport(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  tenantId: string,
+  productData: CreateGlobalProductDto,
+  rowNumber: number
+): Promise<{ id: string }> {
+  try {
+    // Validate with Zod schema
+    const validatedData = createGlobalProductSchema.parse({
+      ...productData,
+      // Ensure proper decimal handling for prices
+      ...(!productData.isVariable && {
+        costPrice: new Prisma.Decimal(productData.costPrice || 0),
+        sellingPrice: new Prisma.Decimal(productData.sellingPrice || 0)
+      })
+    });
+
+    // Check for existing product
+    const existing = await tx.globalProduct.findUnique({
+      where: { sku: validatedData.sku },
+      select: { id: true }
+    });
+
+    if (existing) {
+      throw new Error(`Product with SKU ${validatedData.sku} already exists`);
+    }
+
+    // Prepare create data with proper Prisma types
+    const createData: Prisma.GlobalProductCreateInput = {
+      sku: validatedData.sku,
+      name: validatedData.name,
+      isVariable: validatedData.isVariable ?? false,
+      isPrescription: validatedData.isPrescription ?? false,
+      isActive: validatedData.isActive ?? true,
+      ...(validatedData.barcode && { barcode: validatedData.barcode }),
+      ...(validatedData.imageUrl && { imageUrl: validatedData.imageUrl }),
+      ...(validatedData.brand && { brand: validatedData.brand }),
+      ...(validatedData.dosageForm && { dosageForm: validatedData.dosageForm }),
+      ...(validatedData.description && { description: validatedData.description }),
+      ...(!validatedData.isVariable && {
+        costPrice: new Prisma.Decimal(validatedData.costPrice || 0),
+        sellingPrice: new Prisma.Decimal(validatedData.sellingPrice || 0)
+      }),
+      ...(validatedData.globalCategoryId && {
+        category: { connect: { id: validatedData.globalCategoryId } }
+      })
+    };
+
+    // Create product
+    const product = await tx.globalProduct.create({
+      data: createData,
+      select: { id: true }
+    });
+
+    // Audit log
+    await auditService.log({
+      tenantId,
+      userId: actorId,
+      module: "global_product",
+      action: "create",
+      entityId: product.id,
+      details: {
+        sku: validatedData.sku,
+        name: validatedData.name,
+        isVariable: validatedData.isVariable
+      },
+    });
+
+    return product;
+  } catch (error) {
+    logger.error(`Error creating product from row ${rowNumber}`, error);
+    throw new Error(`Row ${rowNumber}: ${error instanceof Error ? error.message : 'Failed to create product'}`);
+  }
+}
+
+private async createVariantsFromImport(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  tenantId: string,
+  productId: string,
+  variants: Array<CreateGlobalProductVariantDto>,
+  rowNumber: number
+): Promise<void> {
+  for (const [index, variantData] of variants.entries()) {
+    try {
+      // Validate with Zod schema
+      const validatedVariant = createGlobalVariantSchema.parse({
+        ...variantData,
+        costPrice: new Prisma.Decimal(variantData.costPrice),
+        sellingPrice: new Prisma.Decimal(variantData.sellingPrice),
+        globalProductId: productId
+      });
+
+      // Check for existing variant
+      const existing = await tx.globalVariant.findFirst({
+        where: {
+          sku: validatedVariant.sku,
+          globalProductId: productId
+        }
+      });
+
+      if (existing) {
+        throw new Error(`Variant SKU ${validatedVariant.sku} already exists`);
+      }
+
+      // Verify variant attributes exist
+      const attributeIds = validatedVariant.variantAttributes.map(attr => attr.id);
+      const existingAttributes = await tx.variantAttributes.findMany({
+        where: { id: { in: attributeIds } },
+        select: { id: true }
+      });
+
+      if (existingAttributes.length !== attributeIds.length) {
+        const missingIds = attributeIds.filter(
+          id => !existingAttributes.some(attr => attr.id === id)
+        );
+        throw new Error(`Missing variant attributes: ${missingIds.join(', ')}`);
+      }
+
+      // Create variant
+      const variant = await tx.globalVariant.create({
+        data: {
+          name: validatedVariant.name,
+          sku: validatedVariant.sku,
+          costPrice: validatedVariant.costPrice,
+          sellingPrice: validatedVariant.sellingPrice,
+          ...(validatedVariant.imageUrl && { imageUrl: validatedVariant.imageUrl }),
+          ...(validatedVariant.stock && { stock: validatedVariant.stock }),
+          product: { connect: { id: productId } },
+          variantAttributes: {
+            connect: validatedVariant.variantAttributes.map(attr => ({ id: attr.id }))
+          }
+        },
+        include: {
+          variantAttributes: true
+        }
+      });
+
+      // Audit log
+      await auditService.log({
+        tenantId,
+        userId: actorId,
+        module: "global_variant",
+        action: "create",
+        entityId: variant.id,
+        details: {
+          productId,
+          sku: variant.sku,
+          attributes: variant.variantAttributes.map(attr => attr.id)
+        },
+      });
+
+    } catch (error) {
+      logger.error(`Error creating variant ${index + 1} from row ${rowNumber}`, error);
+      throw new Error(`Row ${rowNumber}, Variant ${index + 1}: ${error instanceof Error ? error.message : 'Failed to create variant'}`);
+    }
+  }
+}
 }
 
 export const globalProductService = new GlobalProductService();

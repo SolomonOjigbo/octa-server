@@ -25,12 +25,17 @@ export class PurchaseOrderSubscriber {
     await this.notificationService.sendEmail({
       to: email,
       subject: 'Purchase Order Created',
-      template: null,
+      template: 'purchaseOrderCreated' ,
       variables: {
-        supplierName: po.supplier.name,
+        poNumber: po.poNumber,
         poId: po.id,
         invoiceId: invoice?.id,
         createdAt: po.createdAt,
+        supplierName: po.supplier.name,
+        items: po.items.map(item => ({
+          product: item.product.name,
+          quantity: item.quantity
+        }))
       },
     });
     }

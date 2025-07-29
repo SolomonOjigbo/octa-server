@@ -7,6 +7,7 @@ import { auditService } from "@modules/audit/services/audit.service";
 import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
 import {logger} from "@logging/logger";
+import { Prisma } from '@prisma/client';
 
 
 
@@ -16,8 +17,13 @@ export class TenantVariantService {
     userId: string
   ) {
     // Validate product
-    const prod = await prisma.tenantProduct.findUnique({ where: { id: dto.tenantProductId } });
+    const prod = await prisma.tenantProduct.findUnique({ where: { id: dto.tenantProductId }
+    });
     if (!prod) throw new Error("Product not found.");
+
+    if (!prod.isVariable) {
+    throw new Error("Cannot add variants to a non-variable product");
+  }
 
     // Unique sku per product variant
     const dup = await prisma.tenantVariant.findFirst({
@@ -25,8 +31,29 @@ export class TenantVariantService {
     });
     if (dup) throw new Error("Variant code conflict.");
 
+
+    const variantData: Prisma.TenantVariantCreateInput = {
+        name: dto.name,
+        sku: dto.sku,
+        costPrice: dto.costPrice,
+        sellingPrice: dto.sellingPrice,
+        ...(dto.imageUrl && { imageUrl: dto.imageUrl }),
+        ...(dto.stock && { stock: dto.stock }),
+        tenantProduct: {
+          connect: { id: dto.tenantProductId }
+        },
+        variantAttributes: {
+          connect: dto.variantAttributes.map(attr => ({ id: attr.id }))
+        }
+      };
+    
+
+
     // Create
-    const variant = await prisma.tenantVariant.create({ data: dto });
+    const variant = await prisma.tenantVariant.create({ data: variantData, include: {
+        variantAttributes: true
+      } },
+    );
 
     // Audit
     await auditService.log({
@@ -62,7 +89,10 @@ export class TenantVariantService {
   ) {
     const variant = await prisma.tenantVariant.update({
       where: { id },
-      data: dto as UpdateTenantProductVariantDto,
+      data: {
+        tenantProduct: {connect: {id: dto.tenantProductId}},
+        ...dto,
+      } as any
     });
     const prod = await prisma.tenantProduct.findUnique({
       where: { id: variant.tenantProductId },
@@ -116,7 +146,7 @@ export class TenantVariantService {
     });
 
     await cacheService.del(
-      CacheKeys.tenantVariantList( prod.tenantId,prod.tenantProductId)
+      CacheKeys.tenantVariantList(prod.tenantId, variant.tenantProductId)
     );
     await cacheService.del(
       CacheKeys.tenantVariantDetail(prod.tenantId, id)

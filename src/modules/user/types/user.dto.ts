@@ -5,11 +5,11 @@ export interface CreateUserDto {
   email: string;
   phone?: string;
   password: string;
-  isRoot?: boolean;
 }
 
 export interface UpdateUserDto extends Partial<Omit<CreateUserDto, 'tenantId'>> {
   // We forbid changing tenantId after creation
+   isActive?: boolean;
 }
 
 
@@ -21,7 +21,6 @@ export interface UserResponseDto {
   email: string;
   phone?: string;
   storeId?: string;
-  isRoot?: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -1,27 +1,38 @@
 // src/modules/stockTransfer/types/stockTransfer.dto.ts
-export type StockTransferStatus = 'pending' | 'approved' | 'completed' | 'rejected' | 'cancelled';
-export type StockTransferType = 'intra-tenant' | 'cross-tenant';
+export type StockTransferStatus = 
+  | 'PENDING'
+  | 'APPROVED'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'CANCELLED';
 
+export type StockTransferType = 
+  | 'INTRA_TENANT'
+  | 'CROSS_TENANT';
 
-
-
-export interface CreateStockTransferDto {
+export interface StockTransferItemDto {
   sourceTenantProductId: string;
   sourceTenantProductVariantId?: string;
-  fromStoreId?: string;
-  fromWarehouseId?: string;
-  destTenantId: string;
-  destTenantProductId: string;
+  tenantProductId: string;
   destTenantProductVariantId?: string;
-  toStoreId?: string;
-  toWarehouseId?: string;
   quantity: number;
   batchNumber?: string;
   expiryDate?: Date;
-  transferType: StockTransferType;
+  name: string;
+  sku: string;
 }
 
-export interface ApproveStockTransferDto extends CreateStockTransferDto { 
+export interface CreateStockTransferDto {
+  fromStoreId?: string;
+  fromWarehouseId?: string;
+  destTenantId: string;
+  toStoreId?: string;
+  toWarehouseId?: string;
+  transferType: StockTransferType;
+  items: StockTransferItemDto[];
+}
+
+export interface ApproveStockTransferDto { 
   reason?: string;
 }
 
@@ -36,39 +47,16 @@ export interface CancelStockTransferDto {
 export interface StockTransferResponseDto {
   id: string;
   tenantId: string;
-  sourceTenantProductId: string;
-  sourceTenantProductVariantId?: string;
   fromStoreId?: string;
   fromWarehouseId?: string;
   destTenantId: string;
-  destTenantProductId: string;
-  destTenantProductVariantId?: string;
   toStoreId?: string;
   toWarehouseId?: string;
-  quantity: number;
-  batchNumber?: string;
-  expiryDate?: Date;
-  transferType: StockTransferType;
   status: StockTransferStatus;
+  transferType: StockTransferType;
   createdById?: string;
   approvedById?: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-
-export interface ListStockTransfersDto {
-  tenantId?: string;
-  toTenantId?: string;
-  status?: string;
-  storeId?: string;
-  warehouseId?: string;
-  productId?: string;
-  transferType?: string;
-  requestedBy?: string;
-  approvedBy?: string;
-  fromDate?: Date;
-  toDate?: Date;
-  page?: number;
-  limit?: number;
+  items: StockTransferItemDto[];
 }

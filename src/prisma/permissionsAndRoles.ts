@@ -21,6 +21,7 @@ export const PERMISSION_GROUPS = {
   ROLE_MANAGEMENT:           'Role Management',
   AUDIT_MANAGEMENT:          'Audit Management',
   REPORTING:                 'Reporting',
+  B2B_MANAGEMENT:            'B2B Management',
 } as const;                                                           
 
 export type PermissionGroup = typeof PERMISSION_GROUPS[keyof typeof PERMISSION_GROUPS];
@@ -191,6 +192,8 @@ export const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { name:'b2b:update', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'Update B2B connections' },
   { name:'b2b:delete', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'Delete B2B connections' },
   { name:'b2b:view', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'View B2B connection details' },
+  { name: 'b2b:read', group: PERMISSION_GROUPS.B2B_MANAGEMENT, description:'View B2B connection details' },
+{ name: 'b2b:create', group: PERMISSION_GROUPS.B2B_MANAGEMENT, description:'Create B2B connections' },
 
   // Purchase Management
   { name:'purchaseOrder:read', group:PERMISSION_GROUPS.PURCHASE_MANAGEMENT, description:'View purchase orders' },

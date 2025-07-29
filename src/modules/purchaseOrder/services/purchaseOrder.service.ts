@@ -18,6 +18,7 @@ import {
   CancelPurchaseOrderDto,
   LinkPaymentDto,
 } from '../types/purchaseOrder.dto';
+import { tenantProductService } from "@modules/tenantCatalog/services/tenantProduct.service";
 
 export class PurchaseOrderService {
   private cacheKey(tenantId: string) {
@@ -78,13 +79,11 @@ export class PurchaseOrderService {
               },
             });
             if (!tp) {
-              tp = await prisma.tenantProduct.create({
-                data: {
-                  tenantId,
-                  globalProductId: it.globalProductId,
-                  isTransferable: true,
-                },
-              });
+              const productData = {
+                ...it,
+                tenantId: tenantId,
+              }
+              tp = await tenantProductService.createProduct(userId, productData);
             }
             tpid = tp.id;
           }
@@ -142,9 +141,13 @@ export class PurchaseOrderService {
     eventBus.emit(EVENTS.PURCHASE_ORDER_CREATED, po);
 
     // 6) Auto‐create draft invoice
-    const invoice = await invoiceService.createInvoiceFromPO(po, userId);
+      const invoice = await invoiceService.createFromPurchaseOrder(
+    tenantId, 
+    userId, 
+    po.id
+  );
     eventBus.emit(EVENTS.INVOICE_CREATED, invoice);
-
+    logger.info("Purchase Order Created", dto)
     return po;
   }
 
@@ -292,5 +295,4 @@ export class PurchaseOrderService {
   }
 }
 
-export const purchaseOrderService =
-  new PurchaseOrderService();
+export const purchaseOrderService = new PurchaseOrderService();

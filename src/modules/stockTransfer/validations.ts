@@ -1,20 +1,27 @@
 // src/modules/stockTransfer/validations.ts
 import { z } from 'zod';
 
-export const CreateStockTransferSchema = z.object({
+const StatusEnum = z.enum(['PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED']);
+const TransferTypeEnum = z.enum(['INTRA_TENANT', 'CROSS_TENANT']);
+
+export const StockTransferItemSchema = z.object({
   sourceTenantProductId: z.string().cuid(),
   sourceTenantProductVariantId: z.string().cuid().optional(),
-  fromStoreId: z.string().cuid().optional(),
-  fromWarehouseId: z.string().cuid().optional(),
-  destTenantId: z.string().cuid(),
   destTenantProductId: z.string().cuid(),
   destTenantProductVariantId: z.string().cuid().optional(),
-  toStoreId: z.string().cuid().optional(),
-  toWarehouseId: z.string().cuid().optional(),
   quantity: z.number().int().min(1),
   batchNumber: z.string().optional(),
   expiryDate: z.coerce.date().optional(),
-  transferType: z.enum(['intra-tenant','cross-tenant']),
+});
+
+export const CreateStockTransferSchema = z.object({
+  fromStoreId: z.string().cuid().optional(),
+  fromWarehouseId: z.string().cuid().optional(),
+  destTenantId: z.string().cuid(),
+  toStoreId: z.string().cuid().optional(),
+  toWarehouseId: z.string().cuid().optional(),
+  transferType: TransferTypeEnum,
+  items: z.array(StockTransferItemSchema).min(1),
 });
 
 export const ApproveStockTransferSchema = z.object({
@@ -22,44 +29,25 @@ export const ApproveStockTransferSchema = z.object({
 });
 
 export const RejectStockTransferSchema = z.object({
-  reason: z.string().optional(),
+  reason: z.string().min(5, "Rejection reason is required"),
 });
 
 export const CancelStockTransferSchema = z.object({
-  reason: z.string().optional(),
+  reason: z.string().min(5).optional(),
 });
 
-
-export const updateStockTransferSchema = z.object({
-  id: z.string().cuid(),
-  tenantId: z.string().cuid(),
-  fromStoreId: z.string().optional(),
-  fromWarehouseId: z.string().optional(),
-  toTenantId: z.string().optional(),
-  toStoreId: z.string().optional(),
-  toWarehouseId: z.string().optional(),
-  productId: z.string().cuid(),
-  quantity: z.number().min(1).optional(), // ✅ REQUIRED!
-  transferType: z.enum(['intra-tenant', 'cross-tenant']).optional(),
-  b2bConnectionId: z.string().optional(),
-  notes: z.string().max(500).optional(),
-  batchNumber: z.string().optional(),
-  expiryDate: z.coerce.date().optional(),
-  isControlled: z.boolean().optional(),
-});
-
-export const listStockTransfersSchema = z.object({
+export const ListStockTransfersSchema = z.object({
   tenantId: z.string().cuid().optional(),
-  toTenantId: z.string().cuid().optional(),
-  status: z.enum(["pending", "approved", "completed", "rejected", "cancelled"]).optional(),
+  destTenantId: z.string().cuid().optional(),
+  status: StatusEnum.optional(),
   storeId: z.string().cuid().optional(),
   warehouseId: z.string().cuid().optional(),
-  productId: z.string().cuid(),
-  transferType: z.enum(["intra-tenant", "cross-tenant"]).optional(),
-  requestedBy: z.string().cuid().optional(),
-  approvedBy: z.string().cuid().optional(),
-  fromDate: z.string().datetime().optional(),
-  toDate: z.string().datetime().optional(),
+  productId: z.string().cuid().optional(),
+  transferType: TransferTypeEnum.optional(),
+  createdById: z.string().cuid().optional(),
+  approvedById: z.string().cuid().optional(),
+  fromDate: z.coerce.date().optional(),
+  toDate: z.coerce.date().optional(),
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(20)
 });

@@ -4,9 +4,10 @@ import { cacheService } from "@cache/cache.service";
 import { auditService } from "@modules/audit/services/audit.service";
 import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
-import { InventoryMovementDto } from '../types/inventory.dto';
+import { CheckAvailabilityDto, InventoryMovementDto, ReserveStockDto } from '../types/inventory.dto';
 import prisma from "@shared/infra/database/prisma";
 import { stockService } from "@modules/stock/services/stock.service";
+import { StockMovementType } from "@common/types/stockMovement.dto";
 
 
 export class InventoryService {
@@ -29,8 +30,12 @@ async createMovement(
         tp = await prisma.tenantProduct.create({
           data: {
             tenantId,
-            globalProductId: dto.globalProductId,
+            globalProduct: {connect: {id: dto.globalProductId}},
             isTransferable: true,
+            isVariable: dto.tenantProductVariantId? true : false,
+            costPrice: dto.costPrice,
+            name: dto.name,
+          sku: dto.sku,
           },
         });
       }
@@ -263,6 +268,141 @@ await cacheService.del(`inventory_movements:${tenantId}`);
     eventBus.emit(EVENTS.INVENTORY_MOVEMENT_VOIDED, updated);
   return updated;
 }
+async checkAvailability(dto: CheckAvailabilityDto): Promise<boolean> {
+    const { tenantId, productId, variantId, quantity, warehouseId, storeId } = dto;
+    
+    const where: any = { 
+      tenantId,
+      tenantProductId: productId,
+      voided: false
+    };
+    
+    if (variantId) where.tenantProductVariantId = variantId;
+    if (warehouseId) where.warehouseId = warehouseId;
+    if (storeId) where.storeId = storeId;
+
+    const stock = await prisma.stock.aggregate({
+      where,
+      _sum: {
+        quantity: true,
+        reservedQuantity: true
+      }
+    });
+
+    const availableQuantity = (stock._sum.quantity || 0) - (stock._sum.reservedQuantity || 0);
+    return availableQuantity >= quantity;
+  }
+
+  async reserveStockForTransfer(tenantId: string, userId: string, dto: ReserveStockDto) {
+    return prisma.$transaction(async (tx) => {
+      for (const item of dto.items) {
+        const { tenantProductId, tenantProductVariantId, quantity, warehouseId, storeId } = item;
+        
+        // Check availability
+        const available = await this.checkAvailability({
+          tenantId,
+          productId: tenantProductId,
+          variantId: tenantProductVariantId,
+          quantity,
+          warehouseId,
+          storeId
+        });
+        
+        if (!available) {
+          throw new Error(`Insufficient stock for product ${tenantProductId}`);
+        }
+
+        // Update stock
+        await tx.stock.updateMany({
+          where: {
+            tenantId,
+            tenantProductId,
+            tenantProductVariantId: tenantProductVariantId || undefined,
+            warehouseId: warehouseId || undefined,
+            storeId: storeId || undefined,
+            quantity: { gte: quantity }
+          },
+          data: {
+            reservedQuantity: { increment: quantity }
+          }
+        });
+
+        // Record inventory movement
+        await tx.inventory.create({
+          data: {
+            tenantId,
+            tenantProductId,
+            tenantProductVariantId: tenantProductVariantId || null,
+            warehouseId: warehouseId || null,
+            storeId: storeId || null,
+            quantity,
+            movementType: StockMovementType.RESERVED,
+            reference: dto.transferId,
+            createdById: userId
+          }
+        });
+      }
+
+      eventBus.emit(EVENTS.STOCK_RESERVED, {
+        tenantId,
+        transferId: dto.transferId,
+        items: dto.items
+      });
+    });
+  }
+
+  async releaseReservedStock(tenantId: string, transferId: string) {
+    return prisma.$transaction(async (tx) => {
+      // Find reserved items
+      const reservations = await tx.inventory.findMany({
+        where: {
+          tenantId,
+          reference: transferId,
+          movementType: StockMovementType.RESERVED,
+          voided: false
+        }
+      });
+
+      for (const reservation of reservations) {
+        // Release reservation
+        await tx.stock.updateMany({
+          where: {
+            tenantId,
+            tenantProductId: reservation.tenantProductId,
+            tenantProductVariantId: reservation.tenantProductVariantId || undefined,
+            warehouseId: reservation.warehouseId || undefined,
+            storeId: reservation.storeId || undefined
+          },
+          data: {
+            reservedQuantity: { decrement: reservation.quantity }
+          }
+        });
+
+        // Void the reservation movement
+        await tx.inventory.update({
+          where: { id: reservation.id },
+          data: {
+            voided: true,
+            metadata: {
+              ...(reservation.metadata as object),
+              releasedAt: new Date().toISOString(),
+              releaseReason: 'Transfer cancellation/rejection'
+            }
+          }
+        });
+      }
+
+      eventBus.emit(EVENTS.STOCK_RELEASED, {
+        tenantId,
+        transferId,
+        releasedItems: reservations.map(r => ({
+          productId: r.tenantProductId,
+          variantId: r.tenantProductVariantId,
+          quantity: r.quantity
+        }))
+      });
+    });
+  }
 
 };
 

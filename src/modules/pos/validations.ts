@@ -18,6 +18,8 @@ export const SaleItemSchema = z.object({
   tenantProductVariantId: z.string().cuid().optional(),
   quantity:               z.number().int().min(1),
   unitPrice:              z.number().min(0),
+  name:                 z.string(), 
+  sku:                 z.string(),
   discount:               z.number().min(0).optional(),
   tax:                    z.number().min(0).optional(),
 });

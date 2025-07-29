@@ -10,7 +10,6 @@ export class ReconciliationService {
       where: { id: invoiceId },
       include: {
         payments: true,
-        transactions: true,
         items: true,
       },
     });
@@ -24,9 +23,8 @@ export class ReconciliationService {
     await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        status: isFullyPaid ? 'paid' : 'partially_paid',
-        paymentStatus: isFullyPaid ? 'complete' : 'incomplete',
-        paidAt: isFullyPaid ? new Date() : undefined,
+        status: isFullyPaid ? 'PAID' : 'PARTIALLY_PAID',
+        paymentStatus: isFullyPaid ? 'PAID' : 'PARTIALLY_PAID',
       },
     });
 
@@ -45,13 +43,13 @@ export class ReconciliationService {
       const inventoryMatch = await prisma.inventory.findFirst({
         where: {
           tenantId: transaction.tenantId,
-          productId: item.productId,
+          tenantProductId: item.tenantProductId,
           storeId: transaction.storeId,
         },
       });
 
       if (!inventoryMatch) {
-        logger.warn(`No inventory record found for ${item.productId}`);
+        logger.warn(`No inventory record found for ${item.tenantProductId}`);
         continue;
       }
 
@@ -66,8 +64,8 @@ export class ReconciliationService {
     where: { id: stockTransferId },
     include: {
       items: true,
-      sourceStore: true,
-      destinationStore: true,
+      toStore: true,
+      fromStore: true,
     },
   });
 
@@ -76,22 +74,22 @@ export class ReconciliationService {
   for (const item of transfer.items) {
     const sourceInventory = await prisma.inventory.findFirst({
       where: {
-        storeId: transfer.sourceStoreId,
-        productId: item.productId,
+        storeId: transfer.fromStoreId,
+        tenantProductId: item.sourceTenantProductId,
         tenantId: transfer.tenantId,
       },
     });
 
     const destInventory = await prisma.inventory.findFirst({
       where: {
-        storeId: transfer.destinationStoreId,
-        productId: item.productId,
-        tenantId: transfer.destinationTenantId,
+        storeId: transfer.toStoreId,
+        tenantProductId: item.destTenantProductId,
+        tenantId: transfer.destTenantId,
       },
     });
 
     if (!sourceInventory || !destInventory) {
-      throw new Error(`Inventory missing for product ${item.productId}`);
+      throw new Error(`Inventory missing for product ${item.sourceTenantProductId} and ${item.destTenantProductId}`);
     }
 
     // Optional: check if total quantity transferred aligns with recorded inventory change
@@ -101,7 +99,7 @@ export class ReconciliationService {
   await prisma.stockTransfer.update({
     where: { id: stockTransferId },
     data: {
-      status: 'reconciled',
+      status: 'RECONCILED', //To change to Reconcile status after prisma update
     },
   });
 
@@ -121,14 +119,14 @@ async reconcileTransactionInventory(transactionId: string) {
   for (const item of tx.items) {
     const inventory = await prisma.inventory.findFirst({
       where: {
-        productId: item.productId,
+        tenantProductId: item.tenantProductId,
         storeId: tx.storeId,
         tenantId: tx.tenantId,
       },
     });
 
     if (!inventory) {
-      logger.warn(`No inventory found for product ${item.productId}`);
+      logger.warn(`No inventory found for product ${item.tenantProductId}`);
       continue;
     }
 

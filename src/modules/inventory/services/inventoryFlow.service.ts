@@ -29,8 +29,19 @@ export class InventoryFlowService {
       select: { id: true },
     });
     if (!tp) {
+      const globalProduct = await prisma.globalProduct.findUnique({
+        where: { id: globalProductId}
+      })
+
       tp = await prisma.tenantProduct.create({
-        data: { tenantId, globalProductId, isTransferable: true },
+        data: { 
+            tenantId,
+            globalProduct: {connect: {id: globalProductId}},
+            isTransferable: true,
+            isVariable: false,
+            name: globalProduct.name,
+            sku: globalProduct.sku
+         },
         select: { id: true },
       });
     }
@@ -318,6 +329,41 @@ export class InventoryFlowService {
   }
 
   /** When a transfer is received, call this from stockTransferService */
+  // async recordStockTransferReceipt(
+  //   tenantId: string,
+  //   userId: string,
+  //   stockTransferId: string
+  // ) {
+  //   const transfer = await prisma.stockTransfer.findUnique({
+  //     where: { id: stockTransferId },
+  //     include: { items: true },
+  //   });
+  //   if (!transfer) throw new Error("Transfer not found");
+
+  //   for (const item of transfer.items) {
+  //     await this.recordMovement(tenantId, userId, {
+  //       tenantProductId: item.tenantProductId,
+  //       tenantProductVariantId:
+  //         item.tenantProductVariantId ?? undefined,
+  //       storeId: transfer.toStoreId ?? undefined,
+  //       warehouseId:
+  //         transfer.toWarehouseId ?? undefined,
+  //       batchNumber: item.batchNumber ?? undefined,
+  //       expiryDate: item.expiryDate ?? undefined,
+  //       quantity: item.quantity,
+  //       movementType: StockMovementType.TRANSFER_IN,
+  //       reference: stockTransferId,
+  //       metadata: undefined,
+  //       costPrice: item.costPrice ?? undefined,
+  //     });
+  //   }
+
+  //   eventBus.emit(EVENTS.STOCK_TRANSFER_RECEIPT_RECORDED, {
+  //     tenantId,
+  //     stockTransferId,
+  //   });
+  // }
+
   async recordStockTransferReceipt(
     tenantId: string,
     userId: string,
@@ -327,23 +373,30 @@ export class InventoryFlowService {
       where: { id: stockTransferId },
       include: { items: true },
     });
+    
     if (!transfer) throw new Error("Transfer not found");
 
     for (const item of transfer.items) {
+      // Check if product is transferable
+      const product = await prisma.tenantProduct.findUnique({
+        where: { id: item.destTenantProductId }
+      });
+      
+      if (!product || !product.isTransferable) {
+        throw new Error(`Product ${item.destTenantProductId } is not transferable`);
+      }
+
       await this.recordMovement(tenantId, userId, {
-        tenantProductId: item.tenantProductId,
-        tenantProductVariantId:
-          item.tenantProductVariantId ?? undefined,
-        storeId: transfer.destinationStoreId ?? undefined,
-        warehouseId:
-          transfer.destinationWarehouseId ?? undefined,
-        batchNumber: item.batchNumber ?? undefined,
-        expiryDate: item.expiryDate ?? undefined,
+        tenantProductId: item.destTenantProductId,
+        tenantProductVariantId: item.destTenantProductVariantId || undefined,
+        storeId: transfer.toStoreId || undefined,
+        warehouseId: transfer.toWarehouseId || undefined,
+        batchNumber: item.batchNumber || undefined,
+        expiryDate: item.expiryDate || undefined,
         quantity: item.quantity,
         movementType: StockMovementType.TRANSFER_IN,
         reference: stockTransferId,
-        metadata: undefined,
-        costPrice: item.costPrice ?? undefined,
+        costPrice: item.costPrice || undefined,
       });
     }
 
@@ -372,6 +425,8 @@ export class InventoryFlowService {
       });
     }
   }
+
+
 }
 
 export const inventoryFlowService = new InventoryFlowService();

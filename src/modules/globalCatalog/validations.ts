@@ -14,7 +14,13 @@ export const updateGlobalCategorySchema = createGlobalCategorySchema.extend({
 
 export const createGlobalVariantSchema = z.object({
   globalProductId: z.string().cuid(),
-  variantAttributeIds: z.array(z.string().cuid()).nonempty(),
+  variantAttributes: z.array(
+    z.object({
+      id: z.string().cuid(),
+      name: z.string().min(1),
+      options: z.array(z.string().min(1)).min(1)
+    })
+  ).nonempty(),
   name: z.string().min(1),
   sku: z.string().min(1),
   imageUrl: z.string().url().optional(),
@@ -22,6 +28,7 @@ export const createGlobalVariantSchema = z.object({
   sellingPrice: z.number().nonnegative(),
   stock: z.number().int().nonnegative().optional(),
 });
+
 export const createGlobalProductSchema = z.object({
   globalCategoryId: z.string().cuid(),
   sku: z.string().min(1),
@@ -30,16 +37,57 @@ export const createGlobalProductSchema = z.object({
   imageUrl: z.string().url().optional(),
   brand: z.string().optional(),
   dosageForm: z.string().optional(),
-  strength: z.string().optional(),
+  sellingPrice: z.number().nonnegative().optional(),
+  costPrice: z.number().nonnegative().optional(),
   sellingType: z.string().optional(),
    variants: z.array(createGlobalVariantSchema).optional(),
   description: z.string().optional(),
   isPrescription: z.boolean().optional(),
+  isVariable: z.boolean().optional(),
   isActive: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  // Validate pricing based on product type
+  if (data.isVariable) {
+    // Variable products must have variants with pricing
+    if (data.costPrice !== undefined || data.sellingPrice !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Variable products should not have direct pricing - set prices at variant level",
+        path: ["costPrice"]
+      });
+    }
+    if (!data.variants || data.variants.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Variable products must have at least one variant",
+        path: ["variants"]
+      });
+    }
+  } else {
+    // Simple products must have direct pricing
+    if (data.costPrice === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Simple products must have a cost price",
+        path: ["costPrice"]
+      });
+    }
+    if (data.sellingPrice === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Simple products must have a selling price",
+        path: ["sellingPrice"]
+      });
+    }
+    if (data.variants && data.variants.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Simple products cannot have variants",
+        path: ["variants"]
+      });
+    }
+  }
 });
-export const updateGlobalVariantSchema = createGlobalProductSchema.extend({
-  id: z.string().cuid(),
-}).partial();
 
 export const updateVariantSchema = createGlobalVariantSchema
   .omit({ globalProductId: true })
@@ -66,11 +114,11 @@ export const GlobalProductSchema = z.object({
    imageUrl: z.string().optional(),
    barcode: z.string().optional(),
   dosageForm: z.string().optional(),
-  strength: z.string().optional(),
   isPrescription: z.boolean().optional(),
   description: z.string().optional(),
   brand: z.string().optional(),
   variants: z.array(GlobalProductVariantSchema).optional(),
+  isVariable: z.boolean().optional(),
   isActive: z.boolean().optional(),        
   deletedAt: z.coerce.date().optional(), 
 });

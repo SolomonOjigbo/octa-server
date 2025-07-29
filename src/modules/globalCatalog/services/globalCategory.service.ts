@@ -9,28 +9,39 @@ import { eventBus } from "@events/eventBus";
 import { EVENTS } from "@events/events";
 import {logger }from "@logging/logger";
 import { createGlobalCategorySchema, updateGlobalCategorySchema } from "../validations";
+import { Prisma } from "@prisma/client";
 
 
+const MAX_CATEGORY_DEPTH = 5;
 
 export class GlobalCategoryService {
+  
   async create(tenantId: string, actorId: string, dto: CreateGlobalCategoryDto) {
     const data = createGlobalCategorySchema.parse(dto);
 
     // Prevent cycles: parentId != self && no ancestor loop
-    if (data.parentId) {
-      if (data.parentId === data.parentId) {
-        throw new Error("Category cannot be its own parent.");
-      }
-      // Optional: fetch ancestors to check for loops...
-    }
-
     const exists = await prisma.globalCategory.findUnique({ where: { name: data.name } });
     if (exists) throw new Error("Category name must be unique.");
 
-    const cat = await prisma.globalCategory.create({ data: {
-      ...data,
-      parent: {connect: {id: data.parentId}},
-    } });
+    if (data.parentId) {
+      await this.validateParentCategory(data.parentId);
+    }
+
+
+    const createData: Prisma.GlobalCategoryCreateInput = {
+    name: data.name,
+    ...(data.imageUrl && { imageUrl: data.imageUrl }),
+    ...(data.description && { description: data.description }),
+    ...(data.parentId && {
+      parent: {
+        connect: { id: data.parentId }
+      }
+    })
+  };
+
+   const cat = await prisma.globalCategory.create({ 
+    data: createData
+  });
 
     await auditService.log({ tenantId, userId: actorId, module: "global_category", action: "create", entityId: cat.id, details: data });
     cacheService.del(CacheKeys.globalCategoryList());
@@ -96,6 +107,47 @@ export class GlobalCategoryService {
     }
     return cat;
   }
+private async validateParentCategory(parentId: string) {
+    // 1. Verify parent exists
+    const parent = await prisma.globalCategory.findUnique({
+      where: { id: parentId },
+      select: { parentId: true }
+    });
+    if (!parent) throw new Error("Parent category not found");
+
+    // 2. Check if creating this would cause a cycle (indirectly)
+    // Since we don't have the new category's ID yet, we can't do full cycle detection
+    // But we can prevent deep nesting by limiting depth
+    const depth = await this.getCategoryDepth(parentId);
+    if (depth >= MAX_CATEGORY_DEPTH) {
+      throw new Error(`Maximum category depth of ${MAX_CATEGORY_DEPTH} exceeded`);
+    }
+  }
+
+  async getCategoryDepth(categoryId: string, currentDepth = 1): Promise<number> {
+    const category = await prisma.globalCategory.findUnique({
+      where: { id: categoryId },
+      select: { parentId: true }
+    });
+
+    if (!category?.parentId) return currentDepth;
+    return this.getCategoryDepth(category.parentId, currentDepth + 1);
+  }
+
+  async getCategoryTree(id: string) {
+    return prisma.globalCategory.findUnique({
+      where: { id },
+      include: {
+        parent: true, // Include immediate parent
+        subcategories: {
+          include: {
+            subcategories: true // Recursive include
+          }
+        }
+      }
+    });
+  }
+
 }
 
 export const globalCategoryService = new GlobalCategoryService();

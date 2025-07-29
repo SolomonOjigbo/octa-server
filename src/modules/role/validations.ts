@@ -5,6 +5,7 @@ export const createRoleSchema = z.object({
   tenantId: z.string().cuid().optional(),
   storeId: z.string().cuid().optional(),
   warehouseId: z.string().cuid().optional(),
+  context: z.enum(['global', 'tenant', 'store', 'warehouse']).optional(),
   permissionIds: z.array(z.string().cuid()).nonempty(),
 });
 

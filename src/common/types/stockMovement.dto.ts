@@ -7,6 +7,7 @@ export enum StockMovementType {
   TRANSFER_IN = 'TRANSFER_IN',
   TRANSFER_OUT = 'TRANSFER_OUT',
   RETURN = 'RETURN',
+  RESERVED = 'RESERVED',
   WASTAGE = 'WASTAGE',
   EXPIRE = 'EXPIRE',
   DAMAGE = 'DAMAGE',

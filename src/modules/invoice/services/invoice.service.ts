@@ -7,24 +7,33 @@ import {
   InvoiceResponseDto,
   InvoiceDetailDto,
   CreateInvoicePaymentDto,
+  InvoiceStatus,
+  InvoiceReferenceType,
 } from '../types/invoice.dto';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
 import { eventBus } from '@events/eventBus';
 import { EVENTS } from '@events/events';
 import { transactionService } from '@modules/transactions/services/transaction.service';
-import { paymentService }     from '@modules/payments/services/payment.service';
+import { paymentService } from '@modules/payments/services/payment.service';
 import prisma from '@shared/infra/database/prisma';
 import { AppError } from '@common/constants/app.errors';
+import { PaymentStatus, TransactionReferenceType, TransactionStatus } from '@modules/transactions/types/transaction.dto';
+
 
 export class InvoiceService {
   private listKey(tid: string) { return `invoices:${tid}`; }
 
+  private async generateInvoiceNo(tenantId: string): Promise<string> {
+    const count = await prisma.invoice.count({ where: { tenantId } });
+    return `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(6, '0')}`;
+  }
+
   async list(
     tenantId: string,
     filters: {
-      status?: string;
-      referenceType?: string;
+      status?: InvoiceStatus;
+      referenceType?: InvoiceReferenceType;
       referenceId?: string;
       customerId?: string;
       startDate?: Date;
@@ -39,20 +48,20 @@ export class InvoiceService {
 
     const {
       status, referenceType, referenceId,
-      customerId, startDate, endDate, page=1, limit=20
+      customerId, startDate, endDate, page = 1, limit = 20
     } = filters;
 
     const where: any = { tenantId };
-    if (status)        where.status = status;
+    if (status) where.status = status;
     if (referenceType) where.referenceType = referenceType;
-    if (referenceId)   where.referenceId = referenceId;
-    if (customerId)    where.customerId = customerId;
-    if (startDate)     where.issueDate = { gte: startDate };
-    if (endDate)       where.issueDate = { ...(where.issueDate||{}), lte: endDate };
+    if (referenceId) where.referenceId = referenceId;
+    if (customerId) where.customerId = customerId;
+    if (startDate) where.issueDate = { gte: startDate };
+    if (endDate) where.issueDate = { ...(where.issueDate || {}), lte: endDate };
 
     const data = await prisma.invoice.findMany({
       where,
-      skip: (page-1)*limit,
+      skip: (page - 1) * limit,
       take: limit,
       orderBy: { issueDate: 'desc' },
     });
@@ -65,139 +74,111 @@ export class InvoiceService {
       where: { id, tenantId },
       include: {
         items: true,
-        payments: { select: { id:true, amount:true, method:true, paidAt:true } },
+        payments: { 
+          select: { 
+            id: true, 
+            amount: true, 
+            method: true, 
+            paymentDate: true,
+            status: true 
+          } 
+        },
       },
     });
     if (!inv) throw new AppError('Invoice not found', 404);
 
-    // map
-    const items = inv.items.map(i => ({
-      productId:   i.productId,
-      variantId:   i.variantId || undefined,
-      description: i.description,
-      quantity:    i.quantity,
-      unitPrice:   i.unitPrice,
-      taxAmount:   i.taxAmount,
-      lineTotal:   i.lineTotal,
-    }));
-    const payments = inv.payments;
-
     return {
       id: inv.id,
       tenantId: inv.tenantId,
-      referenceType: inv.referenceType as any,
+      referenceType: inv.referenceType as InvoiceReferenceType,
       referenceId: inv.referenceId || undefined,
       customerId: inv.customerId || undefined,
       invoiceNo: inv.invoiceNo || undefined,
       issueDate: inv.issueDate,
       dueDate: inv.dueDate || undefined,
-      status: inv.status as any,
-      currency: inv.currency,
+      status: inv.status as InvoiceStatus,
       subTotal: inv.subTotal,
       taxTotal: inv.taxTotal,
       totalAmount: inv.totalAmount,
-      paymentStatus: inv.paymentStatus as any,
-      metadata: inv.metadata || undefined,
+      paymentStatus: inv.paymentStatus as PaymentStatus,
+      // metadata: inv.metadata,
       createdById: inv.createdById || undefined,
       updatedById: inv.updatedById || undefined,
       createdAt: inv.createdAt,
       updatedAt: inv.updatedAt,
-      items, payments,
+      items: inv.items.map(i => ({
+        productId: i.productId,
+        variantId: i.variantId || undefined,
+        description: i.description,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        taxAmount: i.taxAmount,
+        lineTotal: i.lineTotal,
+      })),
+      payments: inv.payments.map(p => ({
+        id: p.id,
+        amount: p.amount,
+        method: p.method,
+        paidAt: p.paymentDate,
+        status: p.status as PaymentStatus
+      }))
     };
   }
-
-  // invoice.service.ts
-
-  async getInvoiceById(invoiceId: string, tenantId: string) {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId },
-      include: {
-        items: {
-          include: {
-            product: true,
-            variant: true,
-          },
-        },
-      customer: true,
-      issuedBy: { select: { id: true, name: true, email: true } },
-      tenant: { select: { id: true, name: true } },
-    },
-  });
-
-  if (!invoice) {
-    throw new Error('Invoice not found');
-  }
-
-  // 👥 B2B metadata if applicable
-  let b2bMeta = null;
-  if (invoice.customer?.tenantId && invoice.customer.tenantId !== tenantId) {
-    b2bMeta = await prisma.b2BConnection.findFirst({
-      where: {
-        OR: [
-          { tenantAId: tenantId, tenantBId: invoice.customer.tenantId },
-          { tenantAId: invoice.customer.tenantId, tenantBId: tenantId },
-        ],
-        status: 'approved',
-      },
-    });
-  }
-
-  return { ...invoice, b2bConnection: b2bMeta };
-}
-
 
   async createDraft(
     tenantId: string,
     userId: string,
     dto: CreateInvoiceDto
   ): Promise<InvoiceResponseDto> {
-    // link domain: update PO or POS or StockTransfer status
-    if (dto.referenceType === 'purchaseOrder' && dto.referenceId) {
+    // Update related document status
+    if (dto.referenceType === 'PURCHASE_ORDER' && dto.referenceId) {
       await prisma.purchaseOrder.update({
-        where:{ id: dto.referenceId },
-        data:{ status: 'invoiced' }
+        where: { id: dto.referenceId },
+        data: { status: 'INVOICED' }
       });
     }
-    if (dto.referenceType === 'posTransaction' && dto.referenceId) {
-      await prisma.posTransaction.update({
-        where:{ id: dto.referenceId },
-        data:{ status:'posted' }
+    if (dto.referenceType === 'POS_TRANSACTION' && dto.referenceId) {
+      await prisma.transaction.update({
+        where: { id: dto.referenceId },
+        data: { status: 'POSTED' }
       });
     }
-    if (dto.referenceType === 'stockTransfer' && dto.referenceId) {
+    if (dto.referenceType === 'STOCK_TRANSFER' && dto.referenceId) {
       await prisma.stockTransfer.update({
-        where:{ id: dto.referenceId },
-        data:{ status:'cancelled' }  // or another financial flag
+        where: { id: dto.referenceId },
+        data: { status: 'CANCELLED' }
       });
     }
 
-    // compute totals
-    const subTotal = dto.items.reduce((s,i)=>s + i.unitPrice * i.quantity, 0);
-    const taxTotal = dto.items.reduce((s,i)=>s + i.taxAmount, 0);
+    // Compute totals
+    const subTotal = dto.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const taxTotal = dto.items.reduce((s, i) => s + i.taxAmount, 0);
     const totalAmount = subTotal + taxTotal;
 
     const inv = await prisma.invoice.create({
       data: {
-        tenantId,
-        createdById: userId,
+        tenant: {connect: {id: tenantId}},
+        createdBy: {connect: {id: userId}},
         referenceType: dto.referenceType,
         referenceId: dto.referenceId,
-        customerId: dto.customerId,
+        invoiceNo: dto.invoiceNo,
+        customer: {connect: {id: dto.customerId}},
         dueDate: dto.dueDate,
-        currency: dto.currency || 'USD',
-        subTotal, taxTotal, totalAmount,
-        status: 'draft',
-        paymentStatus: 'unpaid',
-        metadata: dto.metadata,
+        subTotal,
+        taxTotal,
+        totalAmount,
+        status: 'DRAFT',
+        paymentStatus: 'UNPAID',
+        // metadata: dto.metadata,
         items: {
-          create: dto.items.map(i=>({
-            productId:   i.productId,
-            variantId:   i.variantId,
+          create: dto.items.map(i => ({
+            productId: i.productId,
+            variantId: i.variantId,
             description: i.description,
-            quantity:    i.quantity,
-            unitPrice:   i.unitPrice,
-            taxAmount:   i.taxAmount,
-            lineTotal:   i.unitPrice * i.quantity + i.taxAmount,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            taxAmount: i.taxAmount,
+            lineTotal: i.unitPrice * i.quantity + i.taxAmount,
           }))
         }
       }
@@ -205,7 +186,8 @@ export class InvoiceService {
 
     await cacheService.del(this.listKey(tenantId));
     await auditService.log({
-      tenantId, userId,
+      tenantId,
+      userId,
       module: 'Invoice',
       action: 'create',
       entityId: inv.id,
@@ -222,34 +204,37 @@ export class InvoiceService {
     id: string,
     dto: IssueInvoiceDto
   ): Promise<InvoiceResponseDto> {
-    const existing = await prisma.invoice.findFirst({ where:{ id, tenantId } });
+    const existing = await prisma.invoice.findFirst({ where: { id, tenantId } });
     if (!existing) throw new AppError('Invoice not found', 404);
-    if (existing.status !== 'draft') throw new AppError('Only draft can be issued', 400);
+    if (existing.status !== 'DRAFT') throw new AppError('Only draft can be issued', 400);
+
+    const invoiceNo = dto.invoiceNo || await this.generateInvoiceNo(tenantId);
 
     const updated = await prisma.invoice.update({
       where: { id },
       data: {
-        invoiceNo: dto.invoiceNo,
+        invoiceNo,
         dueDate: dto.dueDate || existing.dueDate,
-        status: 'issued',
+        status: 'ISSUED',
         issueDate: new Date(),
       }
     });
 
-    // create a receivable transaction
+    // Create receivable transaction
     await transactionService.createTransaction(tenantId, userId, {
-      referenceType: 'invoice',
+      referenceType: TransactionReferenceType.INVOICE,
       referenceId: updated.id,
       amount: updated.totalAmount,
-      date: updated.issueDate,
-      status: 'pending',
-      paymentStatus: 'unpaid',
+      paymentMethod: "CARD",
+      status: TransactionStatus.POSTED,
+      paymentStatus: PaymentStatus.UNPAID,
       metadata: {},
     });
 
     await cacheService.del(this.listKey(tenantId));
     await auditService.log({
-      tenantId, userId,
+      tenantId,
+      userId,
       module: 'Invoice',
       action: 'issue',
       entityId: id,
@@ -272,7 +257,8 @@ export class InvoiceService {
     });
     await cacheService.del(this.listKey(tenantId));
     await auditService.log({
-      tenantId, userId,
+      tenantId,
+      userId,
       module: 'Invoice',
       action: 'update',
       entityId: id,
@@ -282,75 +268,16 @@ export class InvoiceService {
     return this.getById(tenantId, id);
   }
 
-  async createInvoiceFromPO(po: any, userId: string) {
-  const newInvoice = prisma.invoice.create({
-    data: {
-      tenantId: po.tenantId,
-      storeId: po.storeId  ?? null,
-      customerId: po.customerId ?? null, // can be manually set later
-      purchaseOrderId: po.id,
-      status: 'draft',
-      issueDate: new Date(),
-      dueDate: null,
-      totalAmount: po.totalAmount,
-      createdById: userId,
-      notes: po.notes ?? 'Invoice Created from Purchase Order',
-      items: {
-        create: po.items.map(item => ({
-          tenantProductId: item.tenantProductId,
-          tenantProductVariantId: item.tenantProductVariantId,
-          quantity: item.quantity,
-          costPrice: item.costPrice,
-        })),
-      },
-    },
-  });
-
-  eventBus.emit('invoice.created', { invoiceId: newInvoice.id });
-  return newInvoice;
-}
-
-/**
-   * Fetches an invoice along with its payments,
-   * and returns aggregated payment status.
-   */
-  async getInvoiceWithPaymentStatus(invoiceId: string) {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: {
-        payments: true,
-        items: true,
-        customer: true,
-      },
-    });
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
-
-    // Sum up all successful payments
-    const amountPaid = invoice.payments.reduce(
-      (sum, p) => sum + Number(p.amount),
-      0
-    );
-    const remainingAmount = Number(invoice.totalAmount) - amountPaid;
-
-    return {
-      ...invoice,
-      amountPaid,
-      remainingAmount,
-      paymentCount: invoice.payments.length,
-    };
-  }
-
   async delete(
     tenantId: string,
     userId: string,
     id: string
   ): Promise<void> {
-    await prisma.invoice.delete({ where:{ id } });
+    await prisma.invoice.delete({ where: { id } });
     await cacheService.del(this.listKey(tenantId));
     await auditService.log({
-      tenantId, userId,
+      tenantId,
+      userId,
       module: 'Invoice',
       action: 'delete',
       entityId: id,
@@ -365,109 +292,188 @@ export class InvoiceService {
     id: string,
     dto: ApplyPaymentDto
   ): Promise<InvoiceDetailDto> {
-    const inv = await this.getById(tenantId, id);
-    // use existing paymentService to link
-    await paymentService.create(tenantId, userId, {
-      purchaseOrderId: undefined,
-      transactionId: undefined,
-      sessionId: undefined,
-      paymentDate: new Date(),
-      amount: dto.amount ?? inv.totalAmount,
-      method: 'invoice',
-      reference: `invoice:${inv.id}`
-    });
+    return prisma.$transaction(async (tx) => {
+      const inv = await tx.invoice.findUnique({
+        where: { id },
+        include: { payments: true }
+      });
+      
+      if (!inv) throw new AppError('Invoice not found', 404);
+      
+      const paidSum = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+      const paymentAmount = dto.amount ?? (inv.totalAmount - paidSum);
+      
+      if (paidSum + paymentAmount > inv.totalAmount) {
+        throw new AppError('Payment amount exceeds invoice total', 400);
+      }
 
-    // recalc paymentStatus
-    const payments = await prisma.payment.findMany({
-      where: { reference: `invoice:${inv.id}` }
-    });
-    const paidSum = payments.reduce((s,p)=>s + p.amount, 0);
-    const newStatus = paidSum >= inv.totalAmount
-      ? 'paid'
-      : paidSum > 0
-        ? 'partiallyPaid'
-        : 'unpaid';
+      const payment = await tx.payment.create({
+        data: {
+          tenant: { connect: {id:  tenantId}},
+          amount: paymentAmount,
+          method: dto.method || 'INVOICE',
+          reference: dto.reference || `invoice:${id}`,
+          invoice: {connect: {id: inv.id}},
+          createdBy: {connect: {id: userId}},
+          status: PaymentStatus.PAID,
+          referenceType: 'INVOICE'
+        }
+      });
 
-    await prisma.invoice.update({
-      where:{ id },
-      data:{ paymentStatus: newStatus }
-    });
+      const newStatus = (paidSum + paymentAmount) >= inv.totalAmount
+        ? 'PAID'
+        : paidSum > 0
+          ? 'PARTIALLY_PAID'
+          : 'UNPAID';
 
-    await cacheService.del(this.listKey(tenantId));
-    await auditService.log({
-      tenantId, userId,
-      module: 'Invoice',
-      action: 'applyPayment',
-      entityId: id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.INVOICE_PAYMENT_APPLIED, { invoiceId: id, paidSum });
+      await tx.invoice.update({
+        where: { id },
+        data: { 
+          paymentStatus: newStatus,
+          status: newStatus === 'PAID' ? 'PAID' : inv.status
+        }
+      });
 
-    return this.getById(tenantId, id);
+      if (newStatus === 'PAID') {
+        await transactionService.createTransaction(tenantId, userId, {
+          referenceType: TransactionReferenceType.INVOICE,
+          referenceId: id,
+          amount: paymentAmount,
+          paymentMethod: payment.method,
+          status: TransactionStatus.COMPLETED,
+          paymentStatus: PaymentStatus.PAID
+        });
+      }
+
+      await cacheService.del(this.listKey(tenantId));
+      await auditService.log({
+        tenantId,
+        userId,
+        module: 'Invoice',
+        action: 'applyPayment',
+        entityId: id,
+        details: dto,
+      });
+      eventBus.emit(EVENTS.INVOICE_PAYMENT_APPLIED, { 
+        invoiceId: id, 
+        paymentId: payment.id,
+        amount: paymentAmount 
+      });
+
+      return this.getById(tenantId, id);
+    });
   }
-
-async applyPaymentToInvoice(invoiceId: string, paymentId: string, amount: number) {
-  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-  if (!invoice) throw new Error("Invoice not found");
-
-  const newAmountPaid = invoice.amountPaid + amount;
-  const status = newAmountPaid >= invoice.totalAmount ? 'paid' : 'partial';
-
-  const updatedInvoice = await prisma.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      amountPaid: newAmountPaid,
-      status,
-      payments: {
-        connect: { id: paymentId },
-      },
-    },
-  });
-
-  return updatedInvoice;
-}
-
-  // payment.service.ts
-async createPaymentAndApplyToInvoice(dto: CreateInvoicePaymentDto) {
-  const { invoiceId, method, amount, reference, metadata } = dto;
-
-  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-  if (!invoice) throw new Error("Invoice not found");
-
-  const payment = await prisma.payment.create({
-    data: {
-      tenantId: invoice.tenantId,
-      amount,
-      method,
-      reference,
-      customerId: invoice.customerId,
-      invoiceId,
-      metadata,
-      status: "successful",
-    },
-  });
-
-  await invoiceService.applyPaymentToInvoice(invoiceId, payment.id, amount);
-
-  eventBus.emit(EVENTS.PAYMENT_CREATED, {
-  invoiceId,
-  paymentId: payment.id,
-});
-
-  return payment;
-}
 
   async getPdf(
     tenantId: string,
     id: string
   ): Promise<Buffer> {
-    // assuming you have a PDF generator elsewhere
     const inv = await this.getById(tenantId, id);
-    // stub: PDFService.generateInvoice(inv)
-    const pdf = Buffer.from(`PDF for invoice ${id}`); 
+    const pdf = Buffer.from(`PDF for invoice ${id}`);
     eventBus.emit(EVENTS.INVOICE_PDF_GENERATED, { invoiceId: id });
     return pdf;
   }
+
+  // Scheduled job for checking overdue invoices
+  async checkOverdueInvoices() {
+    const overdue = await prisma.invoice.findMany({
+      where: {
+        status: 'ISSUED',
+        dueDate: { lt: new Date() }
+      }
+    });
+    
+    for (const inv of overdue) {
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        data: { status: 'OVERDUE' }
+      });
+      eventBus.emit(EVENTS.INVOICE_OVERDUE, inv);
+    }
+  }
+  // Add to InvoiceService class in invoice.service.ts
+async createFromPurchaseOrder(
+  tenantId: string,
+  userId: string,
+  purchaseOrderId: string
+): Promise<InvoiceResponseDto> {
+  return prisma.$transaction(async (tx) => {
+    // 1. Get purchase order with items
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
+      include: { items: true, supplier: true, tenant: true }
+    });
+    
+    if (!po) throw new AppError('Purchase Order not found', 404);
+    if (po.status !== 'APPROVED') {
+      throw new AppError('Only approved purchase orders can be invoiced', 400);
+    }
+
+    // 2. Prepare invoice items
+    const items = po.items.map(item => ({
+      productId: item.tenantProductId,
+      variantId: item.tenantProductVariantId || undefined,
+      description: `PO Item: ${item.tenantProductId}`,
+      quantity: item.quantity,
+      unitPrice: item.costPrice,
+      taxAmount: 0, // Assuming no tax for now
+    }));
+
+    // 3. Calculate totals
+    const subTotal = items.reduce((sum, item) => 
+      sum + (item.unitPrice * item.quantity), 0);
+    const taxTotal = items.reduce((sum, item) => sum + item.taxAmount, 0);
+    const totalAmount = subTotal + taxTotal;
+
+    // 4. Create invoice
+    const invoice = await tx.invoice.create({
+      data: {
+        tenant: {connect: {id:tenantId}},
+        createdBy: {connect: {id: userId}},
+        referenceType: 'PURCHASE_ORDER',
+        referenceId: purchaseOrderId,
+        invoiceNo: await this.generateInvoiceNo(tenantId),
+        supplier:{connect: {id:po.supplierId}},  // Added to track supplier
+        // customer: {connect: {id: po.tenantId}},
+        subTotal,
+        taxTotal,
+        totalAmount,
+        status: 'DRAFT',
+        paymentStatus: 'UNPAID',
+        items: {
+          create: items.map(i => ({
+            productId: i.productId,
+            variantId: i.variantId,
+            description: i.description,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            taxAmount: i.taxAmount,
+            lineTotal: i.unitPrice * i.quantity + i.taxAmount,
+          }))
+        }
+      }
+    });
+
+    // 5. Update PO status
+    await tx.purchaseOrder.update({
+      where: { id: purchaseOrderId },
+      data: { status: 'INVOICED' }
+    });
+
+    // 6. Cache and events
+    await cacheService.del(this.listKey(tenantId));
+    eventBus.emit(EVENTS.INVOICE_CREATED, invoice);
+    eventBus.emit(EVENTS.PURCHASE_ORDER_INVOICED, {
+      purchaseOrderId,
+      invoiceId: invoice.id
+    });
+
+    return this.getById(tenantId, invoice.id);
+  });
+}
 }
 
 export const invoiceService = new InvoiceService();
+
+// Initialize overdue check (run daily)
+setInterval(() => invoiceService.checkOverdueInvoices(), 24 * 60 * 60 * 1000);

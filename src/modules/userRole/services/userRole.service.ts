@@ -4,7 +4,7 @@ import { AssignRoleDto, RemoveRoleDto } from "../types/userRole.dto";
 
 
 export class UserRoleService {
-  async assignRole(dto: AssignRoleDto) {
+  async assignRole(tenantId: string, dto: AssignRoleDto) {
     // Validate user
     const user = await prisma.user.findUnique({ where: { id: dto.userId } });
     if (!user) throw new Error("User not found.");
@@ -16,31 +16,40 @@ export class UserRoleService {
     }
 
     // Prevent duplicates
-    const existing = await prisma.userRole.findUnique({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
-    });
-    if (existing) throw new Error("Role already assigned to user.");
+    // const existing = await prisma.userRole.findUnique({
+    //   where: { userId: dto.userId, roleId: dto.roleId } ,
+    // });
+    // if (existing) throw new Error("Role already assigned to user.");
 
     return prisma.userRole.create({
       data: {
-        userId: dto.userId,
-        roleId: dto.roleId,
+        user: {connect: {id: dto.userId}},
+        role: {connect: {id: dto.roleId}},
+        tenant: {connect: {id: tenantId}},
         assignedBy: dto.assignedBy,
       },
     });
   }
 
-  async removeRole(dto: RemoveRoleDto) {
-    // Ensure assignment exists
-    const assignment = await prisma.userRole.findUnique({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
+async removeRole(tenantId: string, dto: RemoveRoleDto) {
+  try {
+    return await prisma.userRole.delete({
+      where: {
+        userId_roleId_tenantId: {
+          userId: dto.userId,
+          roleId: dto.roleId,
+          tenantId: tenantId
+        }
+      }
     });
-    if (!assignment) throw new Error("Role assignment not found.");
-
-    return prisma.userRole.delete({
-      where: { userId_roleId: { userId: dto.userId, roleId: dto.roleId } },
-    });
+  } catch (e) {
+    if (e.code === 'P2025') {
+      throw new Error("Role assignment not found");
+    }
+    throw e;
   }
+}
+
 
   async getUserRoles(userId: string) {
     return prisma.userRole.findMany({

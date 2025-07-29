@@ -11,9 +11,10 @@ import { CreateTenantProductDto, UpdateTenantProductDto } from '../types/tenantC
 export class TenantProductController {
   create = asyncHandler(async (req: Request, res: Response) => {
     try {
-      
-      const dto = { tenantId: req.user!.tenantId, ...TenantProductSchema.parse(req.body) } as CreateTenantProductDto;
-      const p = await tenantProductService.createProduct(req.user!.id, dto, );
+      const userId = req.user!.id
+      const dto = TenantProductSchema.parse(req.body) as CreateTenantProductDto;
+      const tenantId = req.user!.tenantId;
+      const p = await tenantProductService.createProduct(userId, tenantId, dto, );
       res.status(201).json(p);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -31,8 +32,9 @@ export class TenantProductController {
     try {
       const user = req.user!;
       const id = req.params?.id;
-      const dto = { tenantId: user?.tenantId, ...TenantProductSchema.partial().parse(req.body) }
-      res.json(await tenantProductService.updateProduct( id, user.id, dto));
+      const tenantId = user?.tenantId;
+      const dto = TenantProductSchema.parse(req.body) as UpdateTenantProductDto;
+      res.json(await tenantProductService.updateProduct( id, user.id, tenantId, dto));
       
     } catch (error) {
       res.status(400).json({ error: error.message });

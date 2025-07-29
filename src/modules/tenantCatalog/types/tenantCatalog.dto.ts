@@ -5,15 +5,20 @@ export interface CreateTenantCategoryDto {
   parentId?: string;
   description?: string;
   imageUrl?: string;
+  
 }
 export interface UpdateTenantCategoryDto extends Partial<CreateTenantCategoryDto> {}
 
 // Tenant products
 export interface CreateTenantProductDto {
-  tenantId: string;
   tenantCategoryId?: string;
   sku?: string;
   name?: string;
+  globalProductId?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+  dosageForm?: string;
+  sellingType?: string;
   category?: CreateTenantCategoryDto;
   isTransferable?: boolean;
   description?: string;
@@ -22,6 +27,8 @@ export interface CreateTenantProductDto {
   imageUrl?: string;
   isActive?: boolean;           // ← add
   createdAt?: Date; 
+  isVariable?: boolean;
+  variants?: CreateTenantProductVariantDto[]
 }
 export interface UpdateTenantProductDto extends Partial<CreateTenantProductDto> {}
 
@@ -34,5 +41,10 @@ export interface CreateTenantProductVariantDto {
   costPrice: number;
   sellingPrice: number;
   stock?: number;
+  variantAttributes: {
+    id: string;
+    name: string;
+    options: string[];
+  }[];
 }
 export interface UpdateTenantProductVariantDto extends Partial<CreateTenantProductVariantDto> {}
