@@ -3,7 +3,7 @@ import {
   PERMISSION_DEFINITIONS,
   ROLES
 } from "./permissionsAndRoles";
-import prisma from "@shared/infra/database/prisma";
+import prisma from "../shared/infra/database/prisma";
 
 async function main() {
   // 1. Seed permissions
@@ -37,7 +37,7 @@ async function main() {
   // 3. Seed global roles (system-level)
   for (const [roleName, roleDef] of Object.entries(ROLES)) {
     if (roleDef.context === 'global') {
-      await seedRole(roleName, roleDef, null);
+       await seedRole(roleName, roleDef, rootTenant.id);
     }
 
   }
@@ -205,7 +205,7 @@ async function main() {
 async function seedRole(
   roleName: string, 
   roleDef: typeof ROLES[string],
-  tenantId: string | null
+  tenantId: string
 ) {
   const permissions = await prisma.permission.findMany({
     where: { name: { in: roleDef.permissions } },
@@ -216,7 +216,7 @@ async function seedRole(
     context: roleDef.context,
     description: `System-defined ${roleName} role`,
     isSystem: true,
-    tenantId,
+    tenant: { connect: { id: tenantId } } 
   };
 
   const role = await prisma.role.upsert({
@@ -271,11 +271,11 @@ async function seedUser(userData: {
     },
   });
 
-  // Find role (system roles have null tenantId for global context)
+  
   const role = await prisma.role.findFirst({
     where: {
       name: userData.role,
-      tenantId: userData.isSystem ? null : userData.tenantId
+      tenantId: userData.tenantId
     },
   });
 
