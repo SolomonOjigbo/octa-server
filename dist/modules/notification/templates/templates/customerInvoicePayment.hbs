@@ -1,0 +1,13 @@
+<h3>Payment Received - Thank You!</h3>
+<p>We've received your payment for invoice <strong>{{invoiceNo}}</strong>.</p>
+<p><strong>Amount Paid:</strong> {{formatCurrency amountPaid}}</p>
+<p><strong>Balance Due:</strong> {{formatCurrency balanceDue}}</p>
+<p><strong>Payment Method:</strong> {{paymentMethod}}</p>
+<p><strong>Paid At:</strong> {{paidAt}}</p>
+
+{{#if balanceDue}}
+<p>Please submit your remaining balance at your earliest convenience.</p>
+<a href="{{paymentLink}}">Pay Remaining Balance</a>
+{{else}}
+<p>Your invoice is now fully paid. Thank you for your business!</p>
+{{/if}}

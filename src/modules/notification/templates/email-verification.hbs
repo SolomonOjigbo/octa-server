@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify Your Email Address</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .button {
+            display: inline-block;
+            background-color: #2ecc71;
+            color: white !important;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .info-box { background-color: #f8f9fa; padding: 15px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Verify Your Email Address</h2>
+        <p>Please verify your email address to activate your Octa account.</p>
+        
+        <div class="info-box">
+            <p><strong>Verification link expires:</strong> {{formatDate expiresAt}}</p>
+        </div>
+        
+        <p>
+            <a href="{{verificationLink}}" class="button">
+                Verify Email Address
+            </a>
+        </p>
+        
+        <p>If you didn't create an account with Octa, please ignore this email.</p>
+        
+        <footer>
+            <p>Best regards,<br>The Octa Team</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment Receipt - {{transactionId}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .details { margin-bottom: 20px; }
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; }
+        .totals { text-align: right; font-size: 1.1em; }
+        .footer { margin-top: 30px; text-align: center; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Payment Receipt</h1>
+            <h2>{{store.name}}</h2>
+            <p>{{store.address}}</p>
+        </div>
+        
+        <div class="details">
+            <p><strong>Transaction ID:</strong> {{transactionId}}</p>
+            <p><strong>Date:</strong> {{formatDate date}}</p>
+            <p><strong>Cashier:</strong> {{cashier.name}}</p>
+            {{#if customer}}
+            <p><strong>Customer:</strong> {{customer.name}} ({{customer.email}})</p>
+            {{/if}}
+        </div>
+        
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each items}}
+                <tr>
+                    <td>{{name}} ({{sku}})</td>
+                    <td>{{quantity}}</td>
+                    <td>₦{{formatCurrency price}}</td>
+                    <td>₦{{formatCurrency (multiply quantity price)}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+        
+        <div class="totals">
+            <p><strong>Subtotal:</strong> ₦{{formatCurrency subtotal}}</p>
+            <p><strong>Tax:</strong> ₦{{formatCurrency taxAmount}}</p>
+            <p><strong>Discount:</strong> -₦{{formatCurrency discount}}</p>
+            <p><strong>Total:</strong> ₦{{formatCurrency totalAmount}}</p>
+        </div>
+        
+        <div class="payment-info">
+            <h3>Payment Method</h3>
+            <p>{{paymentMethod}}: ₦{{formatCurrency totalAmount}}</p>
+            {{#if changeGiven}}
+            <p><strong>Change Given:</strong> ₦{{formatCurrency changeGiven}}</p>
+            {{/if}}
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>{{store.name}} | {{formatDate date}}</p>
+        </div>
+    </div>
+</body>
+</html>

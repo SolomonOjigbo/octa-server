@@ -50,7 +50,7 @@ eventBus.on(EVENTS.POS_PAYMENT_CREATED, async (payload) => {
         await notificationService.sendEmail({
           to,
           subject: `POS Payment Created`,
-          template: "tenantPOSTemplate",
+          template: "tenantPOS",
           variables: payload,
         });
     }
@@ -74,7 +74,7 @@ eventBus.on(EVENTS.POS_CASH_DROP, async (payload) => {
       await notificationService.sendEmail({
         to,
         subject: `POS Cash Drop`,
-        template: "tenantPOSTemplate",
+        template: "tenantPOS",
         variables: payload,
       });
     }
@@ -112,7 +112,7 @@ eventBus.on(EVENTS.POS_SALE_COMPLETED, async (payload) => {
       await notificationService.sendEmail({
         to,
         subject: `POS SALE COMPLETED`,
-        template: "tenantPOSTemplate",
+        template: "tenantPOS",
         variables: payload,
       });
     }
@@ -131,7 +131,7 @@ eventBus.on(EVENTS.POS_RETURN_CREATED, async (payload) => {
         details: payload,
     });
     const emails = await userRoleService.getUserEmailsByRoleName(
-        "tenant_admin",
+        "tenantAdmin",
         payload.tenantId
       );
       for (const to of emails) {
@@ -139,7 +139,7 @@ eventBus.on(EVENTS.POS_RETURN_CREATED, async (payload) => {
 
             to,
             subject: `POS RETURN CREATED`,
-            template: "tenantPOSTemplate",
+            template: "tenantPOS",
             variables: payload,
         });
     }
@@ -175,37 +175,37 @@ eventBus.on('POSSession.closed', async (session) => {
   await notificationService.sendEmail({
     to: to,
     subject: 'POS Session Summary',
-    template: 'tenantPOSTemplate',
+    template: 'tenantPOS',
     variables: { session, transactions },
   });
 }
 });
-
-// EventBus.subscribe('POSSession.closed', async (event) => {
-//   const { sessionId, tenantId, closedBy } = event.payload;
-
-//   try {
-//     // Fetch session data and summary
-//     const session = await posService.getSessionById(sessionId);
-//     if (!session) throw new Error(`Session not found: ${sessionId}`);
-
-//     // Build summary context for the template
-//     const context = await buildTenantPOSSummaryContext(session);
-
-//     // Fetch tenant metadata for email
-//     const tenant = await tenantService.getTenantById(tenantId);
-//     const email = tenant?.email || 'admin@' + tenant?.name?.toLowerCase() + '.com';
-
-//     // Dispatch summary report
+// Add to existing file
+// eventBus.on(EVENTS.POS_SESSION_SUMMARY, async (payload) => {
+//   logger.info(`[POS] Session summary for ${payload.sessionId}`);
+  
+//   const emails = await userRoleService.getUserEmailsByRoleName(
+//     "tenant_admin",
+//     payload.tenantId
+//   );
+  
+//   for (const to of emails) {
 //     await notificationService.sendEmail({
-//       to: email,
-//       subject: `POS Session Closed: ${session.code}`,
-//       template: 'tenantPOSTemplate',
-//       context,
+//       to,
+//       subject: `POS Session Summary - Session #${payload.sessionId}`,
+//       template: "pos-session-summary",
+//       variables: {
+//         ...payload,
+//         date: new Date().toISOString()
+//       }
 //     });
-
-//     console.log(`[POSSession] Summary report sent for session ${sessionId}`);
-//   } catch (error) {
-//     console.error(`[POSSession.subscriber] Failed to send session close report:`, error);
 //   }
+  
+//   await auditService.log({
+//     tenantId: payload.tenantId,
+//     action: 'SESSION_SUMMARY_SENT',
+//     module: 'POS',
+//     entityId: payload.sessionId,
+//     details: payload.summary
+//   });
 // });

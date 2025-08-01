@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment Reversed - {{id}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .details { margin-bottom: 30px; }
+        .footer { margin-top: 30px; text-align: center; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Payment Reversed</h1>
+        </div>
+        
+        <div class="details">
+            <p><strong>Payment ID:</strong> {{id}}</p>
+            <p><strong>Amount:</strong> ₦{{formatCurrency amount}}</p>
+            <p><strong>Method:</strong> {{method}}</p>
+            <p><strong>Reference:</strong> {{reference}}</p>
+            <p><strong>Reason:</strong> {{dto.reason}}</p>
+            <p><strong>Date:</strong> {{formatDate paymentDate}}</p>
+        </div>
+        
+        <div class="footer">
+            <p>This payment reversal has been processed in our system</p>
+        </div>
+    </div>
+</body>
+</html>

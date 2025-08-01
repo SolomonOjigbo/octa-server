@@ -30,6 +30,11 @@ export interface TenantOnboardingDto {
     password: string;
     phone?: string;
   };
+  warehouse?: {
+    code: string;
+    name: string;
+    address?: string;
+  }
 }
 
 export interface UpdateTenantDto {

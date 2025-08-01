@@ -5,6 +5,10 @@ import { add, isAfter } from "date-fns";
 import { signJwt, verifyJwt } from "../utils/jwt";
 import { sessionService } from "../services/session.service";
 import prisma from "@shared/infra/database/prisma";
+import { eventBus } from "@events/eventBus";
+import { EVENTS } from "@events/events";
+import { storeService } from "@modules/store/services/store.service";
+import { roleService } from "@modules/role/services/role.service";
 
 
 export class AuthService {
@@ -26,7 +30,8 @@ export class AuthService {
     const accessToken = signJwt({ 
       userId: user.id, 
       tenantId: user.tenantId,
-      storeId: user.storeId || undefined,
+      storeId: user.storeId,
+      warehouseId: user.warehouseId 
     });
 
     const refreshToken = await sessionService.createSession({
@@ -42,6 +47,12 @@ export class AuthService {
       data: { lastLogin: new Date() } 
     });
 
+    if (!user.isEmailVerified) {
+    // Optionally: auto-resend verification email
+    this.sendVerificationEmail(user.id);
+    throw new Error("Email not verified. Verification email resent.");
+  }
+
     return { 
       user: {
         id: user.id,
@@ -49,6 +60,10 @@ export class AuthService {
         email: user.email,
         tenantId: user.tenantId,
         storeId: user.storeId,
+        warehouseId: user.warehouseId,
+        isEmailVerified: user.isEmailVerified,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt,
       },
       accessToken,
       refreshToken
@@ -105,7 +120,13 @@ export class AuthService {
       }
     });
 
-    // TODO: Send email with reset link
+    
+  eventBus.emit(EVENTS.PASSWORD_RESET_REQUESTED, {
+    email: user.email,
+    resetToken: token,
+    expiresAt: expiresAt.toISOString(), // Add timezone context
+    tenantId: user.tenantId // Add tenant context
+  });
     return token;
   }
 
@@ -135,7 +156,7 @@ export class AuthService {
     return updatedUser;
   }
 
-  async inviteUser(tenantId: string, email: string, name?: string, roleId?: string) {
+  async inviteUser(tenantId: string, email: string, name?: string, roleId?: string, storeId?: string) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw new Error("User already exists");
@@ -144,15 +165,16 @@ export class AuthService {
     const inviteToken = uuidv4();
     const expiresAt = add(new Date(), { days: 7 });
 
-    await prisma.user.create({
+   const user = await prisma.user.create({
       data: {
-        tenantId,
+        tenant: {connect: {id: tenantId}},
         email,
         name: name || "",
         password: "",
         isActive: false,
         inviteToken,
         inviteExpires: expiresAt,
+        store: {connect: {id: storeId}},
         ...(roleId && {
           roles: {
             create: {
@@ -165,6 +187,18 @@ export class AuthService {
         })
       }
     });
+    const store = await storeService.getStoreById(user.storeId)
+    const role = await roleService.getRoleById(roleId)
+
+    eventBus.emit(EVENTS.USER_INVITED, {
+    email: user.email,
+    name,
+    inviteToken,
+    inviteExpires: expiresAt,
+    store: store,
+    tenantId,
+    role: role.name
+  });
 
     return inviteToken;
   }
@@ -181,6 +215,7 @@ export class AuthService {
     if (!user) throw new Error("Invalid or expired invite token");
 
     const hash = await bcrypt.hash(password, 10);
+
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -192,6 +227,14 @@ export class AuthService {
       },
       include: { tenant: true }
     });
+    const store = await storeService.getStoreById(user.storeId)
+      eventBus.emit(EVENTS.USER_ACTIVATED, {
+        email: user.email,
+        userId: user?.id,
+        tenantId: user?.tenantId,
+        name: user.name,
+        store,
+      });
 
     return {
       id: updatedUser.id,
@@ -200,6 +243,46 @@ export class AuthService {
       tenantId: updatedUser.tenantId
     };
   }
+
+async sendVerificationEmail(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("User not found");
+  
+  const verifyToken = uuidv4();
+  const verifyExpires = add(new Date(), { hours: 24 });
+  
+  await prisma.user.update({
+    where: { id: userId },
+    data: { verifyToken, verifyExpires }
+  });
+
+  eventBus.emit(EVENTS.EMAIL_VERIFICATION_REQUESTED, {
+    email: user.email,
+    verifyToken,
+    userId: user.id,
+    tenantId: user.tenantId
+  });
+}
+
+async verifyEmail(token: string) {
+  const user = await prisma.user.findFirst({
+    where: {
+      verifyToken: token,
+      verifyExpires: { gt: new Date() }
+    }
+  });
+  
+  if (!user) throw new Error("Invalid token");
+  
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { 
+      isEmailVerified: true,
+      verifyToken: null,
+      verifyExpires: null
+    }
+  });
+}
 }
 
 export const authService = new AuthService();

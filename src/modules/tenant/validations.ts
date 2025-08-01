@@ -31,6 +31,11 @@ export const tenantOnboardingSchema = z.object({
     password: z.string().min(6),
     phone: z.string().optional(),
   }),
+  warehouse: z.object({
+    code: z.string().min(2),
+    name: z.string().min(2),
+    address: z.string().optional(),
+  }),
 });
 
 

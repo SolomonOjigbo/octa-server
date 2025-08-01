@@ -14,6 +14,7 @@ export interface InviteUserDto {
   email: string;
   name?: string;
   roleId?: string;
+  storeId?: string;
 }
 export interface ActivateUserDto {
   inviteToken: string;

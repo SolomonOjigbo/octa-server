@@ -20,6 +20,7 @@ import { AppError } from '@common/constants/app.errors';
 import prisma from '@shared/infra/database/prisma';
 import { inventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
 import { v4 as uuid } from 'uuid';
+import { TransactionReferenceType, TransactionStatus } from '@modules/transactions/types/transaction.dto';
 
 export class POSService {
   private sessionKey(tenantId: string) {
@@ -123,6 +124,18 @@ export class POSService {
     const totalCashDrops  = session.cashDrops.reduce((s,c)=>s + c.amount,0);
     const totalReconciled = session.reconciliations.reduce((s,r)=>s + r.actualCash,0);
 
+    eventBus.emit(EVENTS.POS_SESSION_SUMMARY, {
+    sessionId: session.id,
+    tenantId,
+    summary: {
+      openingBalance: session.openingBalance,
+      closingCash: session.closingBalance,
+      totalSales,
+      totalReturns,
+      cashVariance: totalCashDrops
+    }
+  });
+
     return {
       sessionId,
       openedBy: session.openedBy,
@@ -225,17 +238,30 @@ export class POSService {
   dto: CreateSalesReturnDto 
 ) {
   return prisma.$transaction(async (tx) => {
+    const returnTransaction = await tx.transaction.create({
+      data: {
+        tenantId,
+        amount: -dto.refundAmount, // Negative amount for return
+        paymentMethod: dto.paymentMethod,
+        referenceType: TransactionReferenceType.POS_TRANSACTION,
+        status: TransactionStatus.COMPLETED,
+        createdById: userId,
+        posSessionId: dto.sessionId
+      }
+    });
+
     const returnTxn = await tx.pOSSalesReturn.create({
       data: {
         tenant: {connect: {id: tenantId}},
         customer: {connect: {id: dto.customerId}},
         refundAmount: dto.refundAmount,
         paymentMethod: dto.paymentMethod,
-        session: {connect: {id: dto.sessionId}},
+        session: { connect: { id: dto.sessionId } },
         createdBy: {connect: {id: userId}},
-        transaction: {connect: {id: dto.transactionId}},
+        transaction: {connect: {id: returnTransaction.id}},
         items: {
           create: dto.items.map((item) => ({
+            transactionId: returnTransaction.id, // Link to return transaction
             tenantProductId: item.tenantProductId,
             tenantProductVariantId: item.tenantProductVariantId,
             quantity: item.quantity,
@@ -244,7 +270,7 @@ export class POSService {
             costPrice: item.costPrice,
             sku: item.sku,
             sellingPrice: item.unitPrice,
-            totalPrice: null,
+            totalPrice: item.unitPrice * item.quantity,
             discount: item.discount,
             tax: item.tax,
           })),
@@ -274,6 +300,7 @@ export class POSService {
     eventBus.emit(EVENTS.POS_RETURN_CREATED, {
       tenantId,
       orderId: returnTxn.id,
+      ...dto
     });
 
     return returnTxn;

@@ -135,7 +135,13 @@ export class StockTransferService {
         entityId: transfer.id,
         details: dto,
       });
-      
+      eventBus.emit(EVENTS.STOCK_TRANSFER_STATUS_CHANGE, {
+        transferId: transfer.id,
+        status: 'REQUESTED',
+        initiatedBy: userId,
+        details: transfer
+      });
+
       eventBus.emit(EVENTS.STOCK_TRANSFER_REQUESTED, transfer);
       return transfer;
     });
@@ -179,6 +185,14 @@ export class StockTransferService {
       });
       
       eventBus.emit(EVENTS.STOCK_TRANSFER_APPROVED, updated);
+
+      eventBus.emit(EVENTS.STOCK_TRANSFER_STATUS_CHANGE, {
+        transferId: transfer.id,
+        status: 'REQUESTED',
+        initiatedBy: userId,
+        details: transfer
+      });
+
       return updated;
     });
   }

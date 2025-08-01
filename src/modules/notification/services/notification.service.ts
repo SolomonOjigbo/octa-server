@@ -34,6 +34,42 @@ export class NotificationService {
     });
     
   }
+
+  async sendEmailWithAttachment(dto: SendEmailDto & {
+  attachments: Array<{
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  }>;
+}) {
+  const tpl = templates[dto.template];
+  if (!tpl) throw new Error(`Unknown template ${dto.template}`);
+
+  const html = tpl(dto.variables);
+
+  const msg: SendEmailOptions = {
+    to: dto.to,
+    from: this.from,
+    subject: dto.subject,
+    html,
+    attachments: dto.attachments
+  };
+
+  await smtpClient.sendEmail(msg);
+  await auditService.log({
+    tenantId: null,
+    userId: null,
+    module: 'notification',
+    action: 'sendEmailWithAttachment',
+    entityId: null,
+    details: {
+      to: dto.to,
+      subject: dto.subject,
+      template: dto.template,
+      attachmentCount: dto.attachments.length
+    },
+  });
+}
 }
 
 export const notificationService = new NotificationService();

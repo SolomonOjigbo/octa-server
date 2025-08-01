@@ -53,7 +53,7 @@ export const CancelPurchaseOrderSchema = z
 
 export const LinkPaymentSchema = z.object({
   paymentId: z.string().cuid(),
-  amount: z.number().min(0),
-  paymentMethod: z.string().optional(),
-  status: z.nativeEnum(PaymentStatus)
+  // amount: z.number().min(0),
+  // paymentMethod: z.string().optional(),
+  // status: z.nativeEnum(PaymentStatus)
 });

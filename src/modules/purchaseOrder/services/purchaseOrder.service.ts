@@ -79,11 +79,7 @@ export class PurchaseOrderService {
               },
             });
             if (!tp) {
-              const productData = {
-                ...it,
-                tenantId: tenantId,
-              }
-              tp = await tenantProductService.createProduct(userId, productData);
+              tp = await tenantProductService.createProduct(userId, tenantId, it);
             }
             tpid = tp.id;
           }
@@ -258,41 +254,69 @@ export class PurchaseOrderService {
     return po;
   }
 
-  async linkPayment(
-    tenantId: string,
-    userId: string,
-    id: string,
-    dto: LinkPaymentDto
-  ) {
-    const po = await prisma.purchaseOrder.update({
-      where: { id },
-      data: {
-        Payment: {
-          create: {
-            tenantId: tenantId,
-            method: dto.paymentMethod,
-            id: dto.paymentId,
-            amount: dto.amount,
-            status: dto.status
-            // createdBy: { connect: { id: userId } },
-          },
-        },
-        updatedById: userId,
-      },
-      include: { items: true, payments: true },
-    });
-    await cacheService.del(this.cacheKey(tenantId));
-    await auditService.log({
-      tenantId,
-      userId,
-      module: 'PurchaseOrder',
-      action: 'linkPayment',
-      entityId: id,
-      details: dto,
-    });
-    eventBus.emit(EVENTS.PURCHASE_ORDER_PAYMENT_LINKED, po);
-    return po;
+async linkPayment(
+  tenantId: string,
+  userId: string,
+  id: string,
+  dto: LinkPaymentDto
+) {
+  // 1. Verify payment exists and belongs to same tenant
+  const payment = await prisma.payment.findUnique({
+    where: { id: dto.paymentId },
+    select: { id: true, tenantId: true, amount: true }
+  });
+
+  if (!payment) {
+    throw new AppError("Payment not found", 404);
   }
+  
+  if (payment.tenantId !== tenantId) {
+    throw new AppError("Payment belongs to different tenant", 403);
+  }
+
+  // 2. Update purchase order with payment connection
+  const po = await prisma.purchaseOrder.update({
+    where: { id },
+    data: {
+      payments: {
+        connect: { id: dto.paymentId }
+      },
+      updatedById: userId,
+    },
+    include: { 
+      items: true, 
+      payments: true,
+      supplier: true
+    },
+  });
+
+  // 3. Recalculate outstanding amount
+  const totalPaid = po.payments.reduce((sum, p) => sum + p.amount, 0);
+  const outstandingAmount = po.totalAmount - totalPaid;
+
+  const updatedPO = await prisma.purchaseOrder.update({
+    where: { id },
+    data: {
+      outstandingAmount,
+      paymentStatus: outstandingAmount <= 0 ? 'PAID' : 'PARTIALLY_PAID'
+    },
+    include: { payments: true }
+  });
+
+  // 4. Cache, audit, and event
+  await cacheService.del(this.cacheKey(tenantId));
+  await auditService.log({
+    tenantId,
+    userId,
+    module: 'PurchaseOrder',
+    action: 'linkPayment',
+    entityId: id,
+    details: dto,
+  });
+  
+  eventBus.emit(EVENTS.PURCHASE_ORDER_PAYMENT_LINKED, updatedPO);
+  return updatedPO;
+}
 }
 
 export const purchaseOrderService = new PurchaseOrderService();

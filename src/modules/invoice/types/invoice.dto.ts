@@ -62,16 +62,19 @@ export interface ApplyPaymentDto {
 export interface InvoiceResponseDto {
   id: string;
   tenantId: string;
-  referenceType: InvoiceReferenceType;
+  referenceType?: InvoiceReferenceType;
   referenceId?: string;
   customerId?: string;
+  customer?: string;
+  createdBy?: string;
   invoiceNo?: string;
-  issueDate: Date;
+  issueDate?: Date;
   dueDate?: Date;
   status: InvoiceStatus;
   subTotal: number;
   taxTotal: number;
   totalAmount: number;
+  // items: InvoiceItemDto[];
   paymentStatus: PaymentStatus;
   metadata?: Record<string, any>;
   createdById?: string;
@@ -82,6 +85,7 @@ export interface InvoiceResponseDto {
 
 export interface InvoiceDetailDto extends InvoiceResponseDto {
   items: InvoiceItemDto[];
+  id: string;
   payments: Array<{
     id: string;
     amount: number;

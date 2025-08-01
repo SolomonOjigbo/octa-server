@@ -35,7 +35,7 @@ const sessionInfo: SessionInfo = {
 };
 
 // 3. Cache and return the enriched object
-    await this.cacheSession(session);
+    await this.cacheSession(sessionInfo);
 
     return token;
   }

@@ -5,16 +5,11 @@ import prisma from "@shared/infra/database/prisma";
 import { auditService } from '../modules/audit/services/audit.service';
 import { AuditAction } from '../modules/audit/types/audit.dto';
 import { ForbiddenError, UnauthorizedError } from './errors';
-import { PERMISSIONS } from '../prisma/permissionsAndRoles';
+import { redisClient } from './cache';
+import { JwtPayload, verifyJwt } from '@modules/auth/utils/jwt';
+import { permissionService } from '@modules/role/services/permission.service';
 
 
-
-// Shape of the JWT payload you sign in your auth.service:
-interface JwtPayload {
-  userId:      string;
-  tenantId:    string;
-  storeId?:    string;
-}
 
 declare global {
   namespace Express {
@@ -23,6 +18,7 @@ declare global {
         id:           string;
         tenantId:     string;
         storeId?:     string;
+        warehouseId?: string;
         isActive:     boolean;
         isSuperAdmin: boolean;
         isAdmin:      boolean;
@@ -47,7 +43,7 @@ export async function requireAuth(
 
   let payload: JwtPayload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    payload = verifyJwt(token) as JwtPayload;
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
       return next(new UnauthorizedError('Token expired'));
@@ -55,59 +51,65 @@ export async function requireAuth(
     return next(new UnauthorizedError('Invalid token'));
   }
 
-  // 2. Load user + roles + role->permissions
+  // Check token invalidation
+  const isInvalidated = await redisClient.get(`token:invalid:${payload.jti}`);
+  if (isInvalidated) {
+    return next(new UnauthorizedError("Token invalidated"));
+  }
+
+  // 2. Get user without permissions
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    include: {
+    select: {
+      id: true,
+      tenantId: true,
+      storeId: true,
+      warehouseId: true, // Added warehouseId
+      isActive: true,
       roles: {
-        include: {
+        select: {
           role: {
-            include: { permissions: true },
-          },
-        },
-      },
-    },
+            select: { name: true }
+          }
+        }
+      }
+    }
   });
 
   // 3. Deny if not found or inactive
   if (!user || !user.isActive) {
     await auditService.log({
       tenantId: payload.tenantId,
-      userId:   payload.userId,
-      module:   'Auth',
-      action:   AuditAction.PERMISSION_DENIED,
+      userId: payload.userId,
+      module: 'Auth',
+      action: AuditAction.PERMISSION_DENIED,
       entityId: payload.userId,
       metadata: {
-        ip:        req.ip,
+        ip: req.ip,
         userAgent: req.get('user-agent') || '',
       },
     });
     return next(new ForbiddenError('Account inactive or not found'));
   }
 
-  // 4. Build role & permission lists
-  const roleNames = user.roles.map((ur) => ur.role.name);
-  const perms = new Set<string>(PERMISSIONS);
-  for (const ur of user.roles) {
-    for (const p of ur.role.permissions) {
-      perms.add(p.name);
-    }
-  }
+  // 4. Load permissions AFTER validation
+  const permissions = await permissionService.getUserPermissions(user.id);
+  
+  const roleNames = user.roles.map(ur => ur.role.name);
+  const isSuperAdmin = roleNames.includes('superAdmin');
+  const isAdmin = isSuperAdmin || roleNames.includes('globalAdmin') || roleNames.includes('tenantAdmin');
 
-  // 5. Determine admin flags
-  const isSuperAdmin = roleNames.includes('super_admin');
-  const isAdmin      = isSuperAdmin || roleNames.includes('admin');
-
-  // 6. Attach to req.user
+  // 5. Attach to request
   req.user = {
-    id:           user.id,
-    tenantId:     user.tenantId,
-    storeId:      user.storeId ?? undefined,
-    isActive:     user.isActive,
+    id: user.id,
+    tenantId: user.tenantId,
+    storeId: user.storeId ?? undefined,
+    warehouseId: user.warehouseId ?? undefined, // Added warehouseId
+    isActive: user.isActive,
     isSuperAdmin,
     isAdmin,
-    roles:        roleNames,
-    permissions:  Array.from(perms),
+    roles: roleNames,
+    permissions,
   };
 
   return next();

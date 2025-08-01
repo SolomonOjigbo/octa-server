@@ -15,7 +15,6 @@ model Tenant {
   contactEmail String?
   branding     Json?
   settings     Json?
-
   stores       Store[]
   warehouses   Warehouse[]
   users        User[]
@@ -27,6 +26,7 @@ model Tenant {
   posSessions  POSSession[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  isSystem     Boolean     @default(false)
 
   businessEntities BusinessEntity[]
 
@@ -70,8 +70,9 @@ model Tenant {
 model BusinessEntity {
   id           String   @id @default(cuid())
   tenantId     String
-  name         String
+  name         String   @unique
   taxId        String?
+  cacRegNumber String?
   legalAddress String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -86,12 +87,12 @@ model Store {
   id           String        @id @default(cuid())
   tenantId     String
   businessEntityId String
-  code         String
+  code         String       @unique
   name         String
   address      String?
   phone        String?
   email        String?
-  type         String // "wholesale" | "retail" | "clinic" | "warehouse" etc.
+  type         String // "wholesaler" | "retailer" | "clinic" | "hospital" | "distributor" etc.
   status       String // "active" | "inactive" | "under_maintenance" etc.
   isMain       Boolean       @default(false)
   managerId    String?
@@ -128,6 +129,7 @@ model Warehouse {
   id          String      @id @default(cuid())
   tenantId    String
   name        String
+  code        String     @unique
   address     String?
   businessEntityId String
   createdAt   DateTime    @default(now())
@@ -149,14 +151,18 @@ model Warehouse {
   StockTransferWarehouseSource StockTransfer[] @relation("TransferFromWarehouse")
 
   StockTransferWarehouseDest StockTransfer[] @relation("TransferToWarehouse")
+
+  User User[]
 }
 
 model User {
   id        String   @id @default(cuid())
   tenantId  String
   storeId   String?
+  warehouseId   String?      // Add this
   name      String
   email     String   @unique
+  isEmailVerified Boolean?
   phone     String?
   password  String
   isActive  Boolean  @default(true)
@@ -165,8 +171,10 @@ model User {
   updatedAt DateTime @updatedAt
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   store     Store?   @relation(fields: [storeId], references: [id])
+  warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id])
 
-  // Auth/Password reset/invite
+  verifyToken      String?   @unique
+  verifyExpires    DateTime?
   passwordResetToken   String?        @unique
   passwordResetExpires DateTime?
   inviteToken          String?        @unique
@@ -175,6 +183,7 @@ model User {
   roles                UserRole[]
   posSessions          POSSession[]
   transactions         Transaction[]
+  
 
   ActivityLog ActivityLog[]
 
@@ -255,6 +264,7 @@ model Role {
 model Permission {
   id          String  @id @default(cuid())
   name        String  @unique
+  group       String?
   description String?
   roles       Role[]  @relation("RolePermissions")
 }
@@ -264,6 +274,8 @@ model RefreshToken {
   userId    String
   tenantId  String
   token     String   @unique
+  ipAddress String?  // Add
+  userAgent String?  // Add
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
@@ -377,16 +389,15 @@ model TenantProduct {
   variants      TenantVariant[]
 
   // cross‐module relations
-  productSuppliers      ProductSupplier[] @relation("TenantProductToSupplier") // supplier links for this tenant product
+  productSuppliers ProductSupplier[] @relation("ProductSupplierToTenantProduct") //links for this tenant product
   stocks               Stock[] // stock at tenant’s stores/warehouses
   stockTransfers       StockTransfer[] // transfers involving this tenant’s product
   purchaseOrderItems   PurchaseOrderItem[] // PO line items for this tenant product
   Inventory            Inventory[]
 
-  @@unique([tenantId, sku])
-  ProductSupplier ProductSupplier[]
   StockTransferItem StockTransferItem[] @relation("SourceTenantProduct")
   StockTransferProduct StockTransferItem[] @relation("DestTenantProduct")
+  @@unique([tenantId, sku])
 }
 
 model TenantCategory {
@@ -524,9 +535,7 @@ model TransactionItem {
   batchNumber      String?
   expiryDate       DateTime?
 
-  transaction Transaction? @relation("TransactionItemTransaction", fields: [transactionId], references: [id])
-
-  Transaction Transaction[]
+  transaction Transaction @relation("TransactionItems", fields: [transactionId], references: [id])
 
   POSSalesReturn POSSalesReturn[]
 }
@@ -542,9 +551,8 @@ model Transaction {
   amount          Float
   discount        Float?
   taxAmount       Float?
-  referenceType   TransactionReferenceType    // e.g. "purchaseOrder", "posTransaction", "stockTransfer", "b2bConnection"
+  referenceType   TransactionReferenceType   
   referenceId     String? 
-  items          TransactionItem[]
   shippingFee     Float?
   refundAmount    Float?
   shippingType    String?
@@ -563,12 +571,11 @@ model Transaction {
   updatedBy           User?   @relation("TransactionUpdatedBy", fields: [updatedById], references: [id])
   customer        Customer?   @relation(fields: [customerId], references: [id])
   posSession      POSSession? @relation(fields: [posSessionId], references: [id])
-  payments        Payment[]
 
 
-  TransactionItem TransactionItem[] @relation("TransactionItemTransaction")
 
-  Payment Payment[] @relation("PaymentTransaction")
+  payments Payment[] @relation("TransactionPayments")
+  items TransactionItem[] @relation("TransactionItems")
 
   POSSalesReturn POSSalesReturn[]
 
@@ -592,23 +599,17 @@ model Payment {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime?       @updatedAt
   tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  transaction     Transaction?   @relation("PaymentTransaction", fields: [transactionId], references: [id])
-  purchaseOrder   PurchaseOrder? @relation("PaymentPurchaseOrder", fields: [purchaseOrderId], references: [id])
-  invoice         Invoice?       @relation("PaymentInvoice", fields: [invoiceId], references: [id])
   createdBy            User?     @relation("PaymentUser", fields: [userId], references: [id])
   posSession      POSSession?    @relation("PaymentSession", fields: [sessionId], references: [id])
+  purchaseOrder   PurchaseOrder? @relation("PaymentPurchaseOrder", fields: [purchaseOrderId], references: [id])
+  invoice         Invoice?       @relation("PaymentInvoice", fields: [invoiceId], references: [id])
+  
 
   Supplier Supplier[] @relation("SupplierPayments")
-
   Customer Customer[] @relation("CustomerPayments")
-
-  Transaction Transaction[]
-
-  PurchaseOrder PurchaseOrder[]
-
-  Invoice Invoice[] @relation("InvoicePayments")
-
+  transaction Transaction? @relation("TransactionPayments", fields: [transactionId], references: [id])
   Refund Refund[]
+
 }
 
 model POSSession {
@@ -784,12 +785,9 @@ model ProductSupplier {
 
 
    // explicit relations
-  tenantProduct  TenantProduct? @relation(fields: [tenantProductId], references: [id])
+  tenantProduct  TenantProduct? @relation("ProductSupplierToTenantProduct", fields: [tenantProductId], references: [id])
   globalProduct  GlobalProduct? @relation(fields: [globalProductId], references: [id])
 
- 
-
-  TenantProduct TenantProduct[] @relation("TenantProductToSupplier")
 }
 
 model PurchaseOrder {
@@ -802,6 +800,7 @@ model PurchaseOrder {
   orderDate    DateTime
   receivedDate DateTime?
   outstandingAmount Float?
+  paymentStatus PaymentStatus? // e.g. "paid", "pending", "partially_paid"
   totalAmount  Float
   notes        String?
   createdById  String?
@@ -816,10 +815,10 @@ model PurchaseOrder {
   createdBy    User?                @relation("poCreatedBy", fields:[createdById], references:[id])
   updatedBy    User?                @relation("poUpdatedBy", fields:[updatedById], references:[id])
   items        PurchaseOrderItem[]
-  payments     Payment[]
+  payments     Payment[] @relation("PaymentPurchaseOrder")
 
   @@index([tenantId])
-  Payment Payment[] @relation("PaymentPurchaseOrder")
+
   B2BConnection B2BConnection[]
   Refund Refund[]
 }
@@ -938,9 +937,7 @@ model Invoice {
   createdBy     User?       @relation("invoiceCreatedBy",    fields: [createdById], references: [id])
   updatedBy     User?       @relation("invoiceUpdatedBy",    fields: [updatedById], references: [id])
   items         InvoiceItem[]
-  payments      Payment[]   @relation("InvoicePayments")
-
-  Payment Payment[] @relation("PaymentInvoice")
+  payments Payment[] @relation("PaymentInvoice")
 }
 
 model InvoiceItem {

@@ -43,7 +43,7 @@ export const PERMISSIONS = [
   'store:create','store:update','store:view','store:settings',
 
   // Warehouse
-  'warehouse:create','warehouse:update','warehouse:view',
+  'warehouse:create','warehouse:update','warehouse:view', 'warehouse:operations',
 
   // Product / Catalog
   'globalCategory:read','globalCategory:create','globalCategory:update','globalCategory:delete','globalCategory:view',
@@ -192,8 +192,6 @@ export const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { name:'b2b:update', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'Update B2B connections' },
   { name:'b2b:delete', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'Delete B2B connections' },
   { name:'b2b:view', group:PERMISSION_GROUPS.SALES_MANAGEMENT, description:'View B2B connection details' },
-  { name: 'b2b:read', group: PERMISSION_GROUPS.B2B_MANAGEMENT, description:'View B2B connection details' },
-{ name: 'b2b:create', group: PERMISSION_GROUPS.B2B_MANAGEMENT, description:'Create B2B connections' },
 
   // Purchase Management
   { name:'purchaseOrder:read', group:PERMISSION_GROUPS.PURCHASE_MANAGEMENT, description:'View purchase orders' },
@@ -349,7 +347,7 @@ export const ROLES: Record<string, RoleDefinition> = {
 
   warehouseManager: {
     permissions: [
-      'warehouse:view','warehouse:update',
+      'warehouse:view','warehouse:update','warehouse:operations',
       'inventory:create','inventory:update','inventory:adjust',
       'stockTransfer:create','stockTransfer:read','stockTransfer:update',
       'purchaseOrder:view',

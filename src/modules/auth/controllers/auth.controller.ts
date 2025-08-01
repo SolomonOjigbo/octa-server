@@ -19,6 +19,7 @@ import {
 } from "../types/auth.dto";
 import { AuditAction } from "../../audit/types/audit.dto";
 import { auditService } from "../../audit/services/audit.service";
+import { ForbiddenError, ValidationError } from "@middleware/errors";
 
 export class AuthController {
   async login(req: Request, res: Response) {
@@ -89,7 +90,8 @@ export class AuthController {
       validated.tenantId,
       validated.email,
       validated.name,
-      validated.roleId
+      validated.roleId,
+      validated.storeId
     );
 
     await auditService.log({
@@ -147,6 +149,21 @@ export class AuthController {
 
     res.json({ success: true });
   }
+
+  async sendVerificationEmail(req: Request, res: Response) {
+  if (!req.user) throw new ForbiddenError("Authentication required");
+  
+  await authService.sendVerificationEmail(req.user.id);
+  res.json({ success: true });
+}
+
+async verifyEmail(req: Request, res: Response) {
+  const { token } = req.query;
+  if (typeof token !== 'string') throw new ValidationError("Invalid token");
+  
+  const user = await authService.verifyEmail(token);
+  res.json({ success: true, user });
+}
 }
 
 export const authController = new AuthController();

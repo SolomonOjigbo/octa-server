@@ -10,6 +10,9 @@ import {
   InvoiceStatus,
   InvoiceReferenceType,
 } from '../types/invoice.dto';
+import PDFDocument from 'pdfkit';
+import fs from 'fs';
+import path from 'path';
 import { cacheService } from '@cache/cache.service';
 import { auditService } from '@modules/audit/services/audit.service';
 import { eventBus } from '@events/eventBus';
@@ -28,6 +31,86 @@ export class InvoiceService {
     const count = await prisma.invoice.count({ where: { tenantId } });
     return `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(6, '0')}`;
   }
+
+  private async generatePdf(invoice: InvoiceDetailDto): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const buffers: any[] = [];
+        
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        // Header
+        doc.fontSize(20).text('INVOICE', { align: 'center' });
+        doc.moveDown();
+
+        // Invoice Information
+        doc.fontSize(12).text(`Invoice Number: ${invoice.invoiceNo}`);
+        doc.text(`Issue Date: ${invoice.issueDate.toLocaleDateString()}`);
+        doc.text(`Due Date: ${invoice.dueDate?.toLocaleDateString() || 'N/A'}`);
+        doc.text(`Customer: ${invoice.customerId || 'N/A'}`);
+        doc.moveDown();
+
+        // Items Table Header
+        doc.font('Helvetica-Bold');
+        doc.text('Description', 50, doc.y);
+        doc.text('Quantity', 300, doc.y);
+        doc.text('Unit Price', 370, doc.y);
+        doc.text('Total', 450, doc.y);
+        doc.font('Helvetica');
+        
+        doc.moveTo(50, doc.y + 5)
+          .lineTo(550, doc.y + 5)
+          .stroke();
+        
+        doc.moveDown(0.5);
+
+        // Items Table Rows
+        invoice.items.forEach(item => {
+          doc.text(item.description, 50);
+          doc.text(item.quantity.toString(), 300);
+          doc.text(this.formatCurrency(item.unitPrice), 370);
+          doc.text(this.formatCurrency(item.lineTotal), 450);
+          doc.moveDown();
+        });
+
+        // Summary
+        doc.moveDown();
+        doc.text(`Subtotal: ${this.formatCurrency(invoice.subTotal)}`, { align: 'right' });
+        doc.text(`Tax: ${this.formatCurrency(invoice.taxTotal)}`, { align: 'right' });
+        doc.fontSize(14).text(`Total: ${this.formatCurrency(invoice.totalAmount)}`, { align: 'right' });
+        doc.moveDown();
+
+        // Payment Information
+        if (invoice.payments.length > 0) {
+          doc.fontSize(12).text('Payments:', { underline: true });
+          invoice.payments.forEach(payment => {
+            doc.text(`${payment.paidAt.toLocaleDateString()}: ${this.formatCurrency(payment.amount)} (${payment.method})`);
+          });
+        }
+
+        // Footer
+        doc.fontSize(10).text('Thank you for your business!', { align: 'center' });
+
+        doc.end();
+      } catch (error) {
+        reject(new AppError('Failed to generate PDF', 500, error));
+      }
+    });
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    }).format(amount);
+  }
+
+  
+  
 
   async list(
     tenantId: string,
@@ -73,6 +156,8 @@ export class InvoiceService {
     const inv = await prisma.invoice.findFirst({
       where: { id, tenantId },
       include: {
+        customer: true,
+        createdBy: true,
         items: true,
         payments: { 
           select: { 
@@ -101,6 +186,7 @@ export class InvoiceService {
       taxTotal: inv.taxTotal,
       totalAmount: inv.totalAmount,
       paymentStatus: inv.paymentStatus as PaymentStatus,
+      // createdBy: {connect: {id: inv.createdById}},
       // metadata: inv.metadata,
       createdById: inv.createdById || undefined,
       updatedById: inv.updatedById || undefined,
@@ -195,7 +281,16 @@ export class InvoiceService {
     });
     eventBus.emit(EVENTS.INVOICE_CREATED, inv);
 
-    return this.getById(tenantId, inv.id);
+    const invDetail = await this.getById(tenantId, inv.id);
+    
+    // Ensure all required properties are present
+    const invoiceResponse: InvoiceResponseDto = {
+      ...invDetail,
+      tenantId: invDetail.tenantId!,
+      // Add any other required properties that might be missing
+    };
+  
+    return invoiceResponse;
   }
 
   async issue(
@@ -217,6 +312,8 @@ export class InvoiceService {
         dueDate: dto.dueDate || existing.dueDate,
         status: 'ISSUED',
         issueDate: new Date(),
+        customer: {connect: {id: existing.customerId}},
+        createdBy: {connect: {id: existing.createdById}}
       }
     });
 
@@ -355,23 +452,34 @@ export class InvoiceService {
         details: dto,
       });
       eventBus.emit(EVENTS.INVOICE_PAYMENT_APPLIED, { 
+        tenantId,
         invoiceId: id, 
         paymentId: payment.id,
-        amount: paymentAmount 
+        amount: paymentAmount,
+        paymentStatus: newStatus,
+        paymentMethod: payment.method
       });
 
       return this.getById(tenantId, id);
     });
   }
 
+  // Update the getPdf method to use generatePdf
   async getPdf(
     tenantId: string,
     id: string
-  ): Promise<Buffer> {
+  ){
     const inv = await this.getById(tenantId, id);
-    const pdf = Buffer.from(`PDF for invoice ${id}`);
-    eventBus.emit(EVENTS.INVOICE_PDF_GENERATED, { invoiceId: id });
-    return pdf;
+    const pdf = await this.generatePdf(inv); // Actual PDF generation
+    const pdfPath = `invoices/${tenantId}/${id}.pdf`;
+
+    eventBus.emit(EVENTS.INVOICE_PDF_GENERATED, { 
+      invoiceId: id,
+      tenantId,
+      pdfBuffer: pdf,
+      pdfPath
+    });
+    
   }
 
   // Scheduled job for checking overdue invoices

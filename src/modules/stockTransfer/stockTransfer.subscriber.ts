@@ -4,6 +4,9 @@ import { NotificationService } from '@modules/notification/services/notification
 import { UserRoleService } from '@modules/userRole/services/userRole.service';
 import { EVENTS } from '@events/events';
 import { InventoryFlowService } from '@modules/inventory/services/inventoryFlow.service';
+import { tenantService } from '@modules/tenant/services/tenant.service';
+import { storeService } from '@modules/store/services/store.service';
+import { logger } from '@logging/logger';
 
 export class StockTransferSubscriber {
   constructor(
@@ -23,40 +26,66 @@ export class StockTransferSubscriber {
     this.eventBus.on(EVENTS.STOCK_TRANSFER_COMPLETED, this.onTransferCompleted);
   }
 
-  private onTransferRequested = async (transfer: any) => {
-    try {
-      const roles = ['INVENTORY_MANAGER', 'TENANT_ADMIN'];
-      const emails = await this.userRoleService.getUserEmailsByRoleNames(
-        roles, 
-        transfer.destTenantId
-      );
-      
-      for (const email of emails) {
-        await this.notificationService.sendEmail({
-          to: email,
-          template: 'stockTransferRequested',
-          subject: 'New Stock Transfer Request',
-          variables: {
-            transferId: transfer.id,
-            sourceTenant: transfer.tenantId,
-            itemsCount: transfer.items.length,
-            requestedAt: transfer.createdAt.toISOString(),
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error handling transfer requested event:', error);
+// Update existing methods to use new template
+private onTransferRequested = async (transfer: any) => {
+  try {
+    // Fetch additional details
+    const sourceTenant = await tenantService.getTenantById(transfer.tenantId);
+    const destTenant = await tenantService.getTenantById(transfer.destTenantId);
+    const fromStore = transfer.fromStoreId 
+      ? await storeService.getStoreById(transfer.fromStoreId)
+      : null;
+    const toStore = transfer.toStoreId 
+      ? await storeService.getStoreById(transfer.toStoreId)
+      : null;
+
+    const roles = ['storeManager', 'tenantAdmin'];
+    const emails = await this.userRoleService.getUserEmailsByRoleNames(
+      roles, 
+      transfer.destTenantId
+    );
+    
+    for (const email of emails) {
+      await this.notificationService.sendEmail({
+        to: email,
+        template: 'stockTransferNotification',
+        subject: 'New Stock Transfer Request',
+        variables: {
+          transferId: transfer.id,
+          transferType: transfer.transferType,
+          status: 'REQUESTED',
+          fromStore: fromStore?.name || 'N/A',
+          toStore: toStore?.name || 'N/A',
+          initiatedBy: transfer.createdById,
+          initiatedAt: transfer.createdAt.toISOString(),
+          items: transfer.items
+        },
+      });
     }
-  };
+  } catch (error) {
+    console.error('Error handling transfer requested event:', error);
+  }
+};
+
+// Add similar enhancements for other event handlers (approved, rejected, etc.)
 
   private onTransferApproved = async (transfer: any) => {
     try {
       // Notify source tenant
       const sourceEmails = await this.userRoleService.getUserEmailsByRoleNames(
-        ['INVENTORY_MANAGER'], 
+        ['storeManager'], 
         transfer.tenantId
       );
       
+        const sourceTenant = await tenantService.getTenantById(transfer.tenantId);
+    const destTenant = await tenantService.getTenantById(transfer.destTenantId);
+    const fromStore = transfer.fromStoreId 
+      ? await storeService.getStoreById(transfer.fromStoreId)
+      : null;
+    const toStore = transfer.toStoreId 
+      ? await storeService.getStoreById(transfer.toStoreId)
+      : null;
+
       for (const email of sourceEmails) {
         await this.notificationService.sendEmail({
           to: email,
@@ -64,8 +93,15 @@ export class StockTransferSubscriber {
           subject: 'Stock Transfer Approved',
           variables: {
             transferId: transfer.id,
+            status: 'APPROVED',
+            fromStore: fromStore?.name || 'N/A',
+            toStore: toStore?.name || 'N/A',
+            initiatedBy: transfer.createdById,
+            initiatedAt: transfer.createdAt.toISOString(),
+            items: transfer.items,
             destTenant: transfer.destTenantId,
             itemsCount: transfer.items.length,
+            transferType: transfer.transferType,
           },
         });
       }
@@ -78,6 +114,7 @@ export class StockTransferSubscriber {
       );
     } catch (error) {
       console.error('Error handling transfer approved event:', error);
+      logger.log(error);
     }
   };
 
@@ -133,8 +170,10 @@ export class StockTransferSubscriber {
     try {
       // Notify both parties
       const parties = [
-        { tenantId: transfer.tenantId, role: 'INVENTORY_MANAGER' },
-        { tenantId: transfer.destTenantId, role: 'INVENTORY_MANAGER' }
+        { tenantId: transfer.tenantId, role: 'storeManager' },
+        { tenantId: transfer.tenantId, role: 'tenantAdmin' },
+        { tenantId: transfer.destTenantId, role: 'storeManager' },
+        { tenantId: transfer.destTenantId, role: 'tenantAdmin' },
       ];
       
       for (const party of parties) {

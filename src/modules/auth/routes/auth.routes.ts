@@ -14,5 +14,7 @@ router.post("/reset-password", authController.resetPassword.bind(authController)
 // Protected routes
 router.post("/logout", requireAuth,  authController.logout.bind(authController));
 router.post("/invite", requireAuth, authController.inviteUser.bind(authController));
+router.post("/send-verification", requireAuth, authController.sendVerificationEmail);
+router.get("/verify-email", authController.verifyEmail);
 
 export default router;

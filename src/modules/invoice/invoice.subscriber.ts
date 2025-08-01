@@ -7,7 +7,8 @@ import { userRoleService } from '@modules/userRole/services/userRole.service';
 import { CustomerService } from '@modules/crm/services/customer.service';
 import { PaymentService } from '@modules/payments/services/payment.service';
 import { EVENTS } from '@events/events';
-import { InvoiceStatus } from './types/invoice.dto';
+import { PaymentStatus } from './types/invoice.dto';
+import { logger } from '@logging/logger';
 
 export class InvoiceSubscriber {
   constructor(
@@ -21,26 +22,52 @@ export class InvoiceSubscriber {
     this.subscribe();
   }
 
-  subscribe() {
+   private subscribe() {
     this.eventBus.on(EVENTS.INVOICE_CREATED, this.onInvoiceCreated);
     this.eventBus.on(EVENTS.INVOICE_ISSUED, this.onInvoiceIssued);
-    // this.eventBus.on(EVENTS.INVOICE_PAYMENT_APPLIED, this.onInvoicePayment);
+    this.eventBus.on(EVENTS.INVOICE_PAYMENT_APPLIED, this.onInvoicePayment);
     this.eventBus.on(EVENTS.INVOICE_OVERDUE, this.onInvoiceOverdue);
     this.eventBus.on(EVENTS.INVOICE_PDF_GENERATED, this.onPdfGenerated);
   }
 
-  private onInvoiceCreated = async ({ id }: { id: string }) => {
-    console.log(`Invoice created: ${id}`);
-    // Additional logic for draft invoices
-  };
+  private onInvoiceCreated = async ({ id, tenantId }: { id: string; tenantId: string }) => {
+  try {
+    const invoice = await this.invoiceService.getById(tenantId, id);
+    
+    // Only notify for draft invoices
+    if (invoice.status === 'DRAFT') {
+      const roles = ['tenantAdmin', 'storeManager'];
+      const emails = await userRoleService.getUserEmailsByRoleNames(roles, tenantId);
+      
+      for (const email of emails) {
+        await this.notificationService.sendEmail({
+          to: email,
+          template: 'invoiceDraftCreated',
+          subject: 'Draft Invoice Created',
+          variables: {
+            invoiceId: invoice.id,
+            invoiceNo: invoice.invoiceNo || 'DRAFT',
+            customerName: invoice.customerId || 'No Customer',
+            totalAmount: invoice.totalAmount,
+            createdBy: invoice.createdBy || 'System',
+            createdAt: new Date(invoice.createdAt).toLocaleDateString()
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error handling invoice created event:', error);
+    logger.log(error);
+  }
+};
 
-  private onInvoiceIssued = async (invoice: { id: string; tenantId: string; customerId?: string; totalAmount: number }) => {
+  private onInvoiceIssued = async (invoice) => {
     try {
       const customer = invoice.customerId 
         ? await this.customerService.getCustomerById(invoice.customerId)
         : null;
 
-      const roles = ['TENANT_ADMIN', 'STORE_MANAGER', 'SUPER_ADMIN'];
+      const roles = ['tenantAdmin', 'storeManager', 'superAdmin'];
       const emails = await userRoleService.getUserEmailsByRoleNames(roles, invoice.tenantId);
       
       for (const email of emails) {
@@ -48,21 +75,18 @@ export class InvoiceSubscriber {
           to: email,
           template: 'invoiceIssued',
           subject: 'New Invoice Issued',
-        //   variables: {
-        //   invoiceNo: invoice.invoiceNo,
-        //   customerName: customer?.name || 'Customer',
-        //   dueDate: invoice.dueDate.toLocaleDateString(),
-        //   items: invoice.items.map(item => ({
-        //     description: item.description,
-        //     amount: item.amount
-        //   })),
-        //   total: invoice.totalAmount
-        // },
           variables: {
             invoiceId: invoice.id,
+            invoiceNo: invoice.invoiceNo,
+            dueDate: invoice.dueDate.toLocaleDateString(),
+            total: invoice.totalAmount,
             customerName: customer?.name || 'Customer',
             amount: invoice.totalAmount,
             issuedAt: new Date().toISOString(),
+            items: invoice.items.map(item => ({
+            description: item.description,
+            amount: item.amount
+          })),
           },
         });
       }
@@ -71,45 +95,62 @@ export class InvoiceSubscriber {
     }
   };
 
-  // private onInvoicePayment = async ({ 
-  //   tenantId
-  //   invoiceId, 
-  //   paymentId,
-  //   amount 
-  // }: { 
-  //   invoiceId: string; 
-  //   paymentId: string;
-  //   amount: number 
-  // }) => {
-  //   try {
-  //     const invoice = await this.invoiceService.getById(tenantId, invoiceId);
-  //     const roles = ['TENANT_ADMIN', 'FINANCE_MANAGER'];
-  //     const emails = await userRoleService.getUserEmailsByRoleNames(roles, invoice.tenantId);
+private onInvoicePayment = async (payload: { 
+  tenantId: string;
+  invoiceId: string; 
+  paymentId: string;
+  amount: number;
+  paymentStatus: PaymentStatus;
+}) => {
+  try {
+    const { tenantId, invoiceId, paymentId, amount, paymentStatus } = payload;
+    const invoice = await this.invoiceService.getById(tenantId, invoiceId);
+    const customer = invoice.customerId 
+      ? await this.customerService.getCustomerById(invoice.customerId)
+      : null;
 
-  //     for (const email of emails) {
-  //       await this.notificationService.sendEmail({
-  //         to: email,
-  //         template: 'invoicePayment',
-  //         subject: 'Invoice Payment Received',
-  //         variables: {
-  //           invoiceId: invoice.id,
-  //           invoiceNo: invoice.invoiceNo,
-  //           amountPaid: amount,
-  //           totalAmount: invoice.totalAmount,
-  //           paymentStatus: invoice.paymentStatus,
-  //           paidAt: new Date().toISOString(),
-  //         },
-  //       });
-  //     }
+    // Notify internal stakeholders
+    const roles = ['tenantAdmin', 'storeManager'];
+    const emails = await userRoleService.getUserEmailsByRoleNames(roles, tenantId);
+    const paidSum = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+    for (const email of emails) {
+      await this.notificationService.sendEmail({
+        to: email,
+        template: 'invoicePayment',
+        subject: `Invoice Payment Received - ${invoice.invoiceNo}`,
+        variables: {
+          invoiceNo: invoice.invoiceNo,
+          customerName: customer?.name || 'Customer',
+          amountPaid: amount,
+          totalAmount: invoice.totalAmount,
+          paymentStatus,
+          balanceDue: invoice.totalAmount - (paidSum || 0),
+          paidAt: new Date().toLocaleString()
+        },
+      });
+    }
 
-  //     // Update inventory if fully paid
-  //     if (invoice.paymentStatus === 'PAID' && invoice.referenceType === 'PURCHASE_ORDER') {
-  //       await this.inventoryFlowService.processInvoicePayment(invoiceId);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error handling invoice payment event:', error);
-  //   }
-  // };
+    // Notify customer if exists
+    if (customer?.email) {
+      await this.notificationService.sendEmail({
+        to: customer.email,
+        template: 'customerInvoicePayment',
+        subject: `Payment Received for Invoice ${invoice.invoiceNo}`,
+        variables: {
+          invoiceNo: invoice.invoiceNo,
+          amountPaid: amount,
+          balanceDue: invoice.totalAmount - (paidSum || 0),
+          // paymentMethod: payload.paymentMethod || 'Unknown', //To implement payment method later
+          paidAt: new Date().toLocaleString()
+        },
+      });
+    }
+
+  } catch (error) {
+    console.error('Error handling invoice payment event:', error);
+    logger.log(error);
+  }
+};
 
   private onInvoiceOverdue = async (invoice: { id: string; tenantId: string; customerId?: string }) => {
     try {
@@ -148,10 +189,59 @@ export class InvoiceSubscriber {
     }
   };
 
-  private onPdfGenerated = async ({ invoiceId }: { invoiceId: string }) => {
-    console.log(`PDF generated for invoice: ${invoiceId}`);
-    // Additional PDF handling logic
-  };
+  private onPdfGenerated = async (payload: { 
+  invoiceId: string;
+  tenantId: string;
+  pdfBuffer: Buffer;
+  pdfPath: string;
+}) => {
+  try {
+    const { invoiceId, tenantId, pdfBuffer, pdfPath } = payload;
+    const invoice = await this.invoiceService.getById(tenantId, invoiceId);
+    const customer = invoice.customerId 
+      ? await this.customerService.getCustomerById(invoice.customerId)
+      : null;
+
+    // Store PDF in cloud storage (To implement fileStorageService)
+    // const storageUrl = await fileStorageService.uploadFile(
+    //   `invoices/${tenantId}/${invoiceId}.pdf`,
+    //   pdfBuffer
+    // );
+
+    // Update invoice with PDF URL
+    // await this.invoiceService.update(tenantId, 'system', invoiceId, {
+    //   metadata: {
+    //     ...(invoice.metadata || {}),
+    //     pdfUrl: storageUrl,
+    //     pdfPath
+    //   }
+    // });
+
+    // Send email with PDF attachment to customer
+    if (customer?.email) {
+      await this.notificationService.sendEmailWithAttachment({
+        to: customer.email,
+        subject: `Your Invoice ${invoice.invoiceNo}`,
+        template: 'customerInvoiceIssued',
+        variables: {
+          invoiceNo: invoice.invoiceNo,
+          issueDate: new Date(invoice.issueDate).toLocaleDateString(),
+          dueDate: new Date(invoice.dueDate).toLocaleDateString(),
+          totalAmount: invoice.totalAmount,
+          paymentLink: `${process.env.APP_URL}/pay-invoice/${invoice.id}`
+        },
+        attachments: [{
+          filename: `invoice-${invoice.invoiceNo}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }]
+      });
+    }
+  } catch (error) {
+    console.error('Error handling PDF generated event:', error);
+    logger.log(error);
+  }
+};
 }
 
 // Factory function for easier initialization

@@ -88,9 +88,46 @@ async createMovement(
         userId,
       });
 
+      if (dto.movementType === 'ADJUSTMENT') {
+        eventBus.emit(EVENTS.INVENTORY_ADJUSTMENT, {
+          movementId: movement.id,
+          performedBy: userId,
+          details: dto
+        });
+      }
+
       return movement;
     });
   }
+
+  async checkLowStock(tenantId: string, threshold = 10) {
+  const lowStockItems = await prisma.stock.findMany({
+    where: {
+      tenantId,
+      quantity: { lt: threshold }
+    },
+    include: {
+      tenantProduct: true,
+      tenantVariant: true
+    }
+  });
+
+  if (lowStockItems.length > 0) {
+    eventBus.emit(EVENTS.LOW_STOCK_ALERT, {
+      tenantId,
+      threshold,
+      items: lowStockItems.map(item => ({
+        productId: item.tenantProductId,
+        product: item.tenantProduct,
+        variant: item.tenantVariant,
+        currentQuantity: item.quantity,
+        minQuantity: threshold,
+        storeId: item.storeId,
+        warehouseId: item.warehouseId
+      }))
+    });
+  }
+}
 
   /**
    * Search inventory movements, filtering by either tenantProductId or globalProductId.
@@ -403,7 +440,17 @@ async checkAvailability(dto: CheckAvailabilityDto): Promise<boolean> {
       });
     });
   }
-
+// Add to InventoryService class
+  startLowStockMonitor(intervalMinutes = 60) {
+    setInterval(async () => {
+      const tenants = await prisma.tenant.findMany();
+      for (const tenant of tenants) {
+        // Get tenant-specific threshold from settings
+        const threshold = 10;
+        await this.checkLowStock(tenant.id, threshold);
+      }
+    }, intervalMinutes * 60 * 1000);
+  }
 };
 
 

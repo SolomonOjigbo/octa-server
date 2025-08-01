@@ -8,6 +8,10 @@ import {
 import bcrypt from "bcryptjs";
 import { ROLES } from "../../../prisma/permissionsAndRoles";
 import { Prisma } from "@prisma/client";
+import { v4 as uuidv4} from "uuid"
+import { EVENTS } from "@events/events";
+import { eventBus } from "@events/eventBus";
+import { add } from "date-fns";
 
 
 
@@ -61,11 +65,12 @@ export class TenantService {
       //    Name it “<StoreName> Warehouse” by convention
       const warehouse = await tx.warehouse.create({
         data: {
-          tenantId:         tenant.id,
+          tenantId: tenant.id,
           businessEntityId: businessEntity.id,
-          name:             `${dto.store.name} Warehouse`,
-          address:          dto.store.address,
-          status:           'active',
+          name: dto.warehouse?.name || `${dto.store.name} Warehouse`,
+          address: dto.warehouse?.address || dto.store.address,
+          status: 'active',
+          code: dto.warehouse.code,
         },
       });
 
@@ -85,7 +90,7 @@ export class TenantService {
 
       // 6) Seed or fetch the tenant_admin Role and assign to the new user
       let adminRole = await tx.role.findFirst({
-        where: { name: 'tenant_admin', tenantId: tenant.id },
+        where: { name: 'tenantAdmin', tenantId: tenant.id },
       });
 
       if (!adminRole) {
@@ -94,7 +99,7 @@ export class TenantService {
 
         adminRole = await tx.role.create({
           data: {
-            name:    'tenant_admin',
+            name:    'tenantAdmin',
             tenant:  { connect: { id: tenant.id } },
             permissions: {
               connect: permsToConnect,
@@ -110,6 +115,24 @@ export class TenantService {
           tenant: {connect: {id: tenant.id}}
         },
       });
+
+      // Generate verification token
+    const verifyToken = uuidv4();
+    const verifyExpires = add(new Date(), { hours: 24 });
+
+    // Update user with verification token
+    await tx.user.update({
+      where: { id: user.id },
+      data: { verifyToken, verifyExpires }
+    });
+
+    // Emit event for welcome email and email verification
+    eventBus.emit(EVENTS.TENANT_ONBOARDED, {
+      tenantId: tenant.id,
+      adminEmail: user.email,
+      verifyToken,
+      verifyExpires
+    });
 
       return { tenant, businessEntity, store, warehouse, user };
     });

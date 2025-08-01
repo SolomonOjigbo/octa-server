@@ -3,26 +3,29 @@ import { v4 as uuidv4 } from "uuid";
 import { add } from "date-fns";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
 
-interface JwtPayload {
+export interface JwtPayload {
   userId: string;
   tenantId: string;
   storeId?: string;
   warehouseId?: string;
+  jti:       string;
 }
 
-export function signJwt(payload: JwtPayload, expiresIn?: string | number): string {
+export function signJwt(payload: Omit<JwtPayload, 'jti'>): string  {
+  const jti = uuidv4();
   return jwt.sign(
     {
       ...payload,
+      jti, 
       iss: 'octa-app',
       aud: ['octa-app'],
     },
     JWT_SECRET,
     { 
-      // expiresIn: expiresIn ?? JWT_EXPIRES_IN,
+       expiresIn: parseInt(JWT_EXPIRES_IN) || '60m', // Convert to number if possible
       algorithm: 'HS256',
     }
   );

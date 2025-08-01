@@ -8,6 +8,9 @@
     "lint-and-fix": "eslint . --ext .ts --fix",
     "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "build": "rimraf ./dist && tsc && cp -r src/modules/notification/templates dist/modules/notification/templates",
+    "prisma:generate": "prisma generate",
+     "seed": "ts-node prisma/seed.ts",
+    "postinstall": "npm run prisma:generate",
     "start": "node dist/shared/infra/http/index.ts",
     "start:dev": "nodemon --watch src --ext ts --exec ts-node src/shared/infra/http/index.ts",
     "dev": "npm run start:dev",
@@ -87,7 +90,8 @@
     "typescript": "^5.0.4"
   },
   "prisma": {
-    "schema": "src/prisma/schema.prisma"
+    "schema": "src/prisma/schema.prisma",
+    "seed": "ts-node prisma/seed.ts"
   },
   "_moduleAliases": {
     "@modules": "dist/modules",
