@@ -69,7 +69,7 @@ export class TenantService {
           businessEntityId: businessEntity.id,
           name: dto.warehouse?.name || `${dto.store.name} Warehouse`,
           address: dto.warehouse?.address || dto.store.address,
-          status: 'active',
+          status: 'ACTIVE',
           code: dto.warehouse.code,
         },
       });

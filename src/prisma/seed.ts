@@ -74,7 +74,7 @@ async function main() {
     create: {
       name: "Octa Root Warehouse",
       code: "ROOT-WAREHOUSE",
-      status: "active",
+      status: "ACTIVE",
       tenantId: rootTenant.id,
       businessEntityId: rootEntity.id,
     },
@@ -143,7 +143,7 @@ async function main() {
     create: {
       name: "Octa Demo Warehouse",
       code: "OCTA-DEMO-WAREHOUSE",
-      status: "active",
+      status: "ACTIVE",
       tenantId: demoTenant.id,
       businessEntityId: demoEntity.id,
       address: "456 Warehouse Road",

@@ -7,7 +7,7 @@ import { app } from './index';
 import logger from '../config/logger';
 import { loadTemplates } from '@modules/notification/templates';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Load email templates first
 loadTemplates().then(() => {

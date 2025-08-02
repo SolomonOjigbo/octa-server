@@ -65,6 +65,10 @@ model Tenant {
   POSSalesReturn POSSalesReturn[]
 
   RefreshToken RefreshToken[]
+
+  Brand Brand[]
+
+  VariantAttributes VariantAttributes[]
 }
 
 model BusinessEntity {
@@ -137,7 +141,7 @@ model Warehouse {
   tenant      Tenant      @relation(fields: [tenantId], references: [id])
   inventories Inventory[]
   stocks      Stock[]
-  status      String // "active" | "inactive" | "under_maintenance" etc.
+  status      WarehouseStatus
 
   businessEntity BusinessEntity @relation(fields: [businessEntityId], references: [id])
 
@@ -281,6 +285,35 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id])
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
+model Brand {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  logoUrl     String?
+  website     String?
+  tenantId  String? 
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  GlobalProduct  GlobalProduct[]
+  TenantProduct  TenantProduct[]
+}
+
+model VariantAttributes {
+  id              String   @id @default(cuid())
+  name            String
+  options         String[]
+  tenantId        String? 
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
+  isActive        Boolean?  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  GlobalVariant GlobalVariant[]
+  TenantVariant TenantVariant[]
+}
 
 model GlobalCategory {
   id          String          @id @default(cuid())
@@ -330,17 +363,7 @@ model GlobalProduct {
   purchaseOrderItems PurchaseOrderItem[] // PO line items
 
   @@unique([sku], map: "GlobalProduct_sku_unique")
-}
-
-model VariantAttributes {
-  id              String   @id @default(cuid())
-  name            String
-  options          String[]
-  isActive        Boolean?  @default(true)
-
-  GlobalVariant GlobalVariant[]
-
-  TenantVariant TenantVariant[]
+  Brand Brand[]
 }
 
 model GlobalVariant {
@@ -398,6 +421,7 @@ model TenantProduct {
   StockTransferItem StockTransferItem[] @relation("SourceTenantProduct")
   StockTransferProduct StockTransferItem[] @relation("DestTenantProduct")
   @@unique([tenantId, sku])
+  Brand Brand[]
 }
 
 model TenantCategory {
@@ -1105,4 +1129,10 @@ enum StockTransferStatus {
 enum StockTransferType {
   INTRA_TENANT
   CROSS_TENANT
+}
+
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
 }

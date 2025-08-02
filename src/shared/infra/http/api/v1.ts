@@ -22,6 +22,9 @@ import reconciliationRoutes from '@modules/reconciliation/reconciliation.module'
 import globalProductRoutes, { globalCategoryRoutes, globalVariantRoutes } from '@modules/globalCatalog/globalCatalog.module';
 import refundRoutes from '@modules/refunds/refund.module';
 import userRoleRoutes from '@modules/userRole/userRole.module';
+import warehouseRoutes from '@modules/warehouse/warehouse.module';
+import variantAttributeRoutes from '@modules/variantAttribute/variantAttribute.module';
+import brandRoutes from '@modules/brands/brand.module';
 
 
 const v1Router = express.Router();
@@ -38,6 +41,11 @@ v1Router.use('/user-roles', userRoleRoutes);
 
 v1Router.use('/tenants', tenantRoutes);
 v1Router.use('/stores', storeRoutes);
+v1Router.use('/warehouses', warehouseRoutes);
+
+v1Router.use('/brands', brandRoutes);
+v1Router.use('/variant-attributes', variantAttributeRoutes);
+
 v1Router.use('/business-entity', businessEntityRoutes);
 v1Router.use('/b2b-connection', b2bConnectionRoutes);
 
